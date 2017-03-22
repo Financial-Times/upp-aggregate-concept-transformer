@@ -38,7 +38,7 @@ func NewClient(zkAddresses []string, topic string) (Client, error) {
 	}, nil
 }
 
-func (c *Client) sendMessage(message string) {
+func (c *Client) SendMessage(message string) {
 
 	m := &sarama.ProducerMessage{
 		Topic: c.topic,

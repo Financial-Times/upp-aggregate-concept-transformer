@@ -1,6 +1,8 @@
 package kafka
 
-import "sort"
+import (
+	"sort"
+)
 
 const CRLF = "\r\n"
 

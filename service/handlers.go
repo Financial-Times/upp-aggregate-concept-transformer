@@ -13,6 +13,9 @@ import (
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
 	"github.com/rcrowley/go-metrics"
+	"time"
+	"github.com/Financial-Times/transactionid-utils-go"
+	"encoding/json"
 )
 
 type AggregateConceptHandler struct {
@@ -62,9 +65,10 @@ func (h *AggregateConceptHandler) GetHandler(rw http.ResponseWriter, r *http.Req
 
 func (h *AggregateConceptHandler) PostHandler(rw http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	uuid := vars["uuid"]
+	conceptUuid := vars["uuid"]
+	tid := transactionidutils.GetTransactionIDFromRequest(r)
 
-	found, _, err := h.s3.GetConcept(uuid)
+	found, resp, err := h.s3.GetConcept(conceptUuid)
 	if !found {
 		if err != nil {
 			log.Errorf("Error retrieving concept: %s", err.Error())
@@ -73,24 +77,46 @@ func (h *AggregateConceptHandler) PostHandler(rw http.ResponseWriter, r *http.Re
 			rw.Write([]byte("{\"message\":\"Error retrieving concept.\"}"))
 			return
 		}
-		log.Errorf("Concept not found: %s", uuid)
+		log.Errorf("Concept not found: %s", conceptUuid)
 		rw.Header().Set("Content-Type", "application/json")
 		rw.WriteHeader(http.StatusNotFound)
 		rw.Write([]byte("{\"message\":\"Concept not found.\"}"))
 		return
 	}
 
-	//b, err := ioutil.ReadAll(rc)
-	//if err != nil {
-	//	log.Errorf("Error reading concept from buffer: %s", err.Error())
-	//	rw.Header().Set("Content-Type", "application/json")
-	//	rw.WriteHeader(http.StatusServiceUnavailable)
-	//	rw.Write([]byte("{\"message\":\"Error retrieving concept.\"}"))
-	//	return
-	//}
+	concept := Concept{}
+	body, err := ioutil.ReadAll(resp)
+	if err != nil {
+		log.Errorf("Error reading concept from buffer: %s", err.Error())
+		rw.Header().Set("Content-Type", "application/json")
+		rw.WriteHeader(http.StatusServiceUnavailable)
+		rw.Write([]byte("{\"message\":\"Error retrieving concept.\"}"))
+		return
+	}
+	err = json.Unmarshal(body, &concept)
+	if err != nil {
+		log.Errorf("Could not unmarshall data from s3: %s into valid json", string(body))
+	}
+	message := kafka.FTMessage{Headers: buildHeader(conceptUuid, concept.Type, tid), Body: string(body)}
+
+	h.kafka.SendMessage(message.String())
+
+	defer resp.Close()
+
 	rw.Header().Set("Content-Type", "application/json")
 	rw.WriteHeader(http.StatusAccepted)
 	rw.Write([]byte("{\"message\":\"Concept published to queue\"}"))
+}
+
+func buildHeader(conceptUuid string, conceptType string, tid string) map[string]string {
+	return map[string]string{
+		"Message-Id":        conceptUuid,
+		"Message-Type":      conceptType,
+		"Content-Type":      "application/json",
+		"X-Request-Id":      tid,
+		"Origin-System-Id":  "http://cmdb.ft.com/systems/upp/rds", //TODO IS this right?
+		"Message-Timestamp": time.Now().Format("2006-01-02T15:04:05.000Z"),
+	}
 }
 
 func (h *AggregateConceptHandler) RegisterAdminHandlers(router *mux.Router) {

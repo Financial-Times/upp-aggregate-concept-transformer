@@ -19,6 +19,7 @@ func main() {
 
 	bucketName := app.String(cli.StringOpt{
 		Name:   "bucketName",
+		Value:  "",
 		Desc:   "Bucket to read concepts from.",
 		EnvVar: "BUCKET_NAME",
 	})
@@ -43,9 +44,16 @@ func main() {
 		EnvVar: "ZK_ADDRESSES",
 	})
 
+	awsRegion := app.String(cli.StringOpt{
+		Name:   "awsRegion",
+		Value:  "eu-west-1",
+		Desc:   "AWS Region to connect to",
+		EnvVar: "AWS_REGION",
+	})
+
 	app.Action = func() {
 
-		s3Client, err := s3.NewClient(*bucketName)
+		s3Client, err := s3.NewClient(*bucketName, *awsRegion)
 		if err != nil {
 			log.Fatalf("Error creating S3 client: %v", err)
 		}
