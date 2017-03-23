@@ -38,10 +38,10 @@ func main() {
 		EnvVar: "KAFKA_TOPIC",
 	})
 
-	kafkaAddress := app.String(cli.StringOpt{
-		Name:   "kafkaAddress",
-		Desc:   "Kafka address to connect to",
-		EnvVar: "KAFKA_ADDRESS",
+	zkAddresses := app.Strings(cli.StringsOpt{
+		Name:   "zkAddresses",
+		Desc:   "Zookeeper addresses to connect to",
+		EnvVar: "ZK_ADDRESSES",
 	})
 
 	awsRegion := app.String(cli.StringOpt{
@@ -58,7 +58,7 @@ func main() {
 			log.Fatalf("Error creating S3 client: %v", err)
 		}
 
-		kafka, err := kafka.NewClient(*kafkaAddress, *topic)
+		kafka, err := kafka.NewClient(*zkAddresses, *topic)
 		if err != nil {
 			log.Fatalf("Error creating Kafka client: %v", err)
 		}
