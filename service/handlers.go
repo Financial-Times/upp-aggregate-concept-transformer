@@ -16,6 +16,8 @@ import (
 	"time"
 	"github.com/Financial-Times/transactionid-utils-go"
 	"encoding/json"
+	"strings"
+	"github.com/Shopify/sarama"
 )
 
 type AggregateConceptHandler struct {
@@ -97,9 +99,13 @@ func (h *AggregateConceptHandler) PostHandler(rw http.ResponseWriter, r *http.Re
 	if err != nil {
 		log.Errorf("Could not unmarshall data from s3: %s into valid json", string(body))
 	}
-	message := kafka.FTMessage{Headers: buildHeader(conceptUuid, concept.Type, tid), Body: string(body)}
+	message := kafka.FTMessage{Headers: buildHeader(conceptUuid, strings.ToLower(concept.Type), tid), Body: string(body)}
 
-	h.kafka.SendMessage(message.String())
+	//&sarama.ProducerMessage{Topic: h.kafka.Topic, Value: sarama.StringEncoder(message.String())}
+
+	partition, offset, err := h.kafka.Producer.SendMessage(&sarama.ProducerMessage{Topic: h.kafka.Topic, Value: sarama.StringEncoder(message.String())})
+
+	log.Infof("Message %s written to %s topic on partition %s with an offset of %s", message.String(), h.kafka.Topic, partition, offset)
 
 	defer resp.Close()
 
