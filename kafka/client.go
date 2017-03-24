@@ -9,12 +9,8 @@ type Client struct {
 	Topic    string
 }
 
-func NewClient(kafkaAddress string, topic string) (Client, error) {
-	config := sarama.NewConfig()
-	config.Producer.Return.Successes = true
-	config.Producer.Return.Errors = true
-
-	producer, err := sarama.NewSyncProducer([]string{kafkaAddress}, config)
+func NewClient(kafkaAddress []string, topic string) (Client, error) {
+	producer, err := sarama.NewSyncProducer(kafkaAddress, nil)
 	if err != nil {
 		return Client{}, err
 	}
