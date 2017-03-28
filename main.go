@@ -19,7 +19,6 @@ func main() {
 
 	bucketName := app.String(cli.StringOpt{
 		Name:   "bucketName",
-		Value:  "",
 		Desc:   "Bucket to read concepts from.",
 		EnvVar: "BUCKET_NAME",
 	})
@@ -38,7 +37,7 @@ func main() {
 		EnvVar: "KAFKA_TOPIC",
 	})
 
-	kafkaAddresses := app.Strings(cli.StringsOpt{
+	kafkaAddress := app.String(cli.StringOpt{
 		Name:   "kafkaAddress",
 		Desc:   "Kafka address to connect to",
 		EnvVar: "KAFKA_ADDRESS",
@@ -52,12 +51,16 @@ func main() {
 	})
 
 	app.Action = func() {
+		if *bucketName == "" {
+			log.Fatal("S3 bucket name not set")
+			return
+		}
 		s3Client, err := s3.NewClient(*bucketName, *awsRegion)
 		if err != nil {
 			log.Fatalf("Error creating S3 client: %v", err)
 		}
 
-		kafka, err := kafka.NewClient(*kafkaAddresses, *topic)
+		kafka, err := kafka.NewClient([]string{*kafkaAddress}, *topic)
 		if err != nil {
 			log.Fatalf("Error creating Kafka client: %v", err)
 		}

@@ -4,30 +4,31 @@ import (
 	"io/ioutil"
 	"net/http"
 
+	"encoding/json"
 	"github.com/Financial-Times/aggregate-concept-transformer/kafka"
 	"github.com/Financial-Times/aggregate-concept-transformer/s3"
+	ut "github.com/Financial-Times/aggregate-concept-transformer/util"
 	"github.com/Financial-Times/go-fthealth/v1a"
 	"github.com/Financial-Times/http-handlers-go/httphandlers"
 	status "github.com/Financial-Times/service-status-go/httphandlers"
+	"github.com/Financial-Times/transactionid-utils-go"
+	"github.com/Shopify/sarama"
 	log "github.com/Sirupsen/logrus"
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
 	"github.com/rcrowley/go-metrics"
-	"time"
-	"github.com/Financial-Times/transactionid-utils-go"
-	"encoding/json"
 	"strings"
-	"github.com/Shopify/sarama"
+	"time"
 )
 
 type AggregateConceptHandler struct {
-	s3    s3.Client
+	s3    s3.S3Driver
 	kafka kafka.Client
 }
 
-func NewHandler(s3Client s3.Client, kafka kafka.Client) AggregateConceptHandler {
+func NewHandler(s3Driver s3.S3Driver, kafka kafka.Client) AggregateConceptHandler {
 	return AggregateConceptHandler{
-		s3:    s3Client,
+		s3:    s3Driver,
 		kafka: kafka,
 	}
 }
@@ -36,7 +37,7 @@ func (h *AggregateConceptHandler) GetHandler(rw http.ResponseWriter, r *http.Req
 	vars := mux.Vars(r)
 	uuid := vars["uuid"]
 
-	found, rc, err := h.s3.GetConcept(uuid)
+	found, resp, err := h.s3.GetConcept(uuid)
 	if !found {
 		if err != nil {
 			log.Errorf("Error retrieving concept: %s", err.Error())
@@ -52,7 +53,7 @@ func (h *AggregateConceptHandler) GetHandler(rw http.ResponseWriter, r *http.Req
 		return
 	}
 
-	b, err := ioutil.ReadAll(rc)
+	b, err := ioutil.ReadAll(resp)
 	if err != nil {
 		log.Errorf("Error reading concept from buffer: %s", err.Error())
 		rw.Header().Set("Content-Type", "application/json")
@@ -86,7 +87,7 @@ func (h *AggregateConceptHandler) PostHandler(rw http.ResponseWriter, r *http.Re
 		return
 	}
 
-	concept := Concept{}
+	concept := ut.Concept{}
 	body, err := ioutil.ReadAll(resp)
 	if err != nil {
 		log.Errorf("Error reading concept from buffer: %s", err.Error())
@@ -98,14 +99,16 @@ func (h *AggregateConceptHandler) PostHandler(rw http.ResponseWriter, r *http.Re
 	err = json.Unmarshal(body, &concept)
 	if err != nil {
 		log.Errorf("Could not unmarshall data from s3: %s into valid json", string(body))
+		rw.Header().Set("Content-Type", "application/json")
+		rw.WriteHeader(http.StatusUnprocessableEntity)
+		rw.Write([]byte("{\"message\":\"Retrived concept is invalid json.\"}"))
+		return
 	}
 	message := kafka.FTMessage{Headers: buildHeader(conceptUuid, strings.ToLower(concept.Type), tid), Body: string(body)}
 
-	//&sarama.ProducerMessage{Topic: h.kafka.Topic, Value: sarama.StringEncoder(message.String())}
-
 	partition, offset, err := h.kafka.Producer.SendMessage(&sarama.ProducerMessage{Topic: h.kafka.Topic, Value: sarama.StringEncoder(message.String())})
 
-	log.Infof("Message %s written to %s topic on partition %s with an offset of %s", message.String(), h.kafka.Topic, partition, offset)
+	log.Infof("Message id %s written to %s topic on partition %d with an offset of %d", conceptUuid, h.kafka.Topic, partition, offset)
 
 	defer resp.Close()
 

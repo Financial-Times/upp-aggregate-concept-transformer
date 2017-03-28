@@ -7,18 +7,23 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/coreos/fleet/log"
 	"io"
-	"strings"
-	"net/http"
 	"net"
+	"net/http"
+	"strings"
 	"time"
 )
+
+type S3Driver interface {
+	GetConcept(UUID string) (bool, io.ReadCloser, error)
+	HealthCheck() (string, error)
+}
 
 type Client struct {
 	s3         *s3.S3
 	bucketName string
 }
 
-func NewClient(bucketName string, awsRegion string) (Client, error) {
+func NewClient(bucketName string, awsRegion string) (S3Driver, error) {
 	hc := http.Client{
 		Transport: &http.Transport{
 			Proxy: http.ProxyFromEnvironment,
@@ -40,11 +45,11 @@ func NewClient(bucketName string, awsRegion string) (Client, error) {
 			HTTPClient: &hc,
 		})
 	if err != nil {
-		return Client{}, err
+		return &Client{}, err
 	}
 	client := s3.New(sess)
 
-	return Client{
+	return &Client{
 		s3:         client,
 		bucketName: bucketName,
 	}, err
