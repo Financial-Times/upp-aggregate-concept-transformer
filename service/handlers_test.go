@@ -167,6 +167,13 @@ func TestPostHandler_ValidConceptGetsWrittenToS3(t *testing.T) {
 	assert.Equal(t, rec.HeaderMap["Content-Type"], []string{"application/json"})
 }
 
+func TestResolveMessageType_ReturnCorrectMessageTypes(t *testing.T) {
+	messageTypePerson := resolveMessageType("person")
+	assert.Equal(t, "people", messageTypePerson)
+	messageTypeOther := resolveMessageType("topic")
+	assert.Equal(t, "topics", messageTypeOther)
+}
+
 func (md *mocks3Driver) GetConcept(UUID string) (bool, io.ReadCloser, error) {
 	md.uuid = UUID
 	var body io.ReadCloser

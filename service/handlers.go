@@ -104,7 +104,7 @@ func (h *AggregateConceptHandler) PostHandler(rw http.ResponseWriter, r *http.Re
 		rw.Write([]byte("{\"message\":\"Retrived concept is invalid json.\"}"))
 		return
 	}
-	message := kafka.FTMessage{Headers: buildHeader(conceptUuid, strings.ToLower(concept.Type), tid), Body: string(body)}
+	message := kafka.FTMessage{Headers: buildHeader(conceptUuid, resolveMessageType(strings.ToLower(concept.Type)), tid), Body: string(body)}
 
 	partition, offset, err := h.kafka.Producer.SendMessage(&sarama.ProducerMessage{Topic: h.kafka.Topic, Value: sarama.StringEncoder(message.String())})
 
@@ -117,10 +117,21 @@ func (h *AggregateConceptHandler) PostHandler(rw http.ResponseWriter, r *http.Re
 	rw.Write([]byte("{\"message\":\"Concept published to queue\"}"))
 }
 
-func buildHeader(conceptUuid string, conceptType string, tid string) map[string]string {
+//Current implementation of concept-ingester(service which consumes these messages) uses the message-type header to resolve request url; hence need for "pluralisation"
+func resolveMessageType(conceptType string) string {
+	var messageType string
+	if conceptType == "person" {
+		messageType = "people"
+	} else {
+		messageType = conceptType + "s"
+	}
+	return messageType
+ }
+
+func buildHeader(conceptUuid string, messageType string, tid string) map[string]string {
 	return map[string]string{
 		"Message-Id":        conceptUuid,
-		"Message-Type":      conceptType,
+		"Message-Type":      messageType,
 		"Content-Type":      "application/json",
 		"X-Request-Id":      tid,
 		"Origin-System-Id":  "aggregate-concept-transformer",
