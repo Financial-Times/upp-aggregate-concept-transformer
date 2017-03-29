@@ -18,30 +18,39 @@ or update:
 
 ```
 $GOPATH/bin/aggregate-concept-transformer
---awsAccessKey=xxx
---awsSecretKey=xxx
 --bucketName=com.ft.upp-concept-store
---topic=Concepts
+--topic=Concept
 --kafkaAddress=localhost:9092
 --awsRegion=eu-west-1
 --port=8080
 ```
 
-The awsAccessKey, awsSecretKey, bucketName, kafkaAddress and awsRegion arguments are mandatory and represent authentication credentials for S3 . 
+The app assumes that you have correctly set up your AWS credentials by either using the `~/.aws/credentials` file:
 
-The resources argument specifies a comma separated list of archives and files within that archive to be downloaded from Factset FTP server. Because every file is inside an archive, the service will first download the archive, unzip the files you specify, zip a collection of daily/weekly files and upload the resulting zips to s3. A resource has the format archive_path:file1.txt;file2.txt, example: /datafeeds/edm/edm_bbg_ids/edm_bbg_ids:edm_bbg_ids.txt, where  /datafeeds/edm/edm_bbg_ids/ is the path of the archive, edm_bbg_ids is the prefix of the zip without versions and edm_bbg_ids.txt is the file to be extracted from this archive. On the Factset FTP server the archive name will contain also the data version, but it is enough for this service to provide the archive name without the version and it will download the latest one.
+```
+[default]
+aws_access_key_id = AKID1234567890
+aws_ secret_access_key = MY-SECRET-KEY
+```
 
-After downloading the zip files from Factset FTP server, the service will write them to the specified Amazon S3 bucket. The zip files written to S3 will be inside of a folder named by the current date. Depending upon the day there may be both a weekly.zip and daily.zip or just a daily.zip
+or the default AWS environment variables otherwise requests will return 401 Unauthorised
+
+```
+AWS_ACCESS_KEY_ID=AKID1234567890
+AWS_SECRET_ACCESS_KEY=MY-SECRET-KEY
+```
+
+The bucketName, awsRegion, kafkaAddress and  topic arguments are mandatory. 
 
 # Endpoints
 
-Force-import (initiate importing manually of all most recent files):
+Return concept from s3 with match uuid:
 
-`http://localhost:8080/force-import -XPOST`
+`http://localhost:8080/concept/{uuid} -X GET`
 
-Force-import-weekly (initiate importing manually of all most recent weekly files):
+Post concept returned from s3 to kafka queue:
 
-`http://localhost:8080/force-import-weekly -XPOST`
+`http://localhost:8080/concept/{uuid} -X POST`
 
 ## Admin Endpoints
 Health checks: `http://localhost:8080/__health`

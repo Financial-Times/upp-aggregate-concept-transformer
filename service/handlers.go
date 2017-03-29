@@ -123,7 +123,7 @@ func buildHeader(conceptUuid string, conceptType string, tid string) map[string]
 		"Message-Type":      conceptType,
 		"Content-Type":      "application/json",
 		"X-Request-Id":      tid,
-		"Origin-System-Id":  "http://cmdb.ft.com/systems/upp/rds", //TODO IS this right?
+		"Origin-System-Id":  "aggregate-concept-transformer",
 		"Message-Timestamp": time.Now().Format("2006-01-02T15:04:05.000Z"),
 	}
 }
