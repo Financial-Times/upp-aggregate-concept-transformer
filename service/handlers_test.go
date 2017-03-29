@@ -2,23 +2,23 @@ package service
 
 import (
 	"bytes"
+	"errors"
 	"github.com/Financial-Times/aggregate-concept-transformer/kafka"
 	"github.com/Shopify/sarama"
 	"github.com/gorilla/mux"
+	"github.com/stretchr/testify/assert"
 	"io"
 	"io/ioutil"
 	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
-	"net/http/httptest"
-	"github.com/stretchr/testify/assert"
-	"errors"
 )
 
 const (
 	ExpectedContentType = "application/json"
 	TOPIC               = "Concept"
-	UUID		    = "61d707b5-6fab-3541-b017-49b72de80772"
+	UUID                = "61d707b5-6fab-3541-b017-49b72de80772"
 )
 
 var testGenrePayload = `{
@@ -56,9 +56,8 @@ func TestGetHandler_ResponseCodeAndErrorMessageWhenBadConnectionToS3(t *testing.
 	h := NewHandler(&ms3d, mkc)
 	h.RegisterHandlers(r)
 
-
 	rec := httptest.NewRecorder()
-	r.ServeHTTP(rec, newRequest("GET", "/concept/" + UUID, "genre"))
+	r.ServeHTTP(rec, newRequest("GET", "/concept/"+UUID, "genre"))
 
 	assert.Equal(t, 503, rec.Code)
 	assert.Equal(t, rec.HeaderMap["Content-Type"], []string{"application/json"})
@@ -73,7 +72,7 @@ func TestGetHandler_ResponseCodeAndErrorWhenConceptNotFoundInS3(t *testing.T) {
 	h.RegisterHandlers(r)
 
 	rec := httptest.NewRecorder()
-	r.ServeHTTP(rec, newRequest("GET", "/concept/" + UUID, "genre"))
+	r.ServeHTTP(rec, newRequest("GET", "/concept/"+UUID, "genre"))
 
 	assert.Equal(t, 404, rec.Code)
 	assert.Equal(t, rec.HeaderMap["Content-Type"], []string{"application/json"})
@@ -88,7 +87,7 @@ func TestGetHandler_ValidConceptGetsReturned(t *testing.T) {
 	h.RegisterHandlers(r)
 
 	rec := httptest.NewRecorder()
-	r.ServeHTTP(rec, newRequest("GET", "/concept/" + UUID, testGenrePayload))
+	r.ServeHTTP(rec, newRequest("GET", "/concept/"+UUID, testGenrePayload))
 
 	assert.Equal(t, 200, rec.Code)
 	assert.Equal(t, rec.HeaderMap["Content-Type"], []string{"application/json"})
@@ -102,7 +101,7 @@ func TestPostHandler_ResponseCodeAndErrorMessageWhenBadConnectionToS3(t *testing
 	h.RegisterHandlers(r)
 
 	rec := httptest.NewRecorder()
-	r.ServeHTTP(rec, newRequest("POST", "/concept/" + UUID, testGenrePayload))
+	r.ServeHTTP(rec, newRequest("POST", "/concept/"+UUID, testGenrePayload))
 
 	assert.Equal(t, 503, rec.Code)
 	assert.Equal(t, rec.HeaderMap["Content-Type"], []string{"application/json"})
@@ -117,7 +116,7 @@ func TestPostHandler_ResponseCodeAndErrorWhenConceptNotFoundInS3(t *testing.T) {
 	h.RegisterHandlers(r)
 
 	rec := httptest.NewRecorder()
-	r.ServeHTTP(rec, newRequest("POST", "/concept/" + UUID, testGenrePayload))
+	r.ServeHTTP(rec, newRequest("POST", "/concept/"+UUID, testGenrePayload))
 
 	assert.Equal(t, 404, rec.Code)
 	assert.Equal(t, rec.HeaderMap["Content-Type"], []string{"application/json"})
@@ -132,7 +131,7 @@ func TestPostHandler_InvalidJsonThrowsError(t *testing.T) {
 	h.RegisterHandlers(r)
 
 	rec := httptest.NewRecorder()
-	r.ServeHTTP(rec, newRequest("POST", "/concept/" + UUID, invalidPayload))
+	r.ServeHTTP(rec, newRequest("POST", "/concept/"+UUID, invalidPayload))
 
 	assert.Equal(t, 422, rec.Code)
 	assert.Equal(t, rec.HeaderMap["Content-Type"], []string{"application/json"})
@@ -148,7 +147,7 @@ func TestPostHandler_SendMessageToKafkaThrowsError(t *testing.T) {
 
 	_, _, err := mkc.Producer.SendMessage(nil)
 
-	assert.Error(t,err)
+	assert.Error(t, err)
 }
 
 func TestPostHandler_ValidConceptGetsWrittenToS3(t *testing.T) {
@@ -159,10 +158,10 @@ func TestPostHandler_ValidConceptGetsWrittenToS3(t *testing.T) {
 	h.RegisterHandlers(r)
 
 	rec := httptest.NewRecorder()
-	r.ServeHTTP(rec, newRequest("POST", "/concept/" + UUID, testGenrePayload))
+	r.ServeHTTP(rec, newRequest("POST", "/concept/"+UUID, testGenrePayload))
 	_, _, err := mkc.Producer.SendMessage(nil)
 
-	assert.NoError(t,err)
+	assert.NoError(t, err)
 	assert.Equal(t, 202, rec.Code)
 	assert.Equal(t, rec.HeaderMap["Content-Type"], []string{"application/json"})
 }

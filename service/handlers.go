@@ -126,7 +126,7 @@ func resolveMessageType(conceptType string) string {
 		messageType = conceptType + "s"
 	}
 	return messageType
- }
+}
 
 func buildHeader(conceptUuid string, messageType string, tid string) map[string]string {
 	return map[string]string{
