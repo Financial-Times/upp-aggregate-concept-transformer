@@ -90,10 +90,11 @@ func (h *AggregateConceptHandler) PostHandler(rw http.ResponseWriter, r *http.Re
 	concept := ut.Concept{}
 	body, err := ioutil.ReadAll(resp)
 	if err != nil {
-		log.Errorf("Error reading concept from buffer: %s", err.Error())
+		log.Errorf("Error reading concept from buffer: %v", err.Error())
 		rw.Header().Set("Content-Type", "application/json")
 		rw.WriteHeader(http.StatusServiceUnavailable)
 		rw.Write([]byte("{\"message\":\"Error retrieving concept.\"}"))
+		resp.Close()
 		return
 	}
 	err = json.Unmarshal(body, &concept)
@@ -102,11 +103,21 @@ func (h *AggregateConceptHandler) PostHandler(rw http.ResponseWriter, r *http.Re
 		rw.Header().Set("Content-Type", "application/json")
 		rw.WriteHeader(http.StatusUnprocessableEntity)
 		rw.Write([]byte("{\"message\":\"Retrived concept is invalid json.\"}"))
+		resp.Close()
 		return
 	}
 	message := kafka.FTMessage{Headers: buildHeader(conceptUuid, resolveMessageType(strings.ToLower(concept.Type)), tid), Body: string(body)}
 
 	partition, offset, err := h.kafka.Producer.SendMessage(&sarama.ProducerMessage{Topic: h.kafka.Topic, Value: sarama.StringEncoder(message.String())})
+
+	if err != nil {
+		log.Error("Error writing message to kafka: %v", err)
+		rw.Header().Set("Content-Type", "application/json")
+		rw.WriteHeader(http.StatusServiceUnavailable)
+		rw.Write([]byte("{\"message\":\"Error writing message to kafka.\"}"))
+		resp.Close()
+		return
+	}
 
 	log.Infof("Message id %s written to %s topic on partition %d with an offset of %d", conceptUuid, h.kafka.Topic, partition, offset)
 
