@@ -141,13 +141,17 @@ func TestPostHandler_InvalidJsonThrowsError(t *testing.T) {
 func TestPostHandler_SendMessageToKafkaThrowsError(t *testing.T) {
 	r := mux.NewRouter()
 	ms3d := mocks3Driver{found: true, payload: testGenrePayload}
-	mkc := kafka.Client{Producer: &mockSyncProducer{err: errors.New("Failed to produce message")}, Topic: TOPIC}
+	mkc := kafka.Client{Producer: &mockSyncProducer{err: errors.New("Failed to write message to kafka")}, Topic: TOPIC}
 	h := NewHandler(&ms3d, mkc)
 	h.RegisterHandlers(r)
 
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, newRequest("POST", "/concept/"+UUID, invalidPayload))
 	_, _, err := mkc.Producer.SendMessage(nil)
 
 	assert.Error(t, err)
+	assert.Equal(t, 503, rec.Code)
+	assert.Equal(t, "{\"message\":\"Error writing message to kafka.\"}", rec.Body.String())
 }
 
 func TestPostHandler_ValidConceptGetsWrittenToS3(t *testing.T) {
@@ -164,6 +168,7 @@ func TestPostHandler_ValidConceptGetsWrittenToS3(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, 202, rec.Code)
 	assert.Equal(t, rec.HeaderMap["Content-Type"], []string{"application/json"})
+	assert.Equal(t, "{\"message\":\"Concept published to queue.\"}", rec.Body.String())
 }
 
 func TestResolveMessageType_ReturnCorrectMessageTypes(t *testing.T) {

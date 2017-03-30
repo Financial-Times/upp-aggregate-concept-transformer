@@ -53,6 +53,7 @@ func (h *AggregateConceptHandler) GetHandler(rw http.ResponseWriter, r *http.Req
 		return
 	}
 
+	defer resp.Close()
 	b, err := ioutil.ReadAll(resp)
 	if err != nil {
 		log.Errorf("Error reading concept from buffer: %s", err.Error())
@@ -87,6 +88,7 @@ func (h *AggregateConceptHandler) PostHandler(rw http.ResponseWriter, r *http.Re
 		return
 	}
 
+	defer resp.Close()
 	concept := ut.Concept{}
 	body, err := ioutil.ReadAll(resp)
 	if err != nil {
@@ -94,7 +96,6 @@ func (h *AggregateConceptHandler) PostHandler(rw http.ResponseWriter, r *http.Re
 		rw.Header().Set("Content-Type", "application/json")
 		rw.WriteHeader(http.StatusServiceUnavailable)
 		rw.Write([]byte("{\"message\":\"Error retrieving concept.\"}"))
-		resp.Close()
 		return
 	}
 	err = json.Unmarshal(body, &concept)
@@ -103,7 +104,6 @@ func (h *AggregateConceptHandler) PostHandler(rw http.ResponseWriter, r *http.Re
 		rw.Header().Set("Content-Type", "application/json")
 		rw.WriteHeader(http.StatusUnprocessableEntity)
 		rw.Write([]byte("{\"message\":\"Retrived concept is invalid json.\"}"))
-		resp.Close()
 		return
 	}
 	message := kafka.FTMessage{Headers: buildHeader(conceptUuid, resolveMessageType(strings.ToLower(concept.Type)), tid), Body: string(body)}
@@ -111,21 +111,17 @@ func (h *AggregateConceptHandler) PostHandler(rw http.ResponseWriter, r *http.Re
 	partition, offset, err := h.kafka.Producer.SendMessage(&sarama.ProducerMessage{Topic: h.kafka.Topic, Value: sarama.StringEncoder(message.String())})
 
 	if err != nil {
-		log.Error("Error writing message to kafka: %v", err)
+		log.Error("Error writing message to kafka: %v", err.Error())
 		rw.Header().Set("Content-Type", "application/json")
 		rw.WriteHeader(http.StatusServiceUnavailable)
 		rw.Write([]byte("{\"message\":\"Error writing message to kafka.\"}"))
-		resp.Close()
 		return
 	}
 
 	log.Infof("Message id %s written to %s topic on partition %d with an offset of %d", conceptUuid, h.kafka.Topic, partition, offset)
-
-	defer resp.Close()
-
 	rw.Header().Set("Content-Type", "application/json")
 	rw.WriteHeader(http.StatusAccepted)
-	rw.Write([]byte("{\"message\":\"Concept published to queue\"}"))
+	rw.Write([]byte("{\"message\":\"Concept published to queue.\"}"))
 }
 
 //Current implementation of concept-ingester(service which consumes these messages) uses the message-type header to resolve request url; hence need for "pluralisation"
@@ -156,7 +152,7 @@ func (h *AggregateConceptHandler) RegisterAdminHandlers(router *mux.Router) {
 	monitoringRouter = httphandlers.TransactionAwareRequestLoggingHandler(log.StandardLogger(), monitoringRouter)
 	monitoringRouter = httphandlers.HTTPMetricsHandler(metrics.DefaultRegistry, monitoringRouter)
 	http.HandleFunc(status.BuildInfoPath, status.BuildInfoHandler)
-	http.HandleFunc("/__health", v1a.Handler("GenericReadWriteS3 Healthchecks",
+	http.HandleFunc("/__health", v1a.Handler("Aggregate Concept Transformer Healthchecks",
 		"Runs a HEAD check on bucket", v1a.Check{
 			BusinessImpact:   "Unable to access S3 bucket",
 			Name:             "S3 Bucket check",
