@@ -53,22 +53,6 @@ type mockSyncProducer struct {
 
 func TestGetHandler_ResponseCodeAndErrorMessageWhenBadConnectionToS3(t *testing.T) {
 	r := mux.NewRouter()
-	ms3d := mocks3Driver{found: false, err: errors.New(""), tid: TID}
-	mkc := kafka.Client{Producer: &mockSyncProducer{}, Topic: TOPIC}
-	h := NewHandler(&ms3d, mkc)
-	h.RegisterHandlers(r)
-
-	rec := httptest.NewRecorder()
-	r.ServeHTTP(rec, newRequest("GET", "/concept/"+UUID, "genre"))
-
-	assert.Equal(t, 503, rec.Code)
-	assert.Equal(t, rec.HeaderMap["Content-Type"], []string{"application/json"})
-	assert.Equal(t, []string{TID}, rec.HeaderMap["X-Request-Id"])
-	assert.Equal(t, "{\"message\":\"Error retrieving concept.\"}", rec.Body.String())
-}
-
-func TestGetHandler_TransactionIdIsGeneratedIfBucketDoesNotHaveOne(t *testing.T) {
-	r := mux.NewRouter()
 	ms3d := mocks3Driver{found: false, err: errors.New("")}
 	mkc := kafka.Client{Producer: &mockSyncProducer{}, Topic: TOPIC}
 	h := NewHandler(&ms3d, mkc)
@@ -79,13 +63,12 @@ func TestGetHandler_TransactionIdIsGeneratedIfBucketDoesNotHaveOne(t *testing.T)
 
 	assert.Equal(t, 503, rec.Code)
 	assert.Equal(t, rec.HeaderMap["Content-Type"], []string{"application/json"})
-	assert.NotEqual(t, []string{TID}, rec.HeaderMap["X-Request-Id"])
 	assert.Equal(t, "{\"message\":\"Error retrieving concept.\"}", rec.Body.String())
 }
 
 func TestGetHandler_ResponseCodeAndErrorWhenConceptNotFoundInS3(t *testing.T) {
 	r := mux.NewRouter()
-	ms3d := mocks3Driver{found: false, tid: TID}
+	ms3d := mocks3Driver{found: false}
 	mkc := kafka.Client{Producer: &mockSyncProducer{}, Topic: TOPIC}
 	h := NewHandler(&ms3d, mkc)
 	h.RegisterHandlers(r)
@@ -95,7 +78,6 @@ func TestGetHandler_ResponseCodeAndErrorWhenConceptNotFoundInS3(t *testing.T) {
 
 	assert.Equal(t, 404, rec.Code)
 	assert.Equal(t, rec.HeaderMap["Content-Type"], []string{"application/json"})
-	assert.Equal(t, []string{TID}, rec.HeaderMap["X-Request-Id"])
 	assert.Equal(t, "{\"message\":\"Concept not found.\"}", rec.Body.String())
 }
 
@@ -114,9 +96,24 @@ func TestGetHandler_ValidConceptGetsReturned(t *testing.T) {
 	assert.Equal(t, rec.HeaderMap["Content-Type"], []string{"application/json"})
 }
 
+func TestGetHandler_TransactionIdIsGeneratedIfBucketDoesNotHaveOne(t *testing.T) {
+	r := mux.NewRouter()
+	ms3d := mocks3Driver{found: true, payload: "genre"}
+	mkc := kafka.Client{Producer: &mockSyncProducer{}, Topic: TOPIC}
+	h := NewHandler(&ms3d, mkc)
+	h.RegisterHandlers(r)
+
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, newRequest("GET", "/concept/"+UUID, testGenrePayload))
+
+	assert.Equal(t, 200, rec.Code)
+	assert.NotEqual(t, []string{TID}, rec.HeaderMap["X-Request-Id"])
+	assert.Equal(t, rec.HeaderMap["Content-Type"], []string{"application/json"})
+}
+
 func TestPostHandler_ResponseCodeAndErrorMessageWhenBadConnectionToS3(t *testing.T) {
 	r := mux.NewRouter()
-	ms3d := mocks3Driver{found: false, err: errors.New(""), tid: TID}
+	ms3d := mocks3Driver{found: false, err: errors.New("")}
 	mkc := kafka.Client{Producer: &mockSyncProducer{}, Topic: TOPIC}
 	h := NewHandler(&ms3d, mkc)
 	h.RegisterHandlers(r)
@@ -125,30 +122,13 @@ func TestPostHandler_ResponseCodeAndErrorMessageWhenBadConnectionToS3(t *testing
 	r.ServeHTTP(rec, newRequest("POST", "/concept/"+UUID, testGenrePayload))
 
 	assert.Equal(t, 503, rec.Code)
-	assert.Equal(t, []string{TID}, rec.HeaderMap["X-Request-Id"])
 	assert.Equal(t, []string{"application/json"}, rec.HeaderMap["Content-Type"])
-	assert.Equal(t, "{\"message\":\"Error retrieving concept.\"}", rec.Body.String())
-}
-
-func TestPostHandler_TransactionIdIsGeneratedIfBucketDoesNotHaveOne(t *testing.T) {
-	r := mux.NewRouter()
-	ms3d := mocks3Driver{found: false, err: errors.New("")}
-	mkc := kafka.Client{Producer: &mockSyncProducer{}, Topic: TOPIC}
-	h := NewHandler(&ms3d, mkc)
-	h.RegisterHandlers(r)
-
-	rec := httptest.NewRecorder()
-	r.ServeHTTP(rec, newRequest("GET", "/concept/"+UUID, "genre"))
-
-	assert.Equal(t, 503, rec.Code)
-	assert.Equal(t, rec.HeaderMap["Content-Type"], []string{"application/json"})
-	assert.NotEqual(t, []string{TID}, rec.HeaderMap["X-Request-Id"])
 	assert.Equal(t, "{\"message\":\"Error retrieving concept.\"}", rec.Body.String())
 }
 
 func TestPostHandler_ResponseCodeAndErrorWhenConceptNotFoundInS3(t *testing.T) {
 	r := mux.NewRouter()
-	ms3d := mocks3Driver{found: false, tid: TID}
+	ms3d := mocks3Driver{found: false}
 	mkc := kafka.Client{Producer: &mockSyncProducer{}, Topic: TOPIC}
 	h := NewHandler(&ms3d, mkc)
 	h.RegisterHandlers(r)
@@ -157,14 +137,13 @@ func TestPostHandler_ResponseCodeAndErrorWhenConceptNotFoundInS3(t *testing.T) {
 	r.ServeHTTP(rec, newRequest("POST", "/concept/"+UUID, testGenrePayload))
 
 	assert.Equal(t, 404, rec.Code)
-	assert.Equal(t, []string{TID}, rec.HeaderMap["X-Request-Id"])
 	assert.Equal(t, []string{"application/json"}, rec.HeaderMap["Content-Type"])
 	assert.Equal(t, "{\"message\":\"Concept not found.\"}", rec.Body.String())
 }
 
 func TestPostHandler_InvalidJsonThrowsError(t *testing.T) {
 	r := mux.NewRouter()
-	ms3d := mocks3Driver{found: true, payload: invalidPayload, tid: TID}
+	ms3d := mocks3Driver{found: true, payload: invalidPayload}
 	mkc := kafka.Client{Producer: &mockSyncProducer{}, Topic: TOPIC}
 	h := NewHandler(&ms3d, mkc)
 	h.RegisterHandlers(r)
@@ -173,14 +152,13 @@ func TestPostHandler_InvalidJsonThrowsError(t *testing.T) {
 	r.ServeHTTP(rec, newRequest("POST", "/concept/"+UUID, invalidPayload))
 
 	assert.Equal(t, 422, rec.Code)
-	assert.Equal(t, []string{TID}, rec.HeaderMap["X-Request-Id"])
 	assert.Equal(t, []string{"application/json"}, rec.HeaderMap["Content-Type"])
 	assert.Equal(t, "{\"message\":\"Retrived concept is invalid json.\"}", rec.Body.String())
 }
 
 func TestPostHandler_SendMessageToKafkaThrowsError(t *testing.T) {
 	r := mux.NewRouter()
-	ms3d := mocks3Driver{found: true, payload: testGenrePayload, tid: TID}
+	ms3d := mocks3Driver{found: true, payload: testGenrePayload}
 	mkc := kafka.Client{Producer: &mockSyncProducer{err: errors.New("Failed to write message to kafka")}, Topic: TOPIC}
 	h := NewHandler(&ms3d, mkc)
 	h.RegisterHandlers(r)
@@ -191,7 +169,6 @@ func TestPostHandler_SendMessageToKafkaThrowsError(t *testing.T) {
 
 	assert.Error(t, err)
 	assert.Equal(t, 503, rec.Code)
-	assert.Equal(t, []string{TID}, rec.HeaderMap["X-Request-Id"])
 	assert.Equal(t, []string{"application/json"}, rec.HeaderMap["Content-Type"])
 	assert.Equal(t, "{\"message\":\"Error writing message to kafka.\"}", rec.Body.String())
 }
@@ -210,6 +187,24 @@ func TestPostHandler_ValidConceptGetsWrittenToS3(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, 202, rec.Code)
 	assert.Equal(t, []string{TID}, rec.HeaderMap["X-Request-Id"])
+	assert.Equal(t, []string{"application/json"}, rec.HeaderMap["Content-Type"])
+	assert.Equal(t, "{\"message\":\"Concept published to queue.\"}", rec.Body.String())
+}
+
+func TestPostHandler_TransactionIdIsGeneratedIfBucketDoesNotHaveOne(t *testing.T) {
+	r := mux.NewRouter()
+	ms3d := mocks3Driver{found: true, payload: testGenrePayload}
+	mkc := kafka.Client{Producer: &mockSyncProducer{}, Topic: TOPIC}
+	h := NewHandler(&ms3d, mkc)
+	h.RegisterHandlers(r)
+
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, newRequest("POST", "/concept/"+UUID, testGenrePayload))
+	_, _, err := mkc.Producer.SendMessage(nil)
+
+	assert.NoError(t, err)
+	assert.Equal(t, 202, rec.Code)
+	assert.NotEqual(t, []string{TID}, rec.HeaderMap["X-Request-Id"])
 	assert.Equal(t, []string{"application/json"}, rec.HeaderMap["Content-Type"])
 	assert.Equal(t, "{\"message\":\"Concept published to queue.\"}", rec.Body.String())
 }

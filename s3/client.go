@@ -56,29 +56,30 @@ func NewClient(bucketName string, awsRegion string) (S3Driver, error) {
 }
 
 func (c *Client) GetConceptAndTransactionId(UUID string) (bool, io.ReadCloser, string, error) {
-	params := &s3.GetObjectInput{
+	getObjectParams := &s3.GetObjectInput{
 		Bucket: aws.String(c.bucketName),
 		Key:    aws.String(getKey(UUID)),
 	}
 
-	resp, err := c.s3.GetObject(params)
-
-	params2 := &s3.HeadObjectInput{
-		Bucket: aws.String(c.bucketName),
-		Key:    aws.String(getKey(UUID)),
-	}
-	ho, err := c.s3.HeadObject(params2)
-	if err != nil {
-		log.Error("Cannot access s3 data")
-	}
-	tid := ho.Metadata["Transaction_id"]
+	resp, err := c.s3.GetObject(getObjectParams)
 	if err != nil {
 		e, ok := err.(awserr.Error)
 		if ok && e.Code() == "NoSuchKey" {
-			return false, nil, *tid, nil
+			return false, nil, "", nil
 		}
-		return false, nil, *tid, err
+		return false, nil, "", err
 	}
+
+	getHeadersParams := &s3.HeadObjectInput{
+		Bucket: aws.String(c.bucketName),
+		Key:    aws.String(getKey(UUID)),
+	}
+	ho, err := c.s3.HeadObject(getHeadersParams)
+	if err != nil {
+		log.Error("Cannot access s3 data")
+		return false, nil, "", err
+	}
+	tid := ho.Metadata["Transaction_id"]
 	return true, resp.Body, *tid, err
 }
 

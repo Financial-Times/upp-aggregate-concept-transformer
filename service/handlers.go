@@ -38,22 +38,16 @@ func (h *AggregateConceptHandler) GetHandler(rw http.ResponseWriter, r *http.Req
 	conceptUuid := vars["uuid"]
 
 	found, resp, tid, err := h.s3.GetConceptAndTransactionId(conceptUuid)
-	if tid == "" {
-		log.Warnf("Concept %s did not have transaction id set in s3 metadata so one was generated", conceptUuid)
-		tid = transactionidutils.GetTransactionIDFromRequest(r)
-	}
 	if !found {
 		if err != nil {
 			log.Errorf("Error retrieving concept: %s", err.Error())
 			rw.Header().Set("Content-Type", "application/json")
-			rw.Header().Set("X-Request-Id", tid)
 			rw.WriteHeader(http.StatusServiceUnavailable)
 			rw.Write([]byte("{\"message\":\"Error retrieving concept.\"}"))
 			return
 		}
 		log.Errorf("Concept not found: %s", conceptUuid)
 		rw.Header().Set("Content-Type", "application/json")
-		rw.Header().Set("X-Request-Id", tid)
 		rw.WriteHeader(http.StatusNotFound)
 		rw.Write([]byte("{\"message\":\"Concept not found.\"}"))
 		return
@@ -64,10 +58,13 @@ func (h *AggregateConceptHandler) GetHandler(rw http.ResponseWriter, r *http.Req
 	if err != nil {
 		log.Errorf("Error reading concept from buffer: %s", err.Error())
 		rw.Header().Set("Content-Type", "application/json")
-		rw.Header().Set("X-Request-Id", tid)
 		rw.WriteHeader(http.StatusServiceUnavailable)
 		rw.Write([]byte("{\"message\":\"Error retrieving concept.\"}"))
 		return
+	}
+	if tid == "" {
+		log.Warnf("Concept %s did not have transaction id set in s3 metadata so one was generated", conceptUuid)
+		tid = transactionidutils.GetTransactionIDFromRequest(r)
 	}
 	rw.Header().Set("Content-Type", "application/json")
 	rw.Header().Set("X-Request-Id", tid)
@@ -80,22 +77,16 @@ func (h *AggregateConceptHandler) PostHandler(rw http.ResponseWriter, r *http.Re
 	conceptUuid := vars["uuid"]
 
 	found, resp, tid, err := h.s3.GetConceptAndTransactionId(conceptUuid)
-	if tid == "" {
-		log.Warnf("Concept %s did not have transaction id set in s3 metadata so one was generated", conceptUuid)
-		tid = transactionidutils.GetTransactionIDFromRequest(r)
-	}
 	if !found {
 		if err != nil {
 			log.Errorf("Error retrieving concept: %s", err.Error())
 			rw.Header().Set("Content-Type", "application/json")
-			rw.Header().Set("X-Request-Id", tid)
 			rw.WriteHeader(http.StatusServiceUnavailable)
 			rw.Write([]byte("{\"message\":\"Error retrieving concept.\"}"))
 			return
 		}
 		log.Errorf("Concept not found: %s", conceptUuid)
 		rw.Header().Set("Content-Type", "application/json")
-		rw.Header().Set("X-Request-Id", tid)
 		rw.WriteHeader(http.StatusNotFound)
 		rw.Write([]byte("{\"message\":\"Concept not found.\"}"))
 		return
@@ -107,7 +98,6 @@ func (h *AggregateConceptHandler) PostHandler(rw http.ResponseWriter, r *http.Re
 	if err != nil {
 		log.Errorf("Error reading concept from buffer: %v", err.Error())
 		rw.Header().Set("Content-Type", "application/json")
-		rw.Header().Set("X-Request-Id", tid)
 		rw.WriteHeader(http.StatusServiceUnavailable)
 		rw.Write([]byte("{\"message\":\"Error retrieving concept.\"}"))
 		return
@@ -116,10 +106,13 @@ func (h *AggregateConceptHandler) PostHandler(rw http.ResponseWriter, r *http.Re
 	if err != nil {
 		log.Errorf("Could not unmarshall data from s3: %s into valid json", string(body))
 		rw.Header().Set("Content-Type", "application/json")
-		rw.Header().Set("X-Request-Id", tid)
 		rw.WriteHeader(http.StatusUnprocessableEntity)
 		rw.Write([]byte("{\"message\":\"Retrived concept is invalid json.\"}"))
 		return
+	}
+	if tid == "" {
+		log.Warnf("Concept %s did not have transaction id set in s3 metadata so one was generated", conceptUuid)
+		tid = transactionidutils.GetTransactionIDFromRequest(r)
 	}
 	message := kafka.FTMessage{Headers: buildHeader(conceptUuid, resolveMessageType(strings.ToLower(concept.Type)), tid), Body: string(body)}
 
