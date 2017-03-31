@@ -14,7 +14,7 @@ import (
 )
 
 type S3Driver interface {
-	GetConcept(UUID string) (bool, io.ReadCloser, error)
+	GetConceptAndTransactionId(UUID string) (bool, io.ReadCloser, string, error)
 	HealthCheck() (string, error)
 }
 
@@ -55,21 +55,31 @@ func NewClient(bucketName string, awsRegion string) (S3Driver, error) {
 	}, err
 }
 
-func (c *Client) GetConcept(UUID string) (bool, io.ReadCloser, error) {
+func (c *Client) GetConceptAndTransactionId(UUID string) (bool, io.ReadCloser, string, error) {
 	params := &s3.GetObjectInput{
 		Bucket: aws.String(c.bucketName),
 		Key:    aws.String(getKey(UUID)),
 	}
 
 	resp, err := c.s3.GetObject(params)
+
+	params2 := &s3.HeadObjectInput{
+		Bucket: aws.String(c.bucketName),
+		Key:    aws.String(getKey(UUID)),
+	}
+	ho, err := c.s3.HeadObject(params2)
+	if err != nil {
+		log.Error("Cannot access s3 data")
+	}
+	tid := ho.Metadata["Transaction_id"]
 	if err != nil {
 		e, ok := err.(awserr.Error)
 		if ok && e.Code() == "NoSuchKey" {
-			return false, nil, nil
+			return false, nil, *tid, nil
 		}
-		return false, nil, err
+		return false, nil, *tid, err
 	}
-	return true, resp.Body, err
+	return true, resp.Body, *tid, err
 }
 
 func (c *Client) HealthCheck() (string, error) {
