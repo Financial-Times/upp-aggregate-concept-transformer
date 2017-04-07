@@ -210,9 +210,9 @@ func TestPostHandler_TransactionIdIsGeneratedIfBucketDoesNotHaveOne(t *testing.T
 }
 
 func TestResolveMessageType_ReturnCorrectMessageTypes(t *testing.T) {
-	messageTypePerson := resolveMessageType("person")
+	messageTypePerson := resolveConceptType("person")
 	assert.Equal(t, "people", messageTypePerson)
-	messageTypeOther := resolveMessageType("topic")
+	messageTypeOther := resolveConceptType("topic")
 	assert.Equal(t, "topics", messageTypeOther)
 }
 
