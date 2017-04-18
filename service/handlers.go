@@ -5,7 +5,8 @@ import (
 	"net/http"
 
 	"encoding/json"
-	awsSqs "github.com/aws/aws-sdk-go/service/sqs"
+	"errors"
+	"fmt"
 	"github.com/Financial-Times/aggregate-concept-transformer/s3"
 	"github.com/Financial-Times/aggregate-concept-transformer/sqs"
 	ut "github.com/Financial-Times/aggregate-concept-transformer/util"
@@ -13,17 +14,16 @@ import (
 	"github.com/Financial-Times/http-handlers-go/httphandlers"
 	status "github.com/Financial-Times/service-status-go/httphandlers"
 	log "github.com/Sirupsen/logrus"
+	awsSqs "github.com/aws/aws-sdk-go/service/sqs"
 	"github.com/gorilla/mux"
 	"github.com/rcrowley/go-metrics"
-	"time"
-	"sync"
-	"errors"
-	"fmt"
-	"regexp"
-	"strings"
 	"io"
 	"net"
+	"regexp"
 	"strconv"
+	"strings"
+	"sync"
+	"time"
 )
 
 var keyMatcher = regexp.MustCompile("^[0-9a-f]{8}/[0-9a-f]{4}/[0-9a-f]{4}/[0-9a-f]{4}/[0-9a-f]{12}$")
@@ -41,15 +41,15 @@ var httpClient = http.Client{
 }
 
 type AggregateConceptHandler struct {
-	s3    s3.S3Driver
-	sqs   sqs.SqsDriver
+	s3            s3.S3Driver
+	sqs           sqs.SqsDriver
 	vulcanAddress string
 }
 
 func NewHandler(s3Driver s3.S3Driver, sqs sqs.SqsDriver, vulcanAddress string) AggregateConceptHandler {
 	return AggregateConceptHandler{
-		s3:    s3Driver,
-		sqs: sqs,
+		s3:            s3Driver,
+		sqs:           sqs,
 		vulcanAddress: vulcanAddress,
 	}
 }
@@ -63,7 +63,7 @@ func (h *AggregateConceptHandler) Run() {
 	}
 }
 
-func  (h *AggregateConceptHandler) ProcessMessages(messages []*awsSqs.Message) {
+func (h *AggregateConceptHandler) ProcessMessages(messages []*awsSqs.Message) {
 	numMessages := len(messages)
 
 	var wg sync.WaitGroup
@@ -78,7 +78,7 @@ func  (h *AggregateConceptHandler) ProcessMessages(messages []*awsSqs.Message) {
 	}
 }
 
-func  (h *AggregateConceptHandler) processMessage(message *awsSqs.Message) error {
+func (h *AggregateConceptHandler) processMessage(message *awsSqs.Message) error {
 	receiptHandle := message.ReceiptHandle
 	sqsMessageBody := ut.Body{}
 	err := json.Unmarshal([]byte(*message.Body), &sqsMessageBody)
@@ -111,13 +111,13 @@ func  (h *AggregateConceptHandler) processMessage(message *awsSqs.Message) error
 	result, err := json.Marshal(concordedJson)
 
 	//Write to Neo4j
-	err = sendToWriter(h.vulcanAddress + conceptWriterRoute, conceptType, updatedUuid, result, tid)
+	err = sendToWriter(h.vulcanAddress+conceptWriterRoute, conceptType, updatedUuid, result, tid)
 	if err != nil {
 		return err
 	}
 
 	//Write to elastic search
-	err = sendToWriter(h.vulcanAddress + elasticSearchRoute, conceptType, updatedUuid, result, tid)
+	err = sendToWriter(h.vulcanAddress+elasticSearchRoute, conceptType, updatedUuid, result, tid)
 	if err != nil {
 		return err
 	}
@@ -159,7 +159,7 @@ func checkForConcordances(updatedUuid string) []string {
 	return uuidList
 }
 
-func extractConceptUuidFromSqsMessage(sqsMessageBody string) (string, error){
+func extractConceptUuidFromSqsMessage(sqsMessageBody string) (string, error) {
 	sqsMessageRecord := ut.Message{}
 	err := json.Unmarshal([]byte(sqsMessageBody), &sqsMessageRecord)
 	if err != nil {
@@ -172,7 +172,7 @@ func extractConceptUuidFromSqsMessage(sqsMessageBody string) (string, error){
 	return strings.Replace(key, "/", "-", 4), err
 }
 
-func sendToWriter(baseUrl string, urlParam string, conceptUuid string, body []byte, tid string) (error) {
+func sendToWriter(baseUrl string, urlParam string, conceptUuid string, body []byte, tid string) error {
 	request, reqUrl, err := createWriteRequest(baseUrl, urlParam, strings.NewReader(string(body)), conceptUuid)
 	if err != nil {
 		return errors.New("Failed to create request to " + reqUrl + " with body " + string(body))

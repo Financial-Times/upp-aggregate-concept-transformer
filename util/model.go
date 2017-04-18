@@ -17,21 +17,19 @@ type SourceRepresentations []SourceRepresentation
 type SourceConceptJson struct {
 	Aliases                []string `json:"aliases"`
 	AlternativeIdentifiers struct {
-				       TME   []string `json:"TME"`
-				       Uuids []string `json:"uuids"`
-			       } `json:"alternativeIdentifiers"`
+		TME   []string `json:"TME"`
+		Uuids []string `json:"uuids"`
+	} `json:"alternativeIdentifiers"`
 	Name      string `json:"name"`
 	PrefLabel string `json:"prefLabel"`
 	Type      string `json:"type"`
 	UUID      string `json:"uuid"`
 }
 
-
-
 type ConcordedConceptJson struct {
-	PrefLabel             string `json:"prefLabel"`
-	Type string `json:"type"`
-	UUID string `json:"uuid"`
+	PrefLabel             string                `json:"prefLabel"`
+	Type                  string                `json:"type"`
+	UUID                  string                `json:"uuid"`
 	SourceRepresentations SourceRepresentations `json:"sourceRepresentations"`
 }
 
@@ -49,11 +47,11 @@ type Body struct {
 }
 
 type Message struct {
-	Records  []Record `json:"Records"`
+	Records []Record `json:"Records"`
 }
 
 type Record struct {
-	S3       s3      `json:"s3"`
+	S3 s3 `json:"s3"`
 }
 
 type s3 struct {

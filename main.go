@@ -5,8 +5,8 @@ import (
 	"os"
 
 	"github.com/Financial-Times/aggregate-concept-transformer/s3"
-	"github.com/Financial-Times/aggregate-concept-transformer/sqs"
 	"github.com/Financial-Times/aggregate-concept-transformer/service"
+	"github.com/Financial-Times/aggregate-concept-transformer/sqs"
 	log "github.com/Sirupsen/logrus"
 	"github.com/gorilla/mux"
 	"github.com/jawher/mow.cli"
@@ -38,36 +38,36 @@ func main() {
 	})
 
 	queueUrl := app.String(cli.StringOpt{
-		Name: "queueUrl",
-		Desc: "Url of AWS sqs queue to listen to",
+		Name:   "queueUrl",
+		Desc:   "Url of AWS sqs queue to listen to",
 		EnvVar: "QUEUE_URL",
 	})
 
 	messagesToProcess := app.Int(cli.IntOpt{
-		Name: "messagesToProcess",
+		Name:   "messagesToProcess",
 		Value:  10,
-		Desc: "Maximum number or messages to concurrently read off of queue and process",
+		Desc:   "Maximum number or messages to concurrently read off of queue and process",
 		EnvVar: "MAX_MESSAGES",
 	})
 
 	visibilityTimeout := app.Int(cli.IntOpt{
-		Name: "visibilityTimeout",
+		Name:   "visibilityTimeout",
 		Value:  30,
-		Desc: "Duration(seconds) that messages will be ignored by subsequent requests after initial response",
+		Desc:   "Duration(seconds) that messages will be ignored by subsequent requests after initial response",
 		EnvVar: "VISIBILITY_TIMEOUT",
 	})
 
 	waitTime := app.Int(cli.IntOpt{
-		Name: "waitTime",
+		Name:   "waitTime",
 		Value:  20,
-		Desc: "Duration(seconds) to wait on queue for messages until returning. Will be shorter if messages arrive",
-		EnvVar: "MAX_MESSAGES",
+		Desc:   "Duration(seconds) to wait on queue for messages until returning. Will be shorter if messages arrive",
+		EnvVar: "WAIT_TIME",
 	})
 
 	vulcanAddress := app.String(cli.StringOpt{
-		Name: "vulcanAddress",
-		Value: "http://localhost:8080/",
-		Desc: "Vulcan address for routing requests",
+		Name:   "vulcanAddress",
+		Value:  "http://localhost:8080/",
+		Desc:   "Vulcan address for routing requests",
 		EnvVar: "VULCAN_ADDR",
 	})
 
@@ -90,8 +90,6 @@ func main() {
 		if err != nil {
 			log.Fatalf("Error creating SQS client: %v", err)
 		}
-
-
 
 		router := mux.NewRouter()
 		handler := service.NewHandler(s3Client, sqsClient, *vulcanAddress)
