@@ -130,7 +130,7 @@ func (h *AggregateConceptHandler) processMessage(message *awsSqs.Message) error 
 		return err
 	}
 
-	log.Infof("Finished processing update of %s", updatedUuid)
+	log.Infof("Finished processing update of %s with transaction id %s", updatedUuid, tid)
 	//TODO Dead Letter Queue?
 
 	return nil
