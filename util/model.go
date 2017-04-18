@@ -34,7 +34,7 @@ type ConcordedConceptJson struct {
 }
 
 type SourceRepresentation struct {
-	AuthValue string `json:"authValue"`
+	AuthValue string `json:"authorityValue"`
 	Authority string `json:"authority"`
 	PrefLabel string `json:"prefLabel"`
 	Type      string `json:"type"`
