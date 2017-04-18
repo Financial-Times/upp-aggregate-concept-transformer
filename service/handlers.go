@@ -90,6 +90,8 @@ func (h *AggregateConceptHandler) processMessage(message *awsSqs.Message) error 
 		return err
 	}
 
+	log.Infof("Processing message for concept with uuid: %s", updatedUuid)
+
 	//Check for concordance and do it
 	checkForConcordances(updatedUuid)
 
@@ -128,6 +130,7 @@ func (h *AggregateConceptHandler) processMessage(message *awsSqs.Message) error 
 		return err
 	}
 
+	log.Infof("Finished processing update of %s", updatedUuid)
 	//TODO Dead Letter Queue?
 
 	return nil
@@ -166,6 +169,7 @@ func extractConceptUuidFromSqsMessage(sqsMessageBody string) (string, error) {
 		return "", err
 	}
 	key := sqsMessageRecord.Records[0].S3.Object.Key
+
 	if keyMatcher.MatchString(key) != true {
 		return "", errors.New("Message key: " + key + " was not expected format")
 	}
