@@ -67,9 +67,7 @@ func (c *Client) HealthCheck() (string, error) {
 		QueueUrl:       aws.String(c.queueUrl),
 		AttributeNames: []*string{aws.String("ApproximateNumberOfMessages")},
 	}
-	output, err := c.sqs.GetQueueAttributes(params)
-
-	fmt.Printf("Output is %s\n", output)
+	_, err := c.sqs.GetQueueAttributes(params)
 
 	if err != nil {
 		log.Errorf("Got error running SQS health check, %v", err.Error())
