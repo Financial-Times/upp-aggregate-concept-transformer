@@ -1,7 +1,6 @@
 package sqs
 
 import (
-	"fmt"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/sqs"
@@ -49,7 +48,6 @@ func (c *Client) ListenAndServeQueue() []*sqs.Message {
 		log.Errorf("Error whilst listening for messages: %v", err.Error())
 	}
 	m := messages.Messages
-	fmt.Printf("Length is %d\n", len(m))
 	return m
 }
 

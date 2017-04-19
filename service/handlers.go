@@ -155,6 +155,8 @@ func mapJson(sourceConceptJson ut.SourceConceptJson) ut.ConcordedConceptJson {
 	concordedConceptModel.SourceRepresentations = sourceReps
 	return concordedConceptModel
 }
+
+//TODO Not doing anything currently
 func checkForConcordances(updatedUuid string) []string {
 	//Should check for concordance and return list of uuids
 	var uuidList []string
@@ -169,6 +171,9 @@ func extractConceptUuidFromSqsMessage(sqsMessageBody string) (string, error) {
 		return "", err
 	}
 	key := sqsMessageRecord.Records[0].S3.Object.Key
+	if key == "" {
+		return "", errors.New("Could not extract concept uuid from message:" + sqsMessageBody)
+	}
 
 	if keyMatcher.MatchString(key) != true {
 		return "", errors.New("Message key: " + key + " was not expected format")
@@ -223,17 +228,30 @@ func (h *AggregateConceptHandler) RegisterAdminHandlers(router *mux.Router) {
 	var monitoringRouter http.Handler = router
 	monitoringRouter = httphandlers.TransactionAwareRequestLoggingHandler(log.StandardLogger(), monitoringRouter)
 	monitoringRouter = httphandlers.HTTPMetricsHandler(metrics.DefaultRegistry, monitoringRouter)
-	http.HandleFunc(status.BuildInfoPath, status.BuildInfoHandler)
 
-	var checks []v1a.Check = []v1a.Check{h.s3HealthCheck(), h.sqsHealthCheck()} //, h.conceptRwNeo4jHealthCheck(), h.conceptRwElasticSearchHealthCheck()}
+	var checks []v1a.Check = []v1a.Check{h.s3HealthCheck(), h.sqsHealthCheck(), h.conceptRwNeo4jHealthCheck(), h.conceptRwElasticSearchHealthCheck()}
 	http.HandleFunc("/__health", v1a.Handler("ConceptIngester Healthchecks", "Checks for accessing writer", checks...))
 	http.HandleFunc("/__gtg", h.gtgCheck)
-	//http.HandleFunc("/__build-info", h.buildInfo)
+	http.HandleFunc("/__ping", status.PingHandler)
+	http.HandleFunc("/__build-info", status.BuildInfoHandler)
 	http.Handle("/", monitoringRouter)
 }
 
-func (h *AggregateConceptHandler) checkWriterAvailability(route string) (string, error) {
-	urlToCheck := h.vulcanAddress + route + "__gtg"
+func (h *AggregateConceptHandler) checkConceptWriterAvailability() (string, error) {
+	urlToCheck := h.vulcanAddress + conceptWriterRoute + "__gtg"
+	resp, err := http.Get(urlToCheck)
+	if err != nil {
+		return "", fmt.Errorf("Error calling writer at %s : %v", urlToCheck, err)
+	}
+	resp.Body.Close()
+	if resp != nil && resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("Writer %v returned status %d", urlToCheck, resp.StatusCode)
+	}
+	return "", nil
+}
+
+func (h *AggregateConceptHandler) checkElasticSearchWriterAvailability() (string, error) {
+	urlToCheck := h.vulcanAddress + elasticSearchRoute + "__gtg"
 	resp, err := http.Get(urlToCheck)
 	if err != nil {
 		return "", fmt.Errorf("Error calling writer at %s : %v", urlToCheck, err)
@@ -256,12 +274,12 @@ func (h *AggregateConceptHandler) gtgCheck(rw http.ResponseWriter, r *http.Reque
 		rw.WriteHeader(http.StatusServiceUnavailable)
 		return
 	}
-	if _, err := h.checkWriterAvailability(conceptWriterRoute); err != nil {
+	if _, err := h.checkConceptWriterAvailability(); err != nil {
 		log.Errorf("Concept rw neo4j Healthcheck failed; %v", err.Error())
 		rw.WriteHeader(http.StatusServiceUnavailable)
 		return
 	}
-	if _, err := h.checkWriterAvailability(elasticSearchRoute); err != nil {
+	if _, err := h.checkElasticSearchWriterAvailability(); err != nil {
 		log.Errorf("Concept rw elastic search Healthcheck failed; %v", err.Error())
 		rw.WriteHeader(http.StatusServiceUnavailable)
 		return
@@ -291,24 +309,24 @@ func (h *AggregateConceptHandler) sqsHealthCheck() v1a.Check {
 	}
 }
 
-//func (h *AggregateConceptHandler) conceptRwNeo4jHealthCheck() v1a.Check {
-//	return v1a.Check{
-//		BusinessImpact:   "Unable to connect to concept writer neo4j",
-//		Name:             "Check connectivity to concept-rw-neo4j",
-//		PanicGuide:       "https://sites.google.com/a/ft.com/universal-publishing/ops-guides/concept-ingestion",
-//		Severity:         1,
-//		TechnicalSummary: `Cannot connect to concept writer neo4j. If this check fails, check that the configured writer returns a healthy gtg`,
-//		Checker:          h.checkWriterAvailability(conceptWriterRoute),
-//	}
-//}
-//
-//func (h *AggregateConceptHandler) conceptRwElasticSearchHealthCheck() v1a.Check {
-//	return v1a.Check{
-//		BusinessImpact:   "Unable to connect to  elasticsearch concept writer",
-//		Name:             "Check connectivity to concept-rw-elasticsearch",
-//		PanicGuide:       "https://sites.google.com/a/ft.com/universal-publishing/ops-guides/concept-ingestion",
-//		Severity:         1,
-//		TechnicalSummary: `Cannot connect to elasticsearch concept writer. If this check fails, check that the configured writer returns a healthy gtg`,
-//		Checker:          h.checkWriterAvailability(elasticSearchRoute),
-//	}
-//}
+func (h *AggregateConceptHandler) conceptRwNeo4jHealthCheck() v1a.Check {
+	return v1a.Check{
+		BusinessImpact:   "Unable to connect to concept writer neo4j",
+		Name:             "Check connectivity to concept-rw-neo4j",
+		PanicGuide:       "https://sites.google.com/a/ft.com/universal-publishing/ops-guides/concept-ingestion",
+		Severity:         1,
+		TechnicalSummary: `Cannot connect to concept writer neo4j. If this check fails, check that the configured writer returns a healthy gtg`,
+		Checker:          h.checkConceptWriterAvailability,
+	}
+}
+
+func (h *AggregateConceptHandler) conceptRwElasticSearchHealthCheck() v1a.Check {
+	return v1a.Check{
+		BusinessImpact:   "Unable to connect to  elasticsearch concept writer",
+		Name:             "Check connectivity to concept-rw-elasticsearch",
+		PanicGuide:       "https://sites.google.com/a/ft.com/universal-publishing/ops-guides/concept-ingestion",
+		Severity:         1,
+		TechnicalSummary: `Cannot connect to elasticsearch concept writer. If this check fails, check that the configured writer returns a healthy gtg`,
+		Checker:          h.checkElasticSearchWriterAvailability,
+	}
+}
