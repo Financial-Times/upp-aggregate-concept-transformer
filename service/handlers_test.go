@@ -1,32 +1,32 @@
 package service
 
 import (
+	"bytes"
+	"encoding/json"
+	"errors"
+	ut "github.com/Financial-Times/aggregate-concept-transformer/util"
+	awsSqs "github.com/aws/aws-sdk-go/service/sqs"
+	"github.com/gorilla/mux"
 	"github.com/stretchr/testify/assert"
 	"io"
 	"io/ioutil"
-	ut "github.com/Financial-Times/aggregate-concept-transformer/util"
-	awsSqs "github.com/aws/aws-sdk-go/service/sqs"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
-	"encoding/json"
-	"net/http"
-	"bytes"
-	"github.com/gorilla/mux"
-	"net/http/httptest"
-	"errors"
 )
 
 const (
 	ExpectedContentType = "application/json"
-	TOPIC               = "Concept"
 	UUID                = "61d707b5-6fab-3541-b017-49b72de80772"
 	TID                 = "tid_newTid"
 )
 
-var invalidPayload = `{"Payload": "invalid"}`
+var invalidJson = `invalid`
+var invalidPayload = `{"payload": "invalid"}`
+var missingKeyPayload = `{"Records":[{"s3":{}}]}`
 var vulcan = "http://localhost:8080/"
 var expectedUuid = "e9aebb8d-a67f-355e-ad6a-32d6f6741200"
-
 
 type mocks3Driver struct {
 	uuid    string
@@ -40,12 +40,22 @@ type mocks3Driver struct {
 type mockSqsDriver struct {
 }
 
-func TestExtractConceptUuidFromSqsMessage_ReturnsUuidFromValidMessage(t *testing.T) {
-	file, err := ioutil.ReadFile("../util/sqsMessage/testValidSqsMessage.json")
-	assert.NoError(t, err, "Should have been able to read test file")
-	extractedUuid, err := extractConceptUuidFromSqsMessage(string(file))
-	assert.NoError(t, err, "Should have been able to parse message")
-	assert.Equal(t, expectedUuid, extractedUuid)
+func TestExtractConceptUuidFromSqsMessage_ReturnsUnmarshalErrorFromInvalidJson(t *testing.T) {
+	_, err := extractConceptUuidFromSqsMessage(invalidJson)
+	assert.Error(t, err, "Should have been able to parse message")
+	assert.Contains(t, err.Error(), "Unmarshaling of concept json resulted in error")
+}
+
+func TestExtractConceptUuidFromSqsMessage_ReturnsCouldNotMapErrorFromInvalidPayload(t *testing.T) {
+	_, err := extractConceptUuidFromSqsMessage(invalidPayload)
+	assert.Error(t, err, "Should have been able to parse message")
+	assert.Contains(t, err.Error(), "Could not map message ")
+}
+
+func TestExtractConceptUuidFromSqsMessage_ReturnsKeyIsNotUuidErrorFromInvalidPayload(t *testing.T) {
+	_, err := extractConceptUuidFromSqsMessage(missingKeyPayload)
+	assert.Error(t, err, "Should have been able to parse message")
+	assert.Contains(t, err.Error(), "Could not extract concept uuid from message")
 }
 
 func TestExtractConceptUuidFromSqsMessage_ReturnsErrorFromInvalidUuidInMessage(t *testing.T) {
@@ -53,13 +63,15 @@ func TestExtractConceptUuidFromSqsMessage_ReturnsErrorFromInvalidUuidInMessage(t
 	assert.NoError(t, err, "Should have been able to read test file")
 	_, err = extractConceptUuidFromSqsMessage(string(file))
 	assert.Error(t, err, "Should have been able to parse message")
-	assert.Equal(t, err.Error(), "Message key: invalidUuid, was not expected format")
+	assert.Equal(t, err.Error(), "Message key: invalidUuid, is not a valid uuid")
 }
 
-func TestExtractConceptUuidFromSqsMessage_ReturnsErrorFromInvalidPayload(t *testing.T) {
-	_, err := extractConceptUuidFromSqsMessage(invalidPayload)
-	assert.Error(t, err, "Should have been able to parse message")
-	assert.Equal(t, "Could not map message to expected json format", err.Error())
+func TestExtractConceptUuidFromSqsMessage_ReturnsUuidFromValidMessage(t *testing.T) {
+	file, err := ioutil.ReadFile("../util/sqsMessage/testValidSqsMessage.json")
+	assert.NoError(t, err, "Should have been able to read test file")
+	extractedUuid, err := extractConceptUuidFromSqsMessage(string(file))
+	assert.NoError(t, err, "Should have been able to parse message")
+	assert.Equal(t, expectedUuid, extractedUuid)
 }
 
 func TestExtractConceptUuidFromSqsMessage_ReturnsErrorFromMissingUuidInMessage(t *testing.T) {
@@ -86,7 +98,8 @@ func TestMapJson_SuccessfullyMapFromOldWorldJsonToNew(t *testing.T) {
 	assert.NoError(t, err, "Should have been able to read test file")
 	sourceConceptModel := ut.SourceConceptJson{}
 	json.Unmarshal(conceptJson, &sourceConceptModel)
-	concordedJson := mapJson(sourceConceptModel)
+	concordedJson, err := mapJson(sourceConceptModel)
+	assert.NoError(t, err, "All values should be present in json")
 	assert.Equal(t, "61d707b5-6fab-3541-b017-49b72de80772", concordedJson.UUID)
 	assert.Equal(t, "Analysis", concordedJson.PrefLabel)
 	assert.Equal(t, "Genre", concordedJson.Type)
@@ -94,9 +107,30 @@ func TestMapJson_SuccessfullyMapFromOldWorldJsonToNew(t *testing.T) {
 	assert.Equal(t, "MQ==-R2VucmVz", concordedJson.SourceRepresentations[0].AuthValue)
 }
 
+func TestMapJson_MappingInvalidJsonThrowsErrors(t *testing.T) {
+	type testStruct struct {
+		Json          string
+		expectedError string
+	}
+	sourceConceptModel := ut.SourceConceptJson{}
+
+	BlankJson := testStruct{Json: `{}`, expectedError: "uuid must not be blank"}
+	OnlyUuid := testStruct{Json: `{"uuid":"e9aebb8d-a67f-355e-ad6a-32d6f6741200"}`, expectedError: "prefLabel must not be blank"}
+	OnlyUuidPrefLabel := testStruct{Json: `{"uuid":"e9aebb8d-a67f-355e-ad6a-32d6f6741200", "prefLabel":"prefLabel"}`, expectedError: "type must not be blank"}
+	NoIdentifier := testStruct{Json: `{"uuid":"e9aebb8d-a67f-355e-ad6a-32d6f6741200", "prefLabel":"prefLabel", "type":"concept"}`, expectedError: "must have source identifier"}
+	Collections := []testStruct{BlankJson, OnlyUuid, OnlyUuidPrefLabel, NoIdentifier}
+
+	for _, c := range Collections {
+		json.Unmarshal([]byte(c.Json), &sourceConceptModel)
+		_, err := mapJson(sourceConceptModel)
+		assert.Error(t, err, "All values should be present in json")
+		assert.Contains(t, err.Error(), c.expectedError)
+	}
+}
+
 func TestGetHandler_ResponseCodeAndErrorMessageWhenBadConnectionToS3(t *testing.T) {
 	r := mux.NewRouter()
-	ms3d := mocks3Driver{found: false, err: errors.New("")}
+	ms3d := mocks3Driver{found: false, err: errors.New("Cannot connect to s3")}
 	mSqsDriver := mockSqsDriver{}
 	h := NewHandler(&ms3d, &mSqsDriver, vulcan)
 	h.RegisterHandlers(r)
@@ -124,23 +158,6 @@ func TestGetHandler_ResponseCodeAndErrorWhenConceptNotFoundInS3(t *testing.T) {
 	assert.Equal(t, "{\"message\":\"Concept not found.\"}", rec.Body.String())
 }
 
-func TestGetHandler_ValidConceptGetsReturned(t *testing.T) {
-	r := mux.NewRouter()
-	genre, err := ioutil.ReadFile("../util/conceptJson/oldWorldGenre.json")
-	assert.NoError(t, err, "Error reading file ")
-	ms3d := mocks3Driver{found: true, payload: string(genre), tid: TID}
-	mSqsDriver := mockSqsDriver{}
-	h := NewHandler(&ms3d, &mSqsDriver, vulcan)
-	h.RegisterHandlers(r)
-
-	rec := httptest.NewRecorder()
-	r.ServeHTTP(rec, newRequest("GET", "/concept/"+UUID, string(genre)))
-
-	assert.Equal(t, 200, rec.Code)
-	assert.Equal(t, rec.HeaderMap["Content-Type"], []string{"application/json"})
-	assert.Equal(t, rec.HeaderMap["X-Request-Id"], []string{TID})
-}
-
 func TestGetHandler_TransactionIdIsGeneratedIfBucketDoesNotHaveOne(t *testing.T) {
 	r := mux.NewRouter()
 	genre, err := ioutil.ReadFile("../util/conceptJson/oldWorldGenre.json")
@@ -156,6 +173,53 @@ func TestGetHandler_TransactionIdIsGeneratedIfBucketDoesNotHaveOne(t *testing.T)
 	assert.Equal(t, 200, rec.Code)
 	assert.NotEqual(t, rec.HeaderMap["X-Request-Id"], []string{TID})
 	assert.Equal(t, rec.HeaderMap["Content-Type"], []string{"application/json"})
+}
+
+func TestGetHandler_InvalidConceptJsonThrowsError(t *testing.T) {
+	r := mux.NewRouter()
+	ms3d := mocks3Driver{found: true, payload: invalidJson}
+	mSqsDriver := mockSqsDriver{}
+	h := NewHandler(&ms3d, &mSqsDriver, vulcan)
+	h.RegisterHandlers(r)
+
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, newRequest("GET", "/concept/"+UUID, invalidPayload))
+
+	assert.Equal(t, 422, rec.Code)
+	assert.Equal(t, []string{"application/json"}, rec.HeaderMap["Content-Type"])
+	assert.Equal(t, "{\"message\":\"Invalid json returned from s3\"}", rec.Body.String())
+}
+
+func TestGetHandler_IncompleteConceptJsonThrowsErrorWhenMapped(t *testing.T) {
+	r := mux.NewRouter()
+	ms3d := mocks3Driver{found: true, payload: `{}`}
+	mSqsDriver := mockSqsDriver{}
+	h := NewHandler(&ms3d, &mSqsDriver, vulcan)
+	h.RegisterHandlers(r)
+
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, newRequest("GET", "/concept/"+UUID, invalidPayload))
+
+	assert.Equal(t, 422, rec.Code)
+	assert.Equal(t, []string{"application/json"}, rec.HeaderMap["Content-Type"])
+	assert.Equal(t, "{\"message\":\"Json from s3 cannot be concorded as it is missing key fields\"}", rec.Body.String())
+}
+
+func TestGetHandler_ValidConceptGetsReturned(t *testing.T) {
+	r := mux.NewRouter()
+	genre, err := ioutil.ReadFile("../util/conceptJson/oldWorldGenre.json")
+	assert.NoError(t, err, "Error reading file ")
+	ms3d := mocks3Driver{found: true, payload: string(genre), tid: TID}
+	mSqsDriver := mockSqsDriver{}
+	h := NewHandler(&ms3d, &mSqsDriver, vulcan)
+	h.RegisterHandlers(r)
+
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, newRequest("GET", "/concept/"+UUID, string(genre)))
+
+	assert.Equal(t, 200, rec.Code)
+	assert.Equal(t, rec.HeaderMap["Content-Type"], []string{"application/json"})
+	assert.Equal(t, rec.HeaderMap["X-Request-Id"], []string{TID})
 }
 
 func (md *mocks3Driver) GetConceptAndTransactionId(UUID string) (bool, io.ReadCloser, string, error) {
@@ -184,34 +248,12 @@ func (md *mockSqsDriver) HealthCheck() (string, error) {
 }
 
 func (md *mockSqsDriver) ListenAndServeQueue() []*awsSqs.Message {
-	//file, _ := ioutil.ReadFile("../util/sqsMessage/fullMessage.json")
-	//message := awsSqs.Message{Body: aws.String(string(file))}
-	//return []*awsSqs.Message{&message}
 	return []*awsSqs.Message{}
 }
 
 func (md *mockSqsDriver) RemoveMessageFromQueue(receiptHandle *string) error {
 	return nil
 }
-
-//
-//func (msp *mockSyncProducer) SendMessage(msg *sarama.ProducerMessage) (int32, int64, error) {
-//	var err error
-//	if msp.err != nil {
-//		err = msp.err
-//	}
-//	return 0, 0, err
-//}
-//
-//func (msp *mockSyncProducer) SendMessages(msgs []*sarama.ProducerMessage) error {
-//	msp.err = nil
-//	return msp.err
-//}
-//
-//func (msp *mockSyncProducer) Close() error {
-//	msp.err = nil
-//	return msp.err
-//}
 
 func newRequest(method, url string, body string) *http.Request {
 	var payload io.Reader

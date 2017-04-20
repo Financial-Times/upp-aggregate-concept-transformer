@@ -13,8 +13,10 @@ import (
 	"github.com/Financial-Times/go-fthealth/v1a"
 	"github.com/Financial-Times/http-handlers-go/httphandlers"
 	status "github.com/Financial-Times/service-status-go/httphandlers"
+	"github.com/Financial-Times/transactionid-utils-go"
 	log "github.com/Sirupsen/logrus"
 	awsSqs "github.com/aws/aws-sdk-go/service/sqs"
+	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
 	"github.com/rcrowley/go-metrics"
 	"io"
@@ -24,8 +26,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-	"github.com/gorilla/handlers"
-	"github.com/Financial-Times/transactionid-utils-go"
 )
 
 var keyMatcher = regexp.MustCompile("^[0-9a-f]{8}/[0-9a-f]{4}/[0-9a-f]{4}/[0-9a-f]{4}/[0-9a-f]{12}$")
@@ -94,7 +94,6 @@ func (h *AggregateConceptHandler) processMessage(message *awsSqs.Message) error 
 
 	log.Infof("Processing message for concept with uuid: %s", updatedUuid)
 
-
 	found, resp, tid, err := h.s3.GetConceptAndTransactionId(updatedUuid)
 	if !found {
 		if err != nil {
@@ -112,7 +111,10 @@ func (h *AggregateConceptHandler) processMessage(message *awsSqs.Message) error 
 	}
 	conceptType := resolveConceptType(strings.ToLower(sourceConceptModel.Type))
 
-	concordedJson := mapJson(sourceConceptModel)
+	concordedJson, err := mapJson(sourceConceptModel)
+	if err != nil {
+		return err
+	}
 	result, err := json.Marshal(concordedJson)
 	if err != nil {
 		return err
@@ -181,14 +183,25 @@ func (h *AggregateConceptHandler) GetHandler(rw http.ResponseWriter, r *http.Req
 	sourceConceptModel := ut.SourceConceptJson{}
 	err = json.Unmarshal(b, &sourceConceptModel)
 	if err != nil {
-		log.Errorf("Unmarshalling of concept json resulted in error: %s", err.Error())
+		log.Errorf("Unmarshaling of concept json resulted in error: %s", err.Error())
+		rw.Header().Set("Content-Type", "application/json")
+		rw.WriteHeader(http.StatusUnprocessableEntity)
+		rw.Write([]byte("{\"message\":\"Invalid json returned from s3\"}"))
 		return
 	}
 
-	concordedJson := mapJson(sourceConceptModel)
+	concordedJson, err := mapJson(sourceConceptModel)
+	if err != nil {
+		log.Errorf("Mapping of concorded json resulted in error: %s", err.Error())
+		rw.Header().Set("Content-Type", "application/json")
+		rw.WriteHeader(http.StatusUnprocessableEntity)
+		rw.Write([]byte("{\"message\":\"Json from s3 cannot be concorded as it is missing key fields\"}"))
+		return
+	}
+
 	output, err := json.Marshal(concordedJson)
 	if err != nil {
-		log.Errorf("Marshalling of concorded json resulted in error: %s", err.Error())
+		log.Errorf("Marshaling of concorded json resulted in error: %s", err.Error())
 		return
 	}
 
@@ -198,9 +211,13 @@ func (h *AggregateConceptHandler) GetHandler(rw http.ResponseWriter, r *http.Req
 	rw.Write(output)
 }
 
-func mapJson(sourceConceptJson ut.SourceConceptJson) ut.ConcordedConceptJson {
-	//Whilst this is not very nice; its a stop-gap until we tackle concordance
+//Whilst this is not very nice; its a stop-gap until we properly tackle concordance
+func mapJson(sourceConceptJson ut.SourceConceptJson) (ut.ConcordedConceptJson, error) {
 	concordedConceptModel := ut.ConcordedConceptJson{}
+	err := validateJson(sourceConceptJson)
+	if err != nil {
+		return concordedConceptModel, err
+	}
 	sourceRep := ut.SourceRepresentation{}
 	sourceReps := ut.SourceRepresentations{}
 	sourceRep.UUID = sourceConceptJson.UUID
@@ -216,17 +233,31 @@ func mapJson(sourceConceptJson ut.SourceConceptJson) ut.ConcordedConceptJson {
 	concordedConceptModel.PrefLabel = sourceConceptJson.PrefLabel
 	sourceReps = append(sourceReps, sourceRep)
 	concordedConceptModel.SourceRepresentations = sourceReps
-	return concordedConceptModel
+	return concordedConceptModel, nil
+}
+
+func validateJson(conceptJson ut.SourceConceptJson) error {
+	if conceptJson.UUID == "" {
+		return errors.New("Invalid Concept; uuid must not be blank")
+	} else if conceptJson.PrefLabel == "" {
+		return errors.New("Invalid Concept; prefLabel must not be blank")
+	} else if conceptJson.Type == "" {
+		return errors.New("Invalid Concept; type must not be blank")
+	} else if len(conceptJson.AlternativeIdentifiers.TME) == 0 {
+		return errors.New("Invalid Concept; must have source identifier")
+	} else {
+		return nil
+	}
 }
 
 func extractConceptUuidFromSqsMessage(sqsMessageBody string) (string, error) {
 	sqsMessageRecord := ut.Message{}
 	err := json.Unmarshal([]byte(sqsMessageBody), &sqsMessageRecord)
 	if err != nil {
-		return "", err
+		return "", errors.New("Unmarshaling of concept json resulted in error: " + err.Error())
 	}
 	if sqsMessageRecord.Records == nil {
-		return "", errors.New("Could not map message to expected json format")
+		return "", errors.New("Could not map message " + sqsMessageBody + " to expected json format")
 	}
 	key := sqsMessageRecord.Records[0].S3.Object.Key
 	if key == "" {
@@ -234,7 +265,7 @@ func extractConceptUuidFromSqsMessage(sqsMessageBody string) (string, error) {
 	}
 
 	if keyMatcher.MatchString(key) != true {
-		return "", errors.New("Message key: " + key + ", was not expected format")
+		return "", errors.New("Message key: " + key + ", is not a valid uuid")
 	}
 	return strings.Replace(key, "/", "-", 4), err
 }
@@ -289,7 +320,7 @@ func resolveConceptType(conceptType string) string {
 func (h *AggregateConceptHandler) RegisterHandlers(router *mux.Router) {
 	log.Info("Registering handlers")
 	mh := handlers.MethodHandler{
-		"GET":  http.HandlerFunc(h.GetHandler),
+		"GET": http.HandlerFunc(h.GetHandler),
 	}
 	router.Handle("/concept/{uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}}", mh)
 }
