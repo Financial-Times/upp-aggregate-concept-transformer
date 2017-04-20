@@ -1,0 +1,49 @@
+{
+  "Type" : "Notification",
+  "MessageId" : "a3a33eb3-f19d-5939-a91b-6fc2ce8bfafd",
+  "TopicArn" : "arn:aws:sns:eu-west-1:12345:QueueTopic",
+  "Subject" : "Amazon S3 Notification",
+  "Message" : {
+    "Records": [
+      {
+        "eventVersion": "2.0",
+        "eventSource": "aws:s3",
+        "awsRegion": "eu-west-1",
+        "eventTime": "2017-01-01T00:00:00.000Z",
+        "eventName": "ObjectCreated:Put",
+        "userIdentity": {
+          "principalId": "AWS:RAND0MID"
+        },
+        "requestParameters": {
+          "sourceIPAddress": "127.0.0.1"
+        },
+        "responseElements": {
+          "x-amz-request-id": "ABC123",
+          "x-amz-id-2": "xAmZ/RanD0M1D="
+        },
+        "s3": {
+          "s3SchemaVersion": "1.0",
+          "configurationId": "AwsConf1gK3y",
+          "bucket": {
+            "name": "com.ft.upp.concept-store.environment",
+            "ownerIdentity": {
+              "principalId": "A1PLEZNVZFLG6X"
+            },
+            "arn": "arn:aws:s3:::com.ft.upp.concept-store.environment"
+          },
+          "object": {
+            "key": "e9aebb8d\/a67f\/355e\/ad6a\/32d6f6741200",
+            "size": 269,
+            "eTag": "411f528cee8cfb7b49370ed288b62be7",
+            "sequencer": "0058F733E91F967F75"
+          }
+        }
+      }
+    ]
+  },
+  "Timestamp" : "2017-01-01T00:00:00.000Z",
+  "SignatureVersion" : "1",
+  "Signature" : "S1gNaTur3",
+  "SigningCertURL" : "https://sns.eu-west-1.amazonaws.com/SimpleNotificationService-Rand0m.pem",
+  "UnsubscribeURL" : "https://sns.eu-west-1.amazonaws.com/?Action=Unsubscribe&SubscriptionArn=arn:aws:sns:eu-west-1:12345:QueueTopic:uuid"
+}

@@ -93,6 +93,7 @@ func main() {
 
 		router := mux.NewRouter()
 		handler := service.NewHandler(s3Client, sqsClient, *vulcanAddress)
+		handler.RegisterHandlers(router)
 		handler.RegisterAdminHandlers(router)
 
 		go handler.Run()

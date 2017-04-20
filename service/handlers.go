@@ -24,6 +24,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"github.com/gorilla/handlers"
+	"github.com/Financial-Times/transactionid-utils-go"
 )
 
 var keyMatcher = regexp.MustCompile("^[0-9a-f]{8}/[0-9a-f]{4}/[0-9a-f]{4}/[0-9a-f]{4}/[0-9a-f]{12}$")
@@ -92,8 +94,6 @@ func (h *AggregateConceptHandler) processMessage(message *awsSqs.Message) error 
 
 	log.Infof("Processing message for concept with uuid: %s", updatedUuid)
 
-	//Check for concordance and do it
-	checkForConcordances(updatedUuid)
 
 	found, resp, tid, err := h.s3.GetConceptAndTransactionId(updatedUuid)
 	if !found {
@@ -107,10 +107,16 @@ func (h *AggregateConceptHandler) processMessage(message *awsSqs.Message) error 
 	sourceConceptJson, err := ioutil.ReadAll(resp)
 	sourceConceptModel := ut.SourceConceptJson{}
 	err = json.Unmarshal(sourceConceptJson, &sourceConceptModel)
+	if err != nil {
+		return err
+	}
 	conceptType := resolveConceptType(strings.ToLower(sourceConceptModel.Type))
 
 	concordedJson := mapJson(sourceConceptModel)
 	result, err := json.Marshal(concordedJson)
+	if err != nil {
+		return err
+	}
 
 	//Write to Neo4j
 	err = sendToWriter(h.vulcanAddress+conceptWriterRoute, conceptType, updatedUuid, result, tid)
@@ -135,8 +141,65 @@ func (h *AggregateConceptHandler) processMessage(message *awsSqs.Message) error 
 
 	return nil
 }
+
+func (h *AggregateConceptHandler) GetHandler(rw http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	conceptUuid := vars["uuid"]
+
+	//TODO check for concordance
+
+	found, resp, tid, err := h.s3.GetConceptAndTransactionId(conceptUuid)
+	if !found {
+		if err != nil {
+			log.Errorf("Error retrieving concept: %s", err.Error())
+			rw.Header().Set("Content-Type", "application/json")
+			rw.WriteHeader(http.StatusServiceUnavailable)
+			rw.Write([]byte("{\"message\":\"Error retrieving concept.\"}"))
+			return
+		}
+		log.Errorf("Concept not found: %s", conceptUuid)
+		rw.Header().Set("Content-Type", "application/json")
+		rw.WriteHeader(http.StatusNotFound)
+		rw.Write([]byte("{\"message\":\"Concept not found.\"}"))
+		return
+	}
+
+	defer resp.Close()
+	b, err := ioutil.ReadAll(resp)
+	if err != nil {
+		log.Errorf("Error reading concept from buffer: %s", err.Error())
+		rw.Header().Set("Content-Type", "application/json")
+		rw.WriteHeader(http.StatusServiceUnavailable)
+		rw.Write([]byte("{\"message\":\"Error retrieving concept.\"}"))
+		return
+	}
+	if tid == "" {
+		log.Warnf("Concept %s did not have transaction id set in s3 metadata so one was generated", conceptUuid)
+		tid = transactionidutils.GetTransactionIDFromRequest(r)
+	}
+
+	sourceConceptModel := ut.SourceConceptJson{}
+	err = json.Unmarshal(b, &sourceConceptModel)
+	if err != nil {
+		log.Errorf("Unmarshalling of concept json resulted in error: %s", err.Error())
+		return
+	}
+
+	concordedJson := mapJson(sourceConceptModel)
+	output, err := json.Marshal(concordedJson)
+	if err != nil {
+		log.Errorf("Marshalling of concorded json resulted in error: %s", err.Error())
+		return
+	}
+
+	rw.Header().Set("Content-Type", "application/json")
+	rw.Header().Set("X-Request-Id", tid)
+	rw.WriteHeader(http.StatusOK)
+	rw.Write(output)
+}
+
 func mapJson(sourceConceptJson ut.SourceConceptJson) ut.ConcordedConceptJson {
-	//This is not very nice but in it will have to do in lieu of real concordance
+	//Whilst this is not very nice; its a stop-gap until we tackle concordance
 	concordedConceptModel := ut.ConcordedConceptJson{}
 	sourceRep := ut.SourceRepresentation{}
 	sourceReps := ut.SourceRepresentations{}
@@ -156,19 +219,14 @@ func mapJson(sourceConceptJson ut.SourceConceptJson) ut.ConcordedConceptJson {
 	return concordedConceptModel
 }
 
-//TODO Not doing anything currently
-func checkForConcordances(updatedUuid string) []string {
-	//Should check for concordance and return list of uuids
-	var uuidList []string
-	uuidList = append(uuidList, updatedUuid)
-	return uuidList
-}
-
 func extractConceptUuidFromSqsMessage(sqsMessageBody string) (string, error) {
 	sqsMessageRecord := ut.Message{}
 	err := json.Unmarshal([]byte(sqsMessageBody), &sqsMessageRecord)
 	if err != nil {
 		return "", err
+	}
+	if sqsMessageRecord.Records == nil {
+		return "", errors.New("Could not map message to expected json format")
 	}
 	key := sqsMessageRecord.Records[0].S3.Object.Key
 	if key == "" {
@@ -176,7 +234,7 @@ func extractConceptUuidFromSqsMessage(sqsMessageBody string) (string, error) {
 	}
 
 	if keyMatcher.MatchString(key) != true {
-		return "", errors.New("Message key: " + key + " was not expected format")
+		return "", errors.New("Message key: " + key + ", was not expected format")
 	}
 	return strings.Replace(key, "/", "-", 4), err
 }
@@ -215,12 +273,25 @@ func createWriteRequest(baseUrl string, urlParam string, msgBody io.Reader, uuid
 //Turn stored singular type to plural form
 func resolveConceptType(conceptType string) string {
 	var messageType string
-	if conceptType == "person" {
+	switch conceptType {
+	case "person":
 		messageType = "people"
-	} else {
+	case "alphavilleseries":
+		messageType = "alphaville-series"
+	case "specialreports":
+		messageType = "special-reports"
+	default:
 		messageType = conceptType + "s"
 	}
 	return messageType
+}
+
+func (h *AggregateConceptHandler) RegisterHandlers(router *mux.Router) {
+	log.Info("Registering handlers")
+	mh := handlers.MethodHandler{
+		"GET":  http.HandlerFunc(h.GetHandler),
+	}
+	router.Handle("/concept/{uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}}", mh)
 }
 
 func (h *AggregateConceptHandler) RegisterAdminHandlers(router *mux.Router) {
