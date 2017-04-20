@@ -309,7 +309,7 @@ func resolveConceptType(conceptType string) string {
 		messageType = "people"
 	case "alphavilleseries":
 		messageType = "alphaville-series"
-	case "specialreports":
+	case "specialreport":
 		messageType = "special-reports"
 	default:
 		messageType = conceptType + "s"

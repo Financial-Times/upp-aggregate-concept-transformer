@@ -87,7 +87,7 @@ func TestResolveMessageType_ReturnCorrectMessageTypes(t *testing.T) {
 	assert.Equal(t, "people", messageTypePerson)
 	messageTypeAlphaSer := resolveConceptType("alphavilleseries")
 	assert.Equal(t, "alphaville-series", messageTypeAlphaSer)
-	messageTypeSpecRep := resolveConceptType("specialreports")
+	messageTypeSpecRep := resolveConceptType("specialreport")
 	assert.Equal(t, "special-reports", messageTypeSpecRep)
 	messageTypeOther := resolveConceptType("topic")
 	assert.Equal(t, "topics", messageTypeOther)
