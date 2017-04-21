@@ -67,7 +67,6 @@ func (h *AggregateConceptHandler) Run() {
 
 func (h *AggregateConceptHandler) ProcessMessages(messages []*awsSqs.Message) {
 	numMessages := len(messages)
-
 	var wg sync.WaitGroup
 	wg.Add(numMessages)
 	for i := range messages {
@@ -83,10 +82,13 @@ func (h *AggregateConceptHandler) ProcessMessages(messages []*awsSqs.Message) {
 func (h *AggregateConceptHandler) processMessage(message *awsSqs.Message) error {
 	receiptHandle := message.ReceiptHandle
 	sqsMessageBody := ut.Body{}
-	err := json.Unmarshal([]byte(*message.Body), &sqsMessageBody)
+	messageAsBytes := []byte(*message.Body)
+	err := json.Unmarshal(messageAsBytes, &sqsMessageBody)
+
 	if err != nil {
 		return err
 	}
+
 	updatedUuid, err := extractConceptUuidFromSqsMessage(sqsMessageBody.Message)
 	if err != nil {
 		return err
@@ -111,23 +113,24 @@ func (h *AggregateConceptHandler) processMessage(message *awsSqs.Message) error 
 	}
 	conceptType := resolveConceptType(strings.ToLower(sourceConceptModel.Type))
 
-	concordedJson, err := mapJson(sourceConceptModel)
+	concordedConcept, err := mapJson(sourceConceptModel, updatedUuid)
 	if err != nil {
 		return err
 	}
-	result, err := json.Marshal(concordedJson)
+
+	concordedJson, err := json.Marshal(concordedConcept)
 	if err != nil {
 		return err
 	}
 
 	//Write to Neo4j
-	err = sendToWriter(h.vulcanAddress+conceptWriterRoute, conceptType, updatedUuid, result, tid)
+	err = sendToWriter(h.vulcanAddress+conceptWriterRoute, conceptType, updatedUuid, concordedJson, tid)
 	if err != nil {
 		return err
 	}
 
 	//Write to elastic search
-	err = sendToWriter(h.vulcanAddress+elasticSearchRoute, conceptType, updatedUuid, result, tid)
+	err = sendToWriter(h.vulcanAddress+elasticSearchRoute, conceptType, updatedUuid, concordedJson, tid)
 	if err != nil {
 		return err
 	}
@@ -190,7 +193,7 @@ func (h *AggregateConceptHandler) GetHandler(rw http.ResponseWriter, r *http.Req
 		return
 	}
 
-	concordedJson, err := mapJson(sourceConceptModel)
+	concordedJson, err := mapJson(sourceConceptModel, conceptUuid)
 	if err != nil {
 		log.Errorf("Mapping of concorded json resulted in error: %s", err.Error())
 		rw.Header().Set("Content-Type", "application/json")
@@ -212,9 +215,9 @@ func (h *AggregateConceptHandler) GetHandler(rw http.ResponseWriter, r *http.Req
 }
 
 //Whilst this is not very nice; its a stop-gap until we properly tackle concordance
-func mapJson(sourceConceptJson ut.SourceConceptJson) (ut.ConcordedConceptJson, error) {
+func mapJson(sourceConceptJson ut.SourceConceptJson, conceptUuid string) (ut.ConcordedConceptJson, error) {
 	concordedConceptModel := ut.ConcordedConceptJson{}
-	err := validateJson(sourceConceptJson)
+	err := validateJson(sourceConceptJson, conceptUuid)
 	if err != nil {
 		return concordedConceptModel, err
 	}
@@ -236,15 +239,15 @@ func mapJson(sourceConceptJson ut.SourceConceptJson) (ut.ConcordedConceptJson, e
 	return concordedConceptModel, nil
 }
 
-func validateJson(conceptJson ut.SourceConceptJson) error {
+func validateJson(conceptJson ut.SourceConceptJson, conceptUuid string) error {
 	if conceptJson.UUID == "" {
-		return errors.New("Invalid Concept; uuid must not be blank")
+		return errors.New("Invalid Concept json for uuid " + conceptUuid + "; uuid field must not be blank")
 	} else if conceptJson.PrefLabel == "" {
-		return errors.New("Invalid Concept; prefLabel must not be blank")
+		return errors.New("Invalid Concept json for uuid " + conceptJson.UUID + "; prefLabel field must not be blank")
 	} else if conceptJson.Type == "" {
-		return errors.New("Invalid Concept; type must not be blank")
+		return errors.New("Invalid Concept json for uuid " + conceptJson.UUID + "; type field must not be blank")
 	} else if len(conceptJson.AlternativeIdentifiers.TME) == 0 {
-		return errors.New("Invalid Concept; must have source identifier")
+		return errors.New("Invalid Concept json for uuid " + conceptJson.UUID + "; must have source identifier field")
 	} else {
 		return nil
 	}
@@ -280,7 +283,7 @@ func sendToWriter(baseUrl string, urlParam string, conceptUuid string, body []by
 
 	resp, reqErr := httpClient.Do(request)
 	if reqErr != nil {
-		return errors.New("Request to writer " + reqUrl + " for uuid " + conceptUuid + " failed with error " + reqErr.Error())
+		return errors.New("Request to writer " + baseUrl + " for uuid " + conceptUuid + " failed with error " + reqErr.Error())
 	}
 	defer resp.Body.Close()
 
