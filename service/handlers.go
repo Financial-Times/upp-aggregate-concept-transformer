@@ -20,39 +20,33 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/rcrowley/go-metrics"
 	"io"
-	"net"
 	"regexp"
 	"strconv"
 	"strings"
 	"sync"
-	"time"
 )
 
 var keyMatcher = regexp.MustCompile("^[0-9a-f]{8}/[0-9a-f]{4}/[0-9a-f]{4}/[0-9a-f]{4}/[0-9a-f]{12}$")
 var conceptWriterRoute = "__concepts-rw-neo4j/"
 var elasticSearchRoute = "__concept-rw-elasticsearch/"
 
-var httpClient = http.Client{
-	Transport: &http.Transport{
-		MaxIdleConnsPerHost: 128,
-		Dial: (&net.Dialer{
-			Timeout:   30 * time.Second,
-			KeepAlive: 30 * time.Second,
-		}).Dial,
-	},
-}
-
 type AggregateConceptHandler struct {
 	s3            s3.S3Driver
 	sqs           sqs.SqsDriver
 	vulcanAddress string
+	httpClient    httpClient
 }
 
-func NewHandler(s3Driver s3.S3Driver, sqs sqs.SqsDriver, vulcanAddress string) AggregateConceptHandler {
+type httpClient interface {
+	Do(req *http.Request) (resp *http.Response, err error)
+}
+
+func NewHandler(s3Driver s3.S3Driver, sqs sqs.SqsDriver, vulcanAddress string, httpClient httpClient) AggregateConceptHandler {
 	return AggregateConceptHandler{
 		s3:            s3Driver,
 		sqs:           sqs,
 		vulcanAddress: vulcanAddress,
+		httpClient:    httpClient,
 	}
 }
 
@@ -111,6 +105,7 @@ func (h *AggregateConceptHandler) processMessage(message *awsSqs.Message) error 
 	if err != nil {
 		return err
 	}
+
 	conceptType := resolveConceptType(strings.ToLower(sourceConceptModel.Type))
 
 	concordedConcept, err := mapJson(sourceConceptModel, updatedUuid)
@@ -124,13 +119,13 @@ func (h *AggregateConceptHandler) processMessage(message *awsSqs.Message) error 
 	}
 
 	//Write to Neo4j
-	err = sendToWriter(h.vulcanAddress+conceptWriterRoute, conceptType, updatedUuid, concordedJson, tid)
+	err = sendToWriter(h.httpClient, h.vulcanAddress+conceptWriterRoute, conceptType, updatedUuid, concordedJson, tid)
 	if err != nil {
 		return err
 	}
 
 	//Write to elastic search
-	err = sendToWriter(h.vulcanAddress+elasticSearchRoute, conceptType, updatedUuid, concordedJson, tid)
+	err = sendToWriter(h.httpClient, h.vulcanAddress+elasticSearchRoute, conceptType, updatedUuid, concordedJson, tid)
 	if err != nil {
 		return err
 	}
@@ -273,7 +268,7 @@ func extractConceptUuidFromSqsMessage(sqsMessageBody string) (string, error) {
 	return strings.Replace(key, "/", "-", 4), err
 }
 
-func sendToWriter(baseUrl string, urlParam string, conceptUuid string, body []byte, tid string) error {
+func sendToWriter(client httpClient, baseUrl string, urlParam string, conceptUuid string, body []byte, tid string) error {
 	request, reqUrl, err := createWriteRequest(baseUrl, urlParam, strings.NewReader(string(body)), conceptUuid)
 	if err != nil {
 		return errors.New("Failed to create request to " + reqUrl + " with body " + string(body))
@@ -281,15 +276,13 @@ func sendToWriter(baseUrl string, urlParam string, conceptUuid string, body []by
 	request.ContentLength = -1
 	request.Header.Set("X-Request-Id", tid)
 
-	resp, reqErr := httpClient.Do(request)
-	if reqErr != nil {
-		return errors.New("Request to writer " + baseUrl + " for uuid " + conceptUuid + " failed with error " + reqErr.Error())
+	resp, reqErr := client.Do(request)
+
+	if reqErr != nil || resp.StatusCode != 200 {
+		return errors.New("Request to " + reqUrl + " returned status: " + strconv.Itoa(resp.StatusCode) + "; skipping " + conceptUuid)
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != 200 {
-		return errors.New("Request to " + reqUrl + " returned status " + strconv.Itoa(resp.StatusCode) + "; skipping " + conceptUuid)
-	}
 	return nil
 }
 
@@ -299,7 +292,7 @@ func createWriteRequest(baseUrl string, urlParam string, msgBody io.Reader, uuid
 
 	request, err := http.NewRequest("PUT", reqURL, msgBody)
 	if err != nil {
-		return nil, reqURL, fmt.Errorf("Failed to create request to %v with body %v", reqURL, msgBody)
+		return nil, reqURL, fmt.Errorf("Failed to create request to %s with body %s", reqURL, msgBody)
 	}
 	return request, reqURL, err
 }
@@ -335,6 +328,7 @@ func (h *AggregateConceptHandler) RegisterAdminHandlers(router *mux.Router) {
 	monitoringRouter = httphandlers.HTTPMetricsHandler(metrics.DefaultRegistry, monitoringRouter)
 
 	var checks []v1a.Check = []v1a.Check{h.s3HealthCheck(), h.sqsHealthCheck(), h.conceptRwNeo4jHealthCheck(), h.conceptRwElasticSearchHealthCheck()}
+	fmt.Print("We got here!\n")
 	http.HandleFunc("/__health", v1a.Handler("ConceptIngester Healthchecks", "Checks for accessing writer", checks...))
 	http.HandleFunc("/__gtg", h.gtgCheck)
 	http.HandleFunc("/__ping", status.PingHandler)
@@ -372,21 +366,25 @@ func (h *AggregateConceptHandler) gtgCheck(rw http.ResponseWriter, r *http.Reque
 	if _, err := h.s3.HealthCheck(); err != nil {
 		log.Errorf("S3 Healthcheck failed; %v", err.Error())
 		rw.WriteHeader(http.StatusServiceUnavailable)
+		rw.Write([]byte("S3 healthcheck failed"))
 		return
 	}
 	if _, err := h.sqs.HealthCheck(); err != nil {
 		log.Errorf("SQS Healthcheck failed; %v", err.Error())
 		rw.WriteHeader(http.StatusServiceUnavailable)
+		rw.Write([]byte("SQS healthcheck failed"))
 		return
 	}
 	if _, err := h.checkConceptWriterAvailability(); err != nil {
 		log.Errorf("Concept rw neo4j Healthcheck failed; %v", err.Error())
 		rw.WriteHeader(http.StatusServiceUnavailable)
+		rw.Write([]byte("Concept Rw Neo4j healthcheck failed"))
 		return
 	}
 	if _, err := h.checkElasticSearchWriterAvailability(); err != nil {
 		log.Errorf("Concept rw elastic search Healthcheck failed; %v", err.Error())
 		rw.WriteHeader(http.StatusServiceUnavailable)
+		rw.Write([]byte("Elastic Search Rw healthcheck failed"))
 		return
 	}
 	rw.WriteHeader(http.StatusOK)

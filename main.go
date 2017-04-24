@@ -11,7 +11,19 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/jawher/mow.cli"
 	_ "github.com/joho/godotenv/autoload"
+	"net"
+	"time"
 )
+
+var httpClient = http.Client{
+	Transport: &http.Transport{
+		MaxIdleConnsPerHost: 128,
+		Dial: (&net.Dialer{
+			Timeout:   30 * time.Second,
+			KeepAlive: 30 * time.Second,
+		}).Dial,
+	},
+}
 
 func main() {
 
@@ -92,7 +104,7 @@ func main() {
 		}
 
 		router := mux.NewRouter()
-		handler := service.NewHandler(s3Client, sqsClient, *vulcanAddress)
+		handler := service.NewHandler(s3Client, sqsClient, *vulcanAddress, &httpClient)
 		handler.RegisterHandlers(router)
 		handler.RegisterAdminHandlers(router)
 

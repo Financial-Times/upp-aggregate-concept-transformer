@@ -2,7 +2,7 @@
 
 [![Circle CI](https://circleci.com/gh/Financial-Times/aggregate-concept-transformer/tree/master.png?style=shield)](https://circleci.com/gh/Financial-Times/aggregate-concept-transformer/tree/master) [![Coverage Status](https://coveralls.io/repos/github/Financial-Times/aggregate-concept-transformer/badge.svg)](https://coveralls.io/github/Financial-Times/aggregate-concept-transformer)
 
-__A service for reading concepts from an Amazon s3 bucket and either serving them as a response or writing them to a kafka queue__
+__A service which gets notified of updates to concepts in an Amazon s3 bucket via sqs. It then returns all uuids with concordance to said concept, requests each in turn from s3, build concorded json model and writes updated concept to both Neo4j and Elastic Search__
 
 # Installation
 
@@ -19,9 +19,12 @@ or update:
 ```
 $GOPATH/bin/aggregate-concept-transformer
 --bucketName=com.ft.upp-concept-store
---topic=Concept
---kafkaAddress=localhost:9092
 --awsRegion=eu-west-1
+--queueUrl=https://amazonSqs/sqsQueue
+--messagesToProcess=10
+--visibilityTimeout=10
+--waitTime=10
+--vulcanAddress=http://localhost:8080/
 --port=8080
 ```
 
@@ -40,19 +43,19 @@ AWS_ACCESS_KEY_ID=AKID1234567890
 AWS_SECRET_ACCESS_KEY=MY-SECRET-KEY
 ```
 
-The bucketName, awsRegion, kafkaAddress and  topic arguments are mandatory. 
+The bucketName and queueUrl arguments are mandatory. 
 
 # Endpoints
 
-Return concept from s3 with match uuid:
+Return concorded concept from s3 with match uuid:
 
 `http://localhost:8080/concept/{uuid} -X GET`
-
-Post concept returned from s3 to kafka queue:
-
-`http://localhost:8080/concept/{uuid} -X POST`
 
 ## Admin Endpoints
 Health checks: `http://localhost:8080/__health`
 
 Good to go: `http://localhost:8080/__gtg`
+
+Ping: `http://localhost:8080/__ping`
+
+Build info: `http://localhost:8080/__build-info`
