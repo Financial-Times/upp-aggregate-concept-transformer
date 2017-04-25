@@ -106,7 +106,7 @@ func (h *AggregateConceptHandler) processMessage(message *awsSqs.Message) error 
 	if err != nil {
 		return err
 	}
-	sourceConceptModel := ut.SourceConceptJson{}
+	sourceConceptModel := ut.SourceRepresentation{}
 	err = json.Unmarshal(sourceConceptJson, &sourceConceptModel)
 	if err != nil {
 		return err
@@ -185,7 +185,7 @@ func (h *AggregateConceptHandler) GetHandler(rw http.ResponseWriter, r *http.Req
 		tid = transactionidutils.GetTransactionIDFromRequest(r)
 	}
 
-	sourceConceptModel := ut.SourceConceptJson{}
+	sourceConceptModel := ut.SourceRepresentation{}
 	err = json.Unmarshal(b, &sourceConceptModel)
 	if err != nil {
 		log.Errorf("Unmarshaling of concept json resulted in error: %s", err.Error())
@@ -217,39 +217,32 @@ func (h *AggregateConceptHandler) GetHandler(rw http.ResponseWriter, r *http.Req
 }
 
 //Whilst this is not very nice; its a stop-gap until we properly tackle concordance
-func mapJson(sourceConceptJson ut.SourceConceptJson, conceptUuid string) (ut.ConcordedConceptJson, error) {
+func mapJson(sourceConceptJson ut.SourceRepresentation, conceptUuid string) (ut.ConcordedConceptJson, error) {
 	concordedConceptModel := ut.ConcordedConceptJson{}
 	err := validateJson(sourceConceptJson, conceptUuid)
 	if err != nil {
 		return concordedConceptModel, err
 	}
-	sourceRep := ut.SourceRepresentation{}
 	sourceReps := ut.SourceRepresentations{}
-	sourceRep.UUID = sourceConceptJson.UUID
-	sourceRep.PrefLabel = sourceConceptJson.PrefLabel
-	sourceRep.Type = sourceConceptJson.Type
-	sourceRep.Authority = "TME"
-	for _, value := range sourceConceptJson.AlternativeIdentifiers.TME {
-
-		sourceRep.AuthValue = value
-	}
 	concordedConceptModel.Type = sourceConceptJson.Type
 	concordedConceptModel.UUID = sourceConceptJson.UUID
 	concordedConceptModel.PrefLabel = sourceConceptJson.PrefLabel
-	sourceReps = append(sourceReps, sourceRep)
+	sourceReps = append(sourceReps, sourceConceptJson)
 	concordedConceptModel.SourceRepresentations = sourceReps
 	return concordedConceptModel, nil
 }
 
-func validateJson(conceptJson ut.SourceConceptJson, conceptUuid string) error {
+func validateJson(conceptJson ut.SourceRepresentation, conceptUuid string) error {
 	if conceptJson.UUID == "" {
 		return errors.New("Invalid Concept json for uuid " + conceptUuid + "; uuid field must not be blank")
 	} else if conceptJson.PrefLabel == "" {
 		return errors.New("Invalid Concept json for uuid " + conceptJson.UUID + "; prefLabel field must not be blank")
 	} else if conceptJson.Type == "" {
 		return errors.New("Invalid Concept json for uuid " + conceptJson.UUID + "; type field must not be blank")
-	} else if len(conceptJson.AlternativeIdentifiers.TME) == 0 {
-		return errors.New("Invalid Concept json for uuid " + conceptJson.UUID + "; must have source identifier field")
+	} else if conceptJson.Authority == "" {
+		return errors.New("Invalid Concept json for uuid " + conceptJson.UUID + "; identifier authority field must not be blank")
+	} else if conceptJson.AuthValue == "" {
+		return errors.New("Invalid Concept json for uuid " + conceptJson.UUID + "; identifier value field must not be blank")
 	} else {
 		return nil
 	}

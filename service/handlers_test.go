@@ -77,7 +77,7 @@ func TestAdminHandler_PingAndBuildInfo(t *testing.T) {
 
 func TestProcessMessages_ErrorHandling(t *testing.T) {
 	r := mux.NewRouter()
-	genre := getFileAsBytesArray(t, "../util/conceptJson/oldWorldGenre.json")
+	genre := getFileAsBytesArray(t, "../util/conceptJson/genre.json")
 	validMessage := awsSqs.Message{Body: aws.String(string(getFileAsBytesArray(t, "../util/sqsMessage/sqsMessage_valid.json")))}
 	invalidMessage := awsSqs.Message{Body: aws.String("")}
 	invalidUuid := awsSqs.Message{Body: aws.String(string(getFileAsBytesArray(t, "../util/sqsMessage/sqsMessage_InvalidUuid.json")))}
@@ -114,7 +114,7 @@ func TestProcessMessages_ErrorHandling(t *testing.T) {
 
 func TestProcessMessages_ProcessesValidMessageWithNoErrors(t *testing.T) {
 	r := mux.NewRouter()
-	genre := getFileAsBytesArray(t, "../util/conceptJson/oldWorldGenre.json")
+	genre := getFileAsBytesArray(t, "../util/conceptJson/genre.json")
 	validMessage := awsSqs.Message{Body: aws.String(string(getFileAsBytesArray(t, "../util/sqsMessage/sqsMessage_valid.json")))}
 
 	type testStruct struct {
@@ -178,13 +178,14 @@ func TestMapJson_MappingInvalidJsonThrowsErrors(t *testing.T) {
 		Json          string
 		expectedError string
 	}
-	sourceConceptModel := ut.SourceConceptJson{}
+	sourceConceptModel := ut.SourceRepresentation{}
 
 	BlankJson := testStruct{Json: `{}`, expectedError: "uuid field must not be blank"}
 	OnlyUuid := testStruct{Json: `{"uuid":"e9aebb8d-a67f-355e-ad6a-32d6f6741200"}`, expectedError: "prefLabel field must not be blank"}
 	OnlyUuidPrefLabel := testStruct{Json: `{"uuid":"e9aebb8d-a67f-355e-ad6a-32d6f6741200", "prefLabel":"prefLabel"}`, expectedError: "type field must not be blank"}
-	NoIdentifier := testStruct{Json: `{"uuid":"e9aebb8d-a67f-355e-ad6a-32d6f6741200", "prefLabel":"prefLabel", "type":"concept"}`, expectedError: "must have source identifier"}
-	Collections := []testStruct{BlankJson, OnlyUuid, OnlyUuidPrefLabel, NoIdentifier}
+	NoIdentifierAuthority := testStruct{Json: `{"uuid":"e9aebb8d-a67f-355e-ad6a-32d6f6741200", "prefLabel":"prefLabel", "type":"concept"}`, expectedError: "identifier authority field must not be blank"}
+	NoIdentifierValue := testStruct{Json: `{"uuid":"e9aebb8d-a67f-355e-ad6a-32d6f6741200", "prefLabel":"prefLabel", "type":"concept", "authority":"TME"}`, expectedError: "identifier value field must not be blank"}
+	Collections := []testStruct{BlankJson, OnlyUuid, OnlyUuidPrefLabel, NoIdentifierAuthority, NoIdentifierValue}
 
 	for _, c := range Collections {
 		json.Unmarshal([]byte(c.Json), &sourceConceptModel)
@@ -195,8 +196,8 @@ func TestMapJson_MappingInvalidJsonThrowsErrors(t *testing.T) {
 }
 
 func TestMapJson_SuccessfullyMapFromOldWorldJsonToNew(t *testing.T) {
-	conceptJson := getFileAsBytesArray(t, "../util/conceptJson/oldWorldGenre.json")
-	sourceConceptModel := ut.SourceConceptJson{}
+	conceptJson := getFileAsBytesArray(t, "../util/conceptJson/genre.json")
+	sourceConceptModel := ut.SourceRepresentation{}
 	json.Unmarshal(conceptJson, &sourceConceptModel)
 	concordedJson, err := mapJson(sourceConceptModel, UUID)
 	assert.NoError(t, err, "All values should be present in json")
@@ -241,7 +242,7 @@ func TestGetHandler_ResponseCodeAndErrorWhenConceptNotFoundInS3(t *testing.T) {
 
 func TestGetHandler_TransactionIdIsGeneratedIfBucketDoesNotHaveOne(t *testing.T) {
 	r := mux.NewRouter()
-	genre := getFileAsBytesArray(t, "../util/conceptJson/oldWorldGenre.json")
+	genre := getFileAsBytesArray(t, "../util/conceptJson/genre.json")
 	ms3d := mocks3Driver{found: true, payload: string(genre)}
 	mSqsDriver := mockSqsDriver{}
 	mhc := mockHttpClient{}
@@ -290,7 +291,7 @@ func TestGetHandler_IncompleteConceptJsonThrowsErrorWhenMapped(t *testing.T) {
 
 func TestGetHandler_ValidConceptGetsReturned(t *testing.T) {
 	r := mux.NewRouter()
-	genre := getFileAsBytesArray(t, "../util/conceptJson/oldWorldGenre.json")
+	genre := getFileAsBytesArray(t, "../util/conceptJson/genre.json")
 	ms3d := mocks3Driver{found: true, payload: string(genre), tid: TID}
 	mSqsDriver := mockSqsDriver{}
 	mhc := mockHttpClient{}

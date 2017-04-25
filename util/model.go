@@ -1,30 +1,6 @@
 package service
 
-type Concept struct {
-	UUID                   string                 `json:"uuid"`
-	PrefLabel              string                 `json:"prefLabel"`
-	AlternativeIdentifiers alternativeIdentifiers `json:"alternativeIdentifiers"`
-	Type                   string                 `json:"type,omitempty"`
-}
-
-type alternativeIdentifiers struct {
-	TME   []string `json:"TME,omitempty"`
-	UUIDS []string `json:"uuids"`
-}
-
 type SourceRepresentations []SourceRepresentation
-
-type SourceConceptJson struct {
-	Aliases                []string `json:"aliases"`
-	AlternativeIdentifiers struct {
-		TME   []string `json:"TME"`
-		Uuids []string `json:"uuids"`
-	} `json:"alternativeIdentifiers"`
-	Name      string `json:"name"`
-	PrefLabel string `json:"prefLabel"`
-	Type      string `json:"type"`
-	UUID      string `json:"uuid"`
-}
 
 type ConcordedConceptJson struct {
 	PrefLabel             string                `json:"prefLabel"`
