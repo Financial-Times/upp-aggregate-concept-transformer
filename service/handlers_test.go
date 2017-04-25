@@ -21,12 +21,12 @@ const (
 	ExpectedContentType = "application/json"
 	UUID                = "e9aebb8d-a67f-355e-ad6a-32d6f6741200"
 	TID                 = "tid_newTid"
+	VULCAN              = "http://localhost:8080/"
 )
 
 var invalidJson = `{"payload":}`
 var invalidPayload = `{"payload": "invalid"}`
 var missingKeyPayload = `{"Records":[{"s3":{}}]}`
-var vulcan = "http://localhost:8080/"
 
 type mocks3Driver struct {
 	uuid    string
@@ -52,7 +52,7 @@ func TestAdminHandler_PingAndBuildInfo(t *testing.T) {
 	mhc := mockHttpClient{}
 	ms3d := mocks3Driver{}
 	msQsD := mockSqsDriver{}
-	h := NewHandler(&ms3d, &msQsD, vulcan, &mhc)
+	h := NewHandler(&ms3d, &msQsD, VULCAN, &mhc)
 	h.RegisterAdminHandlers(r)
 	rec := httptest.NewRecorder()
 
@@ -75,20 +75,6 @@ func TestAdminHandler_PingAndBuildInfo(t *testing.T) {
 	}
 }
 
-//func TestAdminHandler_Gtg(t *testing.T) {
-//	r := mux.NewRouter()
-//	mhc := mockHttpClient{}
-//	ms3d := mocks3Driver{err: errors.New("Cannot connect to s3")}
-//	msQsD := mockSqsDriver{}
-//	h := NewHandler(&ms3d, &msQsD, vulcan, &mhc)
-//	//httptest.Server{URL: vulcan}
-//	h.RegisterAdminHandlers(r)
-//	rec := httptest.NewRecorder()
-//	http.DefaultServeMux.ServeHTTP(rec, newRequest("GET", "/__gtg", ""))
-//	assert.Equal(t, 503, rec.Code)
-//	assert.Contains(t, rec.Body.String(), "S3 Healthcheck failed")
-//}
-
 func TestProcessMessages_ErrorHandling(t *testing.T) {
 	r := mux.NewRouter()
 	genre := getFileAsBytesArray(t, "../util/conceptJson/oldWorldGenre.json")
@@ -110,14 +96,14 @@ func TestProcessMessages_ErrorHandling(t *testing.T) {
 	s3ConceptNotFound := testStruct{message: validMessage, expectedError: "Concept not found", ms3d: mocks3Driver{found: false}, mhc: mockHttpClient{}}
 	jsonUnmarshalConceptError := testStruct{message: validMessage, expectedError: "cannot unmarshal string", ms3d: mocks3Driver{found: true, payload: "\"payload\""}, mhc: mockHttpClient{}}
 	invalidConceptJsonError := testStruct{message: validMessage, expectedError: "Invalid Concept", ms3d: mocks3Driver{found: true, payload: invalidPayload}, mhc: mockHttpClient{}}
-	conceptRw404 := testStruct{message: validMessage, expectedError: "Request to http://localhost:8080/__concepts-rw-neo4j/genres/e9aebb8d-a67f-355e-ad6a-32d6f6741200 returned status: 404", ms3d: mocks3Driver{found: true, payload: string(genre)}, mhc: mockHttpClient{statusCode: 404, resp: "Not Found"}}
+	conceptRw404 := testStruct{message: validMessage, expectedError: "Request to http://localhost:8080/__concepts-rw-neo4j/genres/e9aebb8d-a67f-355e-ad6a-32d6f6741200 returned status: 404", ms3d: mocks3Driver{found: true, payload: string(genre)}, mhc: mockHttpClient{statusCode: 404}}
 	conceptRw503 := testStruct{message: validMessage, expectedError: "Request to http://localhost:8080/__concepts-rw-neo4j/genres/e9aebb8d-a67f-355e-ad6a-32d6f6741200 returned status: 503", ms3d: mocks3Driver{found: true, payload: string(genre)}, mhc: mockHttpClient{statusCode: 503, err: errors.New("Unavailable")}}
 	deleteMessageError := testStruct{message: validMessage, expectedError: "Receipt handle does not exist", ms3d: mocks3Driver{found: true, payload: string(genre)}, mhc: mockHttpClient{statusCode: 200}, msQsD: mockSqsDriver{err: errors.New("Receipt handle does not exist")}}
 
 	Collections := []testStruct{jsonUnmarshalMessageError, invalidUuidError, s3NotAvailable, s3ConceptNotFound, jsonUnmarshalConceptError, invalidConceptJsonError, conceptRw404, conceptRw503, deleteMessageError}
 
 	for _, collection := range Collections {
-		h := NewHandler(&collection.ms3d, &collection.msQsD, vulcan, &collection.mhc)
+		h := NewHandler(&collection.ms3d, &collection.msQsD, VULCAN, &collection.mhc)
 		h.RegisterHandlers(r)
 
 		err := h.processMessage(&collection.message)
@@ -141,7 +127,7 @@ func TestProcessMessages_ProcessesValidMessageWithNoErrors(t *testing.T) {
 
 	messageProcessedWithNoErrors := testStruct{message: validMessage, ms3d: mocks3Driver{found: true, payload: string(genre)}, mhc: mockHttpClient{statusCode: 200}}
 
-	h := NewHandler(&messageProcessedWithNoErrors.ms3d, &messageProcessedWithNoErrors.msQsD, vulcan, &messageProcessedWithNoErrors.mhc)
+	h := NewHandler(&messageProcessedWithNoErrors.ms3d, &messageProcessedWithNoErrors.msQsD, VULCAN, &messageProcessedWithNoErrors.mhc)
 	h.RegisterHandlers(r)
 
 	err := h.processMessage(&messageProcessedWithNoErrors.message)
@@ -226,7 +212,7 @@ func TestGetHandler_ResponseCodeAndErrorMessageWhenBadConnectionToS3(t *testing.
 	ms3d := mocks3Driver{found: false, err: errors.New("Cannot connect to s3")}
 	mSqsDriver := mockSqsDriver{}
 	mhc := mockHttpClient{}
-	h := NewHandler(&ms3d, &mSqsDriver, vulcan, mhc)
+	h := NewHandler(&ms3d, &mSqsDriver, VULCAN, mhc)
 	h.RegisterHandlers(r)
 
 	rec := httptest.NewRecorder()
@@ -242,7 +228,7 @@ func TestGetHandler_ResponseCodeAndErrorWhenConceptNotFoundInS3(t *testing.T) {
 	ms3d := mocks3Driver{found: false}
 	mSqsDriver := mockSqsDriver{}
 	mhc := mockHttpClient{}
-	h := NewHandler(&ms3d, &mSqsDriver, vulcan, mhc)
+	h := NewHandler(&ms3d, &mSqsDriver, VULCAN, mhc)
 	h.RegisterHandlers(r)
 
 	rec := httptest.NewRecorder()
@@ -259,7 +245,7 @@ func TestGetHandler_TransactionIdIsGeneratedIfBucketDoesNotHaveOne(t *testing.T)
 	ms3d := mocks3Driver{found: true, payload: string(genre)}
 	mSqsDriver := mockSqsDriver{}
 	mhc := mockHttpClient{}
-	h := NewHandler(&ms3d, &mSqsDriver, vulcan, mhc)
+	h := NewHandler(&ms3d, &mSqsDriver, VULCAN, mhc)
 	h.RegisterHandlers(r)
 
 	rec := httptest.NewRecorder()
@@ -275,7 +261,7 @@ func TestGetHandler_InvalidConceptJsonThrowsError(t *testing.T) {
 	ms3d := mocks3Driver{found: true, payload: invalidJson}
 	mSqsDriver := mockSqsDriver{}
 	mhc := mockHttpClient{}
-	h := NewHandler(&ms3d, &mSqsDriver, vulcan, &mhc)
+	h := NewHandler(&ms3d, &mSqsDriver, VULCAN, &mhc)
 	h.RegisterHandlers(r)
 
 	rec := httptest.NewRecorder()
@@ -291,7 +277,7 @@ func TestGetHandler_IncompleteConceptJsonThrowsErrorWhenMapped(t *testing.T) {
 	ms3d := mocks3Driver{found: true, payload: `{}`}
 	mSqsDriver := mockSqsDriver{}
 	mhc := mockHttpClient{}
-	h := NewHandler(&ms3d, &mSqsDriver, vulcan, &mhc)
+	h := NewHandler(&ms3d, &mSqsDriver, VULCAN, &mhc)
 	h.RegisterHandlers(r)
 
 	rec := httptest.NewRecorder()
@@ -308,7 +294,7 @@ func TestGetHandler_ValidConceptGetsReturned(t *testing.T) {
 	ms3d := mocks3Driver{found: true, payload: string(genre), tid: TID}
 	mSqsDriver := mockSqsDriver{}
 	mhc := mockHttpClient{}
-	h := NewHandler(&ms3d, &mSqsDriver, vulcan, &mhc)
+	h := NewHandler(&ms3d, &mSqsDriver, VULCAN, &mhc)
 	h.RegisterHandlers(r)
 
 	rec := httptest.NewRecorder()

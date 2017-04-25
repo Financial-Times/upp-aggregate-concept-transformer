@@ -80,6 +80,7 @@ func (c *Client) GetConceptAndTransactionId(UUID string) (bool, io.ReadCloser, s
 		return false, nil, "", err
 	}
 	tid := ho.Metadata["Transaction_id"]
+
 	return true, resp.Body, *tid, err
 }
 

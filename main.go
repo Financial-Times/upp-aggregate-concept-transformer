@@ -38,7 +38,6 @@ func main() {
 
 	awsRegion := app.String(cli.StringOpt{
 		Name:   "awsRegion",
-		Value:  "eu-west-1",
 		Desc:   "AWS Region to connect to",
 		EnvVar: "AWS_REGION",
 	})
@@ -91,6 +90,10 @@ func main() {
 		if *queueUrl == "" {
 			log.Fatal("SQS queue url not set")
 			return
+		}
+
+		if *awsRegion == "" {
+			log.Fatal("Aws Region not set")
 		}
 
 		s3Client, err := s3.NewClient(*bucketName, *awsRegion)

@@ -88,6 +88,8 @@ func (h *AggregateConceptHandler) processMessage(message *awsSqs.Message) error 
 		return err
 	}
 
+	//TODO check for concordance
+
 	log.Infof("Processing message for concept with uuid: %s", updatedUuid)
 
 	found, resp, tid, err := h.s3.GetConceptAndTransactionId(updatedUuid)
@@ -100,6 +102,10 @@ func (h *AggregateConceptHandler) processMessage(message *awsSqs.Message) error 
 
 	defer resp.Close()
 	sourceConceptJson, err := ioutil.ReadAll(resp)
+
+	if err != nil {
+		return err
+	}
 	sourceConceptModel := ut.SourceConceptJson{}
 	err = json.Unmarshal(sourceConceptJson, &sourceConceptModel)
 	if err != nil {
@@ -108,6 +114,7 @@ func (h *AggregateConceptHandler) processMessage(message *awsSqs.Message) error 
 
 	conceptType := resolveConceptType(strings.ToLower(sourceConceptModel.Type))
 
+	//old world json to new world
 	concordedConcept, err := mapJson(sourceConceptModel, updatedUuid)
 	if err != nil {
 		return err
@@ -170,7 +177,7 @@ func (h *AggregateConceptHandler) GetHandler(rw http.ResponseWriter, r *http.Req
 		log.Errorf("Error reading concept from buffer: %s", err.Error())
 		rw.Header().Set("Content-Type", "application/json")
 		rw.WriteHeader(http.StatusServiceUnavailable)
-		rw.Write([]byte("{\"message\":\"Error retrieving concept.\"}"))
+		rw.Write([]byte("{\"message\":\"Error reading concept from buffer.\"}"))
 		return
 	}
 	if tid == "" {
@@ -328,7 +335,6 @@ func (h *AggregateConceptHandler) RegisterAdminHandlers(router *mux.Router) {
 	monitoringRouter = httphandlers.HTTPMetricsHandler(metrics.DefaultRegistry, monitoringRouter)
 
 	var checks []v1a.Check = []v1a.Check{h.s3HealthCheck(), h.sqsHealthCheck(), h.conceptRwNeo4jHealthCheck(), h.conceptRwElasticSearchHealthCheck()}
-	fmt.Print("We got here!\n")
 	http.HandleFunc("/__health", v1a.Handler("ConceptIngester Healthchecks", "Checks for accessing writer", checks...))
 	http.HandleFunc("/__gtg", h.gtgCheck)
 	http.HandleFunc("/__ping", status.PingHandler)
