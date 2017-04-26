@@ -1,0 +1,38 @@
+{
+  "Records": [
+    {
+      "eventVersion": "2.0",
+      "eventSource": "aws:s3",
+      "awsRegion": "eu-west-1",
+      "eventTime": "2017-01-01T00:00:00.000Z",
+      "eventName": "ObjectCreated:Put",
+      "userIdentity": {
+        "principalId": "AWS:RAND0MID"
+      },
+      "requestParameters": {
+        "sourceIPAddress": "127.0.0.1"
+      },
+      "responseElements": {
+        "x-amz-request-id": "ABC123",
+        "x-amz-id-2": "xAmZ/RanD0M1D="
+      },
+      "s3": {
+        "s3SchemaVersion": "1.0",
+        "configurationId": "AwsConf1gK3y",
+        "bucket": {
+          "name": "com.ft.upp.concept-store.environment",
+          "ownerIdentity": {
+            "principalId": "A1PLEZNVZFLG6X"
+          },
+          "arn": "arn:aws:s3:::com.ft.upp.concept-store.environment"
+        },
+        "object": {
+          "key": "invalidUuid",
+          "size": 269,
+          "eTag": "411f528cee8cfb7b49370ed288b62be7",
+          "sequencer": "0058F733E91F967F75"
+        }
+      }
+    }
+  ]
+}

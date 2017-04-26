@@ -2,9 +2,11 @@ package service
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
-	"github.com/Financial-Times/aggregate-concept-transformer/kafka"
-	"github.com/Shopify/sarama"
+	ut "github.com/Financial-Times/aggregate-concept-transformer/util"
+	"github.com/aws/aws-sdk-go/aws"
+	awsSqs "github.com/aws/aws-sdk-go/service/sqs"
 	"github.com/gorilla/mux"
 	"github.com/stretchr/testify/assert"
 	"io"
@@ -17,26 +19,14 @@ import (
 
 const (
 	ExpectedContentType = "application/json"
-	TOPIC               = "Concept"
-	UUID                = "61d707b5-6fab-3541-b017-49b72de80772"
+	UUID                = "e9aebb8d-a67f-355e-ad6a-32d6f6741200"
 	TID                 = "tid_newTid"
+	VULCAN              = "http://localhost:8080/"
 )
 
-var testGenrePayload = `{
-  "uuid": "61d707b5-6fab-3541-b017-49b72de80772",
-  "alternativeIdentifiers": {
-    "TME": [
-      "MQ==-R2VucmVz"
-    ],
-    "uuids": [
-      "61d707b5-6fab-3541-b017-49b72de80772"
-    ]
-  },
-  "prefLabel": "Analysis",
-  "type": "Genre"
-}`
-
-var invalidPayload = `{Payload}`
+var invalidJson = `{"payload":}`
+var invalidPayload = `{"payload": "invalid"}`
+var missingKeyPayload = `{"Records":[{"s3":{}}]}`
 
 type mocks3Driver struct {
 	uuid    string
@@ -47,15 +37,183 @@ type mocks3Driver struct {
 	err     error
 }
 
-type mockSyncProducer struct {
+type mockSqsDriver struct {
 	err error
+}
+
+type mockHttpClient struct {
+	resp       string
+	statusCode int
+	err        error
+}
+
+func TestAdminHandler_PingAndBuildInfo(t *testing.T) {
+	r := mux.NewRouter()
+	mhc := mockHttpClient{}
+	ms3d := mocks3Driver{}
+	msQsD := mockSqsDriver{}
+	h := NewHandler(&ms3d, &msQsD, VULCAN, &mhc)
+	h.RegisterAdminHandlers(r)
+	rec := httptest.NewRecorder()
+
+	type testStruct struct {
+		endpoint           string
+		expectedStatusCode int
+		expectedBody       string
+		expectedError      string
+	}
+
+	pingChecker := testStruct{endpoint: "/__ping", expectedStatusCode: 200, expectedBody: "pong"}
+	buildInfoChecker := testStruct{endpoint: "/__build-info", expectedStatusCode: 200, expectedBody: "Version  is not a semantic version"}
+
+	Collections := []testStruct{pingChecker, buildInfoChecker}
+
+	for _, col := range Collections {
+		http.DefaultServeMux.ServeHTTP(rec, newRequest("GET", col.endpoint, ""))
+		assert.Equal(t, col.expectedStatusCode, rec.Code)
+		assert.Contains(t, rec.Body.String(), col.expectedBody)
+	}
+}
+
+func TestProcessMessages_ErrorHandling(t *testing.T) {
+	r := mux.NewRouter()
+	genre := getFileAsBytesArray(t, "../util/conceptJson/genre.json")
+	validMessage := awsSqs.Message{Body: aws.String(string(getFileAsBytesArray(t, "../util/sqsMessage/sqsMessage_valid.json")))}
+	invalidMessage := awsSqs.Message{Body: aws.String("")}
+	invalidUuid := awsSqs.Message{Body: aws.String(string(getFileAsBytesArray(t, "../util/sqsMessage/sqsMessage_InvalidUuid.json")))}
+
+	type testStruct struct {
+		message       awsSqs.Message
+		ms3d          mocks3Driver
+		msQsD         mockSqsDriver
+		mhc           mockHttpClient
+		expectedError string
+	}
+
+	jsonUnmarshalMessageError := testStruct{message: invalidMessage, expectedError: "unexpected end of JSON input", ms3d: mocks3Driver{}, mhc: mockHttpClient{}}
+	invalidUuidError := testStruct{message: invalidUuid, expectedError: "Message key: invalidUuid, is not a valid uuid", ms3d: mocks3Driver{}, mhc: mockHttpClient{}}
+	s3NotAvailable := testStruct{message: validMessage, expectedError: "Error retrieving concept", ms3d: mocks3Driver{found: false, err: errors.New("Cannot connect to s3")}, mhc: mockHttpClient{}}
+	s3ConceptNotFound := testStruct{message: validMessage, expectedError: "Concept not found", ms3d: mocks3Driver{found: false}, mhc: mockHttpClient{}}
+	jsonUnmarshalConceptError := testStruct{message: validMessage, expectedError: "cannot unmarshal string", ms3d: mocks3Driver{found: true, payload: "\"payload\""}, mhc: mockHttpClient{}}
+	invalidConceptJsonError := testStruct{message: validMessage, expectedError: "Invalid Concept", ms3d: mocks3Driver{found: true, payload: invalidPayload}, mhc: mockHttpClient{}}
+	conceptRw404 := testStruct{message: validMessage, expectedError: "Request to http://localhost:8080/__concepts-rw-neo4j/genres/e9aebb8d-a67f-355e-ad6a-32d6f6741200 returned status: 404", ms3d: mocks3Driver{found: true, payload: string(genre)}, mhc: mockHttpClient{statusCode: 404}}
+	conceptRw503 := testStruct{message: validMessage, expectedError: "Request to http://localhost:8080/__concepts-rw-neo4j/genres/e9aebb8d-a67f-355e-ad6a-32d6f6741200 returned status: 503", ms3d: mocks3Driver{found: true, payload: string(genre)}, mhc: mockHttpClient{statusCode: 503, err: errors.New("Unavailable")}}
+	deleteMessageError := testStruct{message: validMessage, expectedError: "Receipt handle does not exist", ms3d: mocks3Driver{found: true, payload: string(genre)}, mhc: mockHttpClient{statusCode: 200}, msQsD: mockSqsDriver{err: errors.New("Receipt handle does not exist")}}
+
+	Collections := []testStruct{jsonUnmarshalMessageError, invalidUuidError, s3NotAvailable, s3ConceptNotFound, jsonUnmarshalConceptError, invalidConceptJsonError, conceptRw404, conceptRw503, deleteMessageError}
+
+	for _, collection := range Collections {
+		h := NewHandler(&collection.ms3d, &collection.msQsD, VULCAN, &collection.mhc)
+		h.RegisterHandlers(r)
+
+		err := h.processMessage(&collection.message)
+		assert.Error(t, err, "Should be an error")
+		assert.Contains(t, err.Error(), collection.expectedError)
+	}
+}
+
+func TestProcessMessages_ProcessesValidMessageWithNoErrors(t *testing.T) {
+	r := mux.NewRouter()
+	genre := getFileAsBytesArray(t, "../util/conceptJson/genre.json")
+	validMessage := awsSqs.Message{Body: aws.String(string(getFileAsBytesArray(t, "../util/sqsMessage/sqsMessage_valid.json")))}
+
+	type testStruct struct {
+		message       awsSqs.Message
+		ms3d          mocks3Driver
+		msQsD         mockSqsDriver
+		mhc           mockHttpClient
+		expectedError string
+	}
+
+	messageProcessedWithNoErrors := testStruct{message: validMessage, ms3d: mocks3Driver{found: true, payload: string(genre)}, mhc: mockHttpClient{statusCode: 200}}
+
+	h := NewHandler(&messageProcessedWithNoErrors.ms3d, &messageProcessedWithNoErrors.msQsD, VULCAN, &messageProcessedWithNoErrors.mhc)
+	h.RegisterHandlers(r)
+
+	err := h.processMessage(&messageProcessedWithNoErrors.message)
+	assert.NoError(t, err, "Should not be any errors")
+
+}
+
+func TestExtractConceptUuidFromSqsMessage_ErrorHandling(t *testing.T) {
+	type testStruct struct {
+		Json          string
+		expectedError string
+	}
+
+	invalidUuidFile := getFileAsBytesArray(t, "../util/sqsMessage/sqsRecord_InvalidUuid.json")
+	Test1 := testStruct{Json: string(invalidUuidFile), expectedError: "Message key: invalidUuid, is not a valid uuid"}
+	Test2 := testStruct{Json: invalidJson, expectedError: "Unmarshaling of concept json resulted in error"}
+	Test3 := testStruct{Json: invalidPayload, expectedError: "Could not map message "}
+	Test4 := testStruct{Json: missingKeyPayload, expectedError: "Could not extract concept uuid from message"}
+	Collections := []testStruct{Test1, Test2, Test3, Test4}
+
+	for _, c := range Collections {
+		_, err := extractConceptUuidFromSqsMessage(c.Json)
+		assert.Error(t, err, c.Json+" should throw error:"+c.expectedError)
+		assert.Contains(t, err.Error(), c.expectedError)
+	}
+}
+
+func TestExtractConceptUuidFromSqsMessage_ReturnsUuidFromValidMessage(t *testing.T) {
+	file := getFileAsBytesArray(t, "../util/sqsMessage/sqsRecord_valid.json")
+	extractedUuid, err := extractConceptUuidFromSqsMessage(string(file))
+	assert.NoError(t, err, "Should have been able to parse message")
+	assert.Equal(t, UUID, extractedUuid)
+}
+
+func TestResolveMessageType_ReturnCorrectMessageTypes(t *testing.T) {
+	messageTypePerson := resolveConceptType("person")
+	assert.Equal(t, "people", messageTypePerson)
+	messageTypeAlphaSer := resolveConceptType("alphavilleseries")
+	assert.Equal(t, "alphaville-series", messageTypeAlphaSer)
+	messageTypeSpecRep := resolveConceptType("specialreport")
+	assert.Equal(t, "special-reports", messageTypeSpecRep)
+	messageTypeOther := resolveConceptType("topic")
+	assert.Equal(t, "topics", messageTypeOther)
+}
+
+func TestMapJson_MappingInvalidJsonThrowsErrors(t *testing.T) {
+	type testStruct struct {
+		Json          string
+		expectedError string
+	}
+	sourceConceptModel := ut.SourceRepresentation{}
+
+	BlankJson := testStruct{Json: `{}`, expectedError: "uuid field must not be blank"}
+	OnlyUuid := testStruct{Json: `{"uuid":"e9aebb8d-a67f-355e-ad6a-32d6f6741200"}`, expectedError: "prefLabel field must not be blank"}
+	OnlyUuidPrefLabel := testStruct{Json: `{"uuid":"e9aebb8d-a67f-355e-ad6a-32d6f6741200", "prefLabel":"prefLabel"}`, expectedError: "type field must not be blank"}
+	NoIdentifierAuthority := testStruct{Json: `{"uuid":"e9aebb8d-a67f-355e-ad6a-32d6f6741200", "prefLabel":"prefLabel", "type":"concept"}`, expectedError: "identifier authority field must not be blank"}
+	NoIdentifierValue := testStruct{Json: `{"uuid":"e9aebb8d-a67f-355e-ad6a-32d6f6741200", "prefLabel":"prefLabel", "type":"concept", "authority":"TME"}`, expectedError: "identifier value field must not be blank"}
+	Collections := []testStruct{BlankJson, OnlyUuid, OnlyUuidPrefLabel, NoIdentifierAuthority, NoIdentifierValue}
+
+	for _, c := range Collections {
+		json.Unmarshal([]byte(c.Json), &sourceConceptModel)
+		_, err := mapJson(sourceConceptModel, UUID)
+		assert.Error(t, err, "All values should be present in json")
+		assert.Contains(t, err.Error(), c.expectedError)
+	}
+}
+
+func TestMapJson_SuccessfullyMapFromOldWorldJsonToNew(t *testing.T) {
+	conceptJson := getFileAsBytesArray(t, "../util/conceptJson/genre.json")
+	sourceConceptModel := ut.SourceRepresentation{}
+	json.Unmarshal(conceptJson, &sourceConceptModel)
+	concordedJson, err := mapJson(sourceConceptModel, UUID)
+	assert.NoError(t, err, "All values should be present in json")
+	assert.Equal(t, "61d707b5-6fab-3541-b017-49b72de80772", concordedJson.UUID)
+	assert.Equal(t, "Analysis", concordedJson.PrefLabel)
+	assert.Equal(t, "Genre", concordedJson.Type)
+	assert.Equal(t, "TME", concordedJson.SourceRepresentations[0].Authority)
+	assert.Equal(t, "MQ==-R2VucmVz", concordedJson.SourceRepresentations[0].AuthValue)
 }
 
 func TestGetHandler_ResponseCodeAndErrorMessageWhenBadConnectionToS3(t *testing.T) {
 	r := mux.NewRouter()
-	ms3d := mocks3Driver{found: false, err: errors.New("")}
-	mkc := kafka.Client{Producer: &mockSyncProducer{}, Topic: TOPIC}
-	h := NewHandler(&ms3d, mkc)
+	ms3d := mocks3Driver{found: false, err: errors.New("Cannot connect to s3")}
+	mSqsDriver := mockSqsDriver{}
+	mhc := mockHttpClient{}
+	h := NewHandler(&ms3d, &mSqsDriver, VULCAN, mhc)
 	h.RegisterHandlers(r)
 
 	rec := httptest.NewRecorder()
@@ -69,8 +227,9 @@ func TestGetHandler_ResponseCodeAndErrorMessageWhenBadConnectionToS3(t *testing.
 func TestGetHandler_ResponseCodeAndErrorWhenConceptNotFoundInS3(t *testing.T) {
 	r := mux.NewRouter()
 	ms3d := mocks3Driver{found: false}
-	mkc := kafka.Client{Producer: &mockSyncProducer{}, Topic: TOPIC}
-	h := NewHandler(&ms3d, mkc)
+	mSqsDriver := mockSqsDriver{}
+	mhc := mockHttpClient{}
+	h := NewHandler(&ms3d, &mSqsDriver, VULCAN, mhc)
 	h.RegisterHandlers(r)
 
 	rec := httptest.NewRecorder()
@@ -81,139 +240,76 @@ func TestGetHandler_ResponseCodeAndErrorWhenConceptNotFoundInS3(t *testing.T) {
 	assert.Equal(t, "{\"message\":\"Concept not found.\"}", rec.Body.String())
 }
 
-func TestGetHandler_ValidConceptGetsReturned(t *testing.T) {
-	r := mux.NewRouter()
-	ms3d := mocks3Driver{found: true, payload: "genre", tid: TID}
-	mkc := kafka.Client{Producer: &mockSyncProducer{}, Topic: TOPIC}
-	h := NewHandler(&ms3d, mkc)
-	h.RegisterHandlers(r)
-
-	rec := httptest.NewRecorder()
-	r.ServeHTTP(rec, newRequest("GET", "/concept/"+UUID, testGenrePayload))
-
-	assert.Equal(t, 200, rec.Code)
-	assert.Equal(t, []string{TID}, rec.HeaderMap["X-Request-Id"])
-	assert.Equal(t, rec.HeaderMap["Content-Type"], []string{"application/json"})
-}
-
 func TestGetHandler_TransactionIdIsGeneratedIfBucketDoesNotHaveOne(t *testing.T) {
 	r := mux.NewRouter()
-	ms3d := mocks3Driver{found: true, payload: "genre"}
-	mkc := kafka.Client{Producer: &mockSyncProducer{}, Topic: TOPIC}
-	h := NewHandler(&ms3d, mkc)
+	genre := getFileAsBytesArray(t, "../util/conceptJson/genre.json")
+	ms3d := mocks3Driver{found: true, payload: string(genre)}
+	mSqsDriver := mockSqsDriver{}
+	mhc := mockHttpClient{}
+	h := NewHandler(&ms3d, &mSqsDriver, VULCAN, mhc)
 	h.RegisterHandlers(r)
 
 	rec := httptest.NewRecorder()
-	r.ServeHTTP(rec, newRequest("GET", "/concept/"+UUID, testGenrePayload))
+	r.ServeHTTP(rec, newRequest("GET", "/concept/"+UUID, string(genre)))
 
 	assert.Equal(t, 200, rec.Code)
-	assert.NotEqual(t, []string{TID}, rec.HeaderMap["X-Request-Id"])
+	assert.NotEqual(t, rec.HeaderMap["X-Request-Id"], []string{TID})
 	assert.Equal(t, rec.HeaderMap["Content-Type"], []string{"application/json"})
 }
 
-func TestPostHandler_ResponseCodeAndErrorMessageWhenBadConnectionToS3(t *testing.T) {
+func TestGetHandler_InvalidConceptJsonThrowsError(t *testing.T) {
 	r := mux.NewRouter()
-	ms3d := mocks3Driver{found: false, err: errors.New("")}
-	mkc := kafka.Client{Producer: &mockSyncProducer{}, Topic: TOPIC}
-	h := NewHandler(&ms3d, mkc)
+	ms3d := mocks3Driver{found: true, payload: invalidJson}
+	mSqsDriver := mockSqsDriver{}
+	mhc := mockHttpClient{}
+	h := NewHandler(&ms3d, &mSqsDriver, VULCAN, &mhc)
 	h.RegisterHandlers(r)
 
 	rec := httptest.NewRecorder()
-	r.ServeHTTP(rec, newRequest("POST", "/concept/"+UUID, testGenrePayload))
-
-	assert.Equal(t, 503, rec.Code)
-	assert.Equal(t, []string{"application/json"}, rec.HeaderMap["Content-Type"])
-	assert.Equal(t, "{\"message\":\"Error retrieving concept.\"}", rec.Body.String())
-}
-
-func TestPostHandler_ResponseCodeAndErrorWhenConceptNotFoundInS3(t *testing.T) {
-	r := mux.NewRouter()
-	ms3d := mocks3Driver{found: false}
-	mkc := kafka.Client{Producer: &mockSyncProducer{}, Topic: TOPIC}
-	h := NewHandler(&ms3d, mkc)
-	h.RegisterHandlers(r)
-
-	rec := httptest.NewRecorder()
-	r.ServeHTTP(rec, newRequest("POST", "/concept/"+UUID, testGenrePayload))
-
-	assert.Equal(t, 404, rec.Code)
-	assert.Equal(t, []string{"application/json"}, rec.HeaderMap["Content-Type"])
-	assert.Equal(t, "{\"message\":\"Concept not found.\"}", rec.Body.String())
-}
-
-func TestPostHandler_InvalidJsonThrowsError(t *testing.T) {
-	r := mux.NewRouter()
-	ms3d := mocks3Driver{found: true, payload: invalidPayload}
-	mkc := kafka.Client{Producer: &mockSyncProducer{}, Topic: TOPIC}
-	h := NewHandler(&ms3d, mkc)
-	h.RegisterHandlers(r)
-
-	rec := httptest.NewRecorder()
-	r.ServeHTTP(rec, newRequest("POST", "/concept/"+UUID, invalidPayload))
+	r.ServeHTTP(rec, newRequest("GET", "/concept/"+UUID, invalidPayload))
 
 	assert.Equal(t, 422, rec.Code)
 	assert.Equal(t, []string{"application/json"}, rec.HeaderMap["Content-Type"])
-	assert.Equal(t, "{\"message\":\"Retrived concept is invalid json.\"}", rec.Body.String())
+	assert.Equal(t, "{\"message\":\"Invalid json returned from s3\"}", rec.Body.String())
 }
 
-func TestPostHandler_SendMessageToKafkaThrowsError(t *testing.T) {
+func TestGetHandler_IncompleteConceptJsonThrowsErrorWhenMapped(t *testing.T) {
 	r := mux.NewRouter()
-	ms3d := mocks3Driver{found: true, payload: testGenrePayload}
-	mkc := kafka.Client{Producer: &mockSyncProducer{err: errors.New("Failed to write message to kafka")}, Topic: TOPIC}
-	h := NewHandler(&ms3d, mkc)
+	ms3d := mocks3Driver{found: true, payload: `{}`}
+	mSqsDriver := mockSqsDriver{}
+	mhc := mockHttpClient{}
+	h := NewHandler(&ms3d, &mSqsDriver, VULCAN, &mhc)
 	h.RegisterHandlers(r)
 
 	rec := httptest.NewRecorder()
-	r.ServeHTTP(rec, newRequest("POST", "/concept/"+UUID, invalidPayload))
-	_, _, err := mkc.Producer.SendMessage(nil)
+	r.ServeHTTP(rec, newRequest("GET", "/concept/"+UUID, invalidPayload))
 
-	assert.Error(t, err)
-	assert.Equal(t, 503, rec.Code)
+	assert.Equal(t, 422, rec.Code)
 	assert.Equal(t, []string{"application/json"}, rec.HeaderMap["Content-Type"])
-	assert.Equal(t, "{\"message\":\"Error writing message to kafka.\"}", rec.Body.String())
+	assert.Equal(t, "{\"message\":\"Json from s3 cannot be concorded as it is missing key fields\"}", rec.Body.String())
 }
 
-func TestPostHandler_ValidConceptGetsWrittenToS3(t *testing.T) {
+func TestGetHandler_ValidConceptGetsReturned(t *testing.T) {
 	r := mux.NewRouter()
-	ms3d := mocks3Driver{found: true, payload: testGenrePayload, tid: TID}
-	mkc := kafka.Client{Producer: &mockSyncProducer{}, Topic: TOPIC}
-	h := NewHandler(&ms3d, mkc)
+	genre := getFileAsBytesArray(t, "../util/conceptJson/genre.json")
+	ms3d := mocks3Driver{found: true, payload: string(genre), tid: TID}
+	mSqsDriver := mockSqsDriver{}
+	mhc := mockHttpClient{}
+	h := NewHandler(&ms3d, &mSqsDriver, VULCAN, &mhc)
 	h.RegisterHandlers(r)
 
 	rec := httptest.NewRecorder()
-	r.ServeHTTP(rec, newRequest("POST", "/concept/"+UUID, testGenrePayload))
-	_, _, err := mkc.Producer.SendMessage(nil)
+	r.ServeHTTP(rec, newRequest("GET", "/concept/"+UUID, string(genre)))
 
-	assert.NoError(t, err)
-	assert.Equal(t, 202, rec.Code)
-	assert.Equal(t, []string{TID}, rec.HeaderMap["X-Request-Id"])
-	assert.Equal(t, []string{"application/json"}, rec.HeaderMap["Content-Type"])
-	assert.Equal(t, "{\"message\":\"Concept published to queue.\"}", rec.Body.String())
+	assert.Equal(t, 200, rec.Code)
+	assert.Equal(t, rec.HeaderMap["Content-Type"], []string{"application/json"})
+	assert.Equal(t, rec.HeaderMap["X-Request-Id"], []string{TID})
 }
 
-func TestPostHandler_TransactionIdIsGeneratedIfBucketDoesNotHaveOne(t *testing.T) {
-	r := mux.NewRouter()
-	ms3d := mocks3Driver{found: true, payload: testGenrePayload}
-	mkc := kafka.Client{Producer: &mockSyncProducer{}, Topic: TOPIC}
-	h := NewHandler(&ms3d, mkc)
-	h.RegisterHandlers(r)
-
-	rec := httptest.NewRecorder()
-	r.ServeHTTP(rec, newRequest("POST", "/concept/"+UUID, testGenrePayload))
-	_, _, err := mkc.Producer.SendMessage(nil)
-
-	assert.NoError(t, err)
-	assert.Equal(t, 202, rec.Code)
-	assert.NotEqual(t, []string{TID}, rec.HeaderMap["X-Request-Id"])
-	assert.Equal(t, []string{"application/json"}, rec.HeaderMap["Content-Type"])
-	assert.Equal(t, "{\"message\":\"Concept published to queue.\"}", rec.Body.String())
-}
-
-func TestResolveMessageType_ReturnCorrectMessageTypes(t *testing.T) {
-	messageTypePerson := resolveMessageType("person")
-	assert.Equal(t, "people", messageTypePerson)
-	messageTypeOther := resolveMessageType("topic")
-	assert.Equal(t, "topics", messageTypeOther)
+func getFileAsBytesArray(t *testing.T, fileName string) []byte {
+	fullMessage, err := ioutil.ReadFile(fileName)
+	assert.NoError(t, err, "Error reading file ")
+	return fullMessage
 }
 
 func (md *mocks3Driver) GetConceptAndTransactionId(UUID string) (bool, io.ReadCloser, string, error) {
@@ -234,25 +330,24 @@ func (md *mocks3Driver) GetConceptAndTransactionId(UUID string) (bool, io.ReadCl
 }
 
 func (md *mocks3Driver) HealthCheck() (string, error) {
-	return "OK", nil
+	return "", md.err
 }
 
-func (msp *mockSyncProducer) SendMessage(msg *sarama.ProducerMessage) (int32, int64, error) {
-	var err error
-	if msp.err != nil {
-		err = msp.err
-	}
-	return 0, 0, err
+func (md *mockSqsDriver) HealthCheck() (string, error) {
+	return "", md.err
 }
 
-func (msp *mockSyncProducer) SendMessages(msgs []*sarama.ProducerMessage) error {
-	msp.err = nil
-	return msp.err
+func (md *mockSqsDriver) ListenAndServeQueue() []*awsSqs.Message {
+	return []*awsSqs.Message{}
 }
 
-func (msp *mockSyncProducer) Close() error {
-	msp.err = nil
-	return msp.err
+func (md *mockSqsDriver) RemoveMessageFromQueue(receiptHandle *string) error {
+	return md.err
+}
+
+func (c mockHttpClient) Do(req *http.Request) (resp *http.Response, err error) {
+	cb := ioutil.NopCloser(bytes.NewReader([]byte(c.resp)))
+	return &http.Response{Body: cb, StatusCode: c.statusCode}, c.err
 }
 
 func newRequest(method, url string, body string) *http.Request {
