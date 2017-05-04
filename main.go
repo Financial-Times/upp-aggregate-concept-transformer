@@ -26,7 +26,6 @@ var httpClient = http.Client{
 }
 
 func main() {
-
 	app := cli.App("aggregate-concept-service", "Aggregating and concording concepts in UPP.")
 
 	port := app.String(cli.StringOpt{
@@ -36,10 +35,17 @@ func main() {
 		EnvVar: "APP_PORT",
 	})
 
-	awsRegion := app.String(cli.StringOpt{
-		Name:   "awsRegion",
-		Desc:   "AWS Region to connect to",
-		EnvVar: "AWS_REGION",
+	bucketRegion := app.String(cli.StringOpt{
+		Name:   "bucketRegion",
+		Desc:   "AWS Region in which the S3 bucket is located",
+		Value:  "eu-west-1",
+		EnvVar: "BUCKET_REGION",
+	})
+
+	sqsRegion := app.String(cli.StringOpt{
+		Name:   "sqsRegion",
+		Desc:   "AWS Region in which the SQS queue is located",
+		EnvVar: "SQS_REGION",
 	})
 
 	bucketName := app.String(cli.StringOpt{
@@ -92,16 +98,20 @@ func main() {
 			return
 		}
 
-		if *awsRegion == "" {
-			log.Fatal("Aws Region not set")
+		if *bucketRegion == "" {
+			log.Fatal("Aws bucket region not set")
 		}
 
-		s3Client, err := s3.NewClient(*bucketName, *awsRegion)
+		if *sqsRegion == "" {
+			log.Fatal("Aws sqs region not set")
+		}
+
+		s3Client, err := s3.NewClient(*bucketName, *bucketRegion)
 		if err != nil {
 			log.Fatalf("Error creating S3 client: %v", err)
 		}
 
-		sqsClient, err := sqs.NewClient(*awsRegion, *queueUrl, *messagesToProcess, *visibilityTimeout, *waitTime)
+		sqsClient, err := sqs.NewClient(*sqsRegion, *queueUrl, *messagesToProcess, *visibilityTimeout, *waitTime)
 		if err != nil {
 			log.Fatalf("Error creating SQS client: %v", err)
 		}
