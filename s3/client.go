@@ -15,7 +15,7 @@ import (
 
 type S3Driver interface {
 	GetConceptAndTransactionId(UUID string) (bool, io.ReadCloser, string, error)
-	HealthCheck() (string, error)
+	HealthCheck() error
 }
 
 type Client struct {
@@ -84,16 +84,16 @@ func (c *Client) GetConceptAndTransactionId(UUID string) (bool, io.ReadCloser, s
 	return true, resp.Body, *tid, err
 }
 
-func (c *Client) HealthCheck() (string, error) {
+func (c *Client) HealthCheck() error {
 	params := &s3.HeadBucketInput{
 		Bucket: aws.String(c.bucketName), // Required
 	}
 	_, err := c.s3.HeadBucket(params)
 	if err != nil {
 		log.Errorf("Got error running S3 health check, %v", err.Error())
-		return "Can not perform check on S3 bucket", err
+		return err
 	}
-	return "Access to S3 bucket ok", err
+	return err
 }
 
 func getKey(UUID string) string {

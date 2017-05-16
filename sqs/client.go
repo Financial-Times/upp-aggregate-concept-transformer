@@ -10,7 +10,7 @@ import (
 type SqsDriver interface {
 	ListenAndServeQueue() []*sqs.Message
 	RemoveMessageFromQueue(receiptHandle *string) error
-	HealthCheck() (string, error)
+	HealthCheck() error
 }
 
 type Client struct {
@@ -60,7 +60,7 @@ func (c *Client) RemoveMessageFromQueue(receiptHandle *string) error {
 	return err
 }
 
-func (c *Client) HealthCheck() (string, error) {
+func (c *Client) HealthCheck() error {
 	params := &sqs.GetQueueAttributesInput{
 		QueueUrl:       aws.String(c.queueUrl),
 		AttributeNames: []*string{aws.String("ApproximateNumberOfMessages")},
@@ -69,7 +69,7 @@ func (c *Client) HealthCheck() (string, error) {
 
 	if err != nil {
 		log.Errorf("Got error running SQS health check, %v", err.Error())
-		return "Can not perform check on SQS availability", err
+		return err
 	}
-	return "Access to SQS queue ok", err
+	return err
 }

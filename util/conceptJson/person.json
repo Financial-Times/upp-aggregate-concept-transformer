@@ -1,7 +1,10 @@
 {
-  "uuid": "61d707b5-6fab-3541-b017-49b72de80772",
+  "uuid": "b8baa012-1fa7-4a01-a90b-ebf9852edac8",
+  "prefLabel": "David Chapman",
+  "type": "Person",
   "authority": "TME",
-  "authorityValue": "MQ==-R2VucmVz",
-  "prefLabel": "Analysis",
-  "type": "Genre"
+  "authorityValue": "TnN0Njc=-UE4=",
+  "aliases": [
+    "Dave Chapman"
+  ]
 }

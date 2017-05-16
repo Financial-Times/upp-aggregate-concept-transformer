@@ -10,11 +10,12 @@ type ConcordedConceptJson struct {
 }
 
 type SourceRepresentation struct {
-	AuthValue string `json:"authorityValue"`
-	Authority string `json:"authority"`
-	PrefLabel string `json:"prefLabel"`
-	Type      string `json:"type"`
-	UUID      string `json:"uuid"`
+	AuthValue string   `json:"authorityValue"`
+	Authority string   `json:"authority"`
+	PrefLabel string   `json:"prefLabel"`
+	Type      string   `json:"type"`
+	UUID      string   `json:"uuid"`
+	Aliases   []string `json:"aliases"`
 }
 
 //SQS Message Format
