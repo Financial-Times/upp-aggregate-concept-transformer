@@ -3,12 +3,11 @@
 	"ignore": "test",
 	"package": [
 		{
-			"checksumSHA1": "FUhczVSvt/VQAlWfzATo1YLez2E=",
-			"path": "github.com/Financial-Times/go-fthealth/v1a",
-			"revision": "f9074331b3ab48bca0e6d0afc211a673d88ac925",
-			"revisionTime": "2016-06-16T09:04:59Z",
-			"version": "=0.1.0",
-			"versionExact": "0.1.0"
+			"checksumSHA1": "2dtgENfeO6SICvxjruwb9f1CzLY=",
+			"path": "github.com/Financial-Times/go-fthealth/v1_1",
+			"revision": "bc27ed19189994eef0364e4a07879d5a3f3be76f",
+			"version": "=0.2.0",
+			"versionExact": "0.2.0"
 		},
 		{
 			"checksumSHA1": "zUpINnstJChGK0LAtkt7jBc3RY0=",

@@ -10,7 +10,7 @@ import (
 	"github.com/Financial-Times/aggregate-concept-transformer/s3"
 	"github.com/Financial-Times/aggregate-concept-transformer/sqs"
 	ut "github.com/Financial-Times/aggregate-concept-transformer/util"
-	"github.com/Financial-Times/go-fthealth/v1a"
+	"github.com/Financial-Times/go-fthealth"
 	"github.com/Financial-Times/http-handlers-go/httphandlers"
 	status "github.com/Financial-Times/service-status-go/httphandlers"
 	"github.com/Financial-Times/transactionid-utils-go"
@@ -326,60 +326,60 @@ func (h *AggregateConceptHandler) RegisterAdminHandlers(router *mux.Router) {
 	monitoringRouter = httphandlers.TransactionAwareRequestLoggingHandler(log.StandardLogger(), monitoringRouter)
 	monitoringRouter = httphandlers.HTTPMetricsHandler(metrics.DefaultRegistry, monitoringRouter)
 
-	var checks []v1a.Check = []v1a.Check{h.s3HealthCheck(), h.sqsHealthCheck(), h.conceptRwNeo4jHealthCheck(), h.conceptRwElasticSearchHealthCheck()}
-	http.HandleFunc("/__health", v1a.Handler("ConceptIngester Healthchecks", "Checks for accessing writer", checks...))
+	var checks []fthealth.Check = []fthealth.Check{h.s3HealthCheck(), h.sqsHealthCheck(), h.conceptRwNeo4jHealthCheck(), h.conceptRwElasticSearchHealthCheck()}
+	http.HandleFunc("/__health", fthealth.Handler("ConceptIngester Healthchecks", "Checks for accessing writer", checks...))
 	http.HandleFunc("/__gtg", h.gtgCheck)
 	http.HandleFunc("/__ping", status.PingHandler)
 	http.HandleFunc("/__build-info", status.BuildInfoHandler)
 	http.Handle("/", monitoringRouter)
 }
 
-func (h *AggregateConceptHandler) checkConceptWriterAvailability() (string, error) {
+func (h *AggregateConceptHandler) checkConceptWriterAvailability() error {
 	urlToCheck := h.vulcanAddress + conceptWriterRoute + "__gtg"
 	resp, err := http.Get(urlToCheck)
 	if err != nil {
-		return "", fmt.Errorf("Error calling writer at %s : %v", urlToCheck, err)
+		return fmt.Errorf("Error calling writer at %s : %v", urlToCheck, err)
 	}
 	resp.Body.Close()
 	if resp != nil && resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("Writer %v returned status %d", urlToCheck, resp.StatusCode)
+		return fmt.Errorf("Writer %v returned status %d", urlToCheck, resp.StatusCode)
 	}
-	return "", nil
+	return nil
 }
 
-func (h *AggregateConceptHandler) checkElasticSearchWriterAvailability() (string, error) {
+func (h *AggregateConceptHandler) checkElasticSearchWriterAvailability() error {
 	urlToCheck := h.vulcanAddress + elasticSearchRoute + "__gtg"
 	resp, err := http.Get(urlToCheck)
 	if err != nil {
-		return "", fmt.Errorf("Error calling writer at %s : %v", urlToCheck, err)
+		return fmt.Errorf("Error calling writer at %s : %v", urlToCheck, err)
 	}
 	resp.Body.Close()
 	if resp != nil && resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("Writer %v returned status %d", urlToCheck, resp.StatusCode)
+		return fmt.Errorf("Writer %v returned status %d", urlToCheck, resp.StatusCode)
 	}
-	return "", nil
+	return nil
 }
 
 func (h *AggregateConceptHandler) gtgCheck(rw http.ResponseWriter, r *http.Request) {
-	if _, err := h.s3.HealthCheck(); err != nil {
+	if err := h.s3.HealthCheck(); err != nil {
 		log.Errorf("S3 Healthcheck failed; %v", err.Error())
 		rw.WriteHeader(http.StatusServiceUnavailable)
 		rw.Write([]byte("S3 healthcheck failed"))
 		return
 	}
-	if _, err := h.sqs.HealthCheck(); err != nil {
+	if err := h.sqs.HealthCheck(); err != nil {
 		log.Errorf("SQS Healthcheck failed; %v", err.Error())
 		rw.WriteHeader(http.StatusServiceUnavailable)
 		rw.Write([]byte("SQS healthcheck failed"))
 		return
 	}
-	if _, err := h.checkConceptWriterAvailability(); err != nil {
+	if err := h.checkConceptWriterAvailability(); err != nil {
 		log.Errorf("Concept rw neo4j Healthcheck failed; %v", err.Error())
 		rw.WriteHeader(http.StatusServiceUnavailable)
 		rw.Write([]byte("Concept Rw Neo4j healthcheck failed"))
 		return
 	}
-	if _, err := h.checkElasticSearchWriterAvailability(); err != nil {
+	if err := h.checkElasticSearchWriterAvailability(); err != nil {
 		log.Errorf("Concept rw elastic search Healthcheck failed; %v", err.Error())
 		rw.WriteHeader(http.StatusServiceUnavailable)
 		rw.Write([]byte("Elastic Search Rw healthcheck failed"))
@@ -388,46 +388,46 @@ func (h *AggregateConceptHandler) gtgCheck(rw http.ResponseWriter, r *http.Reque
 	rw.WriteHeader(http.StatusOK)
 }
 
-func (h *AggregateConceptHandler) s3HealthCheck() v1a.Check {
-	return v1a.Check{
-		BusinessImpact:   "Unable to connect to s3 bucket",
+func (h *AggregateConceptHandler) s3HealthCheck() fthealth.Check {
+	return fthealth.Check{
+		BusinessImpact:   "Editorial updates of concepts will not be written into UPP",
 		Name:             "Check connectivity to s3 bucket",
-		PanicGuide:       "https://sites.google.com/a/ft.com/universal-publishing/ops-guides/aggregate-concept-transformer",
-		Severity:         1,
+		PanicGuide:       "https://dewey.ft.com/aggregate-concept-transformer.html",
+		Severity:         2,
 		TechnicalSummary: `Cannot connect to s3 bucket. If this check fails, check that amazon s3 is available`,
 		Checker:          h.s3.HealthCheck,
 	}
 }
 
-func (h *AggregateConceptHandler) sqsHealthCheck() v1a.Check {
-	return v1a.Check{
-		BusinessImpact:   "Unable to connect to sqs queue",
+func (h *AggregateConceptHandler) sqsHealthCheck() fthealth.Check {
+	return fthealth.Check{
+		BusinessImpact:   "Editorial updates of concepts will not be written into UPP",
 		Name:             "Check connectivity to sqs queue",
-		PanicGuide:       "https://sites.google.com/a/ft.com/universal-publishing/ops-guides/aggregate-concept-transformer",
-		Severity:         1,
-		TechnicalSummary: `Cannot connect to sqs queue. If this check fails, check that amazon sqs s available`,
+		PanicGuide:       "https://dewey.ft.com/aggregate-concept-transformer.html",
+		Severity:         2,
+		TechnicalSummary: `Cannot connect to sqs queue. If this check fails, check that amazon sqs is available`,
 		Checker:          h.sqs.HealthCheck,
 	}
 }
 
-func (h *AggregateConceptHandler) conceptRwNeo4jHealthCheck() v1a.Check {
-	return v1a.Check{
-		BusinessImpact:   "Unable to connect to concept writer neo4j",
+func (h *AggregateConceptHandler) conceptRwNeo4jHealthCheck() fthealth.Check {
+	return fthealth.Check{
+		BusinessImpact:   "Editorial updates of concepts will not be written into UPP",
 		Name:             "Check connectivity to concept-rw-neo4j",
-		PanicGuide:       "https://sites.google.com/a/ft.com/universal-publishing/ops-guides/concept-ingestion",
-		Severity:         1,
-		TechnicalSummary: `Cannot connect to concept writer neo4j. If this check fails, check that the configured writer returns a healthy gtg`,
+		PanicGuide:       "https://dewey.ft.com/aggregate-concept-transformer.html",
+		Severity:         2,
+		TechnicalSummary: `Cannot connect to concept writer neo4j. If this check fails, check health of concepts-rw-neo4j service`,
 		Checker:          h.checkConceptWriterAvailability,
 	}
 }
 
-func (h *AggregateConceptHandler) conceptRwElasticSearchHealthCheck() v1a.Check {
-	return v1a.Check{
-		BusinessImpact:   "Unable to connect to  elasticsearch concept writer",
+func (h *AggregateConceptHandler) conceptRwElasticSearchHealthCheck() fthealth.Check {
+	return fthealth.Check{
+		BusinessImpact:   "Editorial updates of concepts will not be written into UPP",
 		Name:             "Check connectivity to concept-rw-elasticsearch",
-		PanicGuide:       "https://sites.google.com/a/ft.com/universal-publishing/ops-guides/concept-ingestion",
-		Severity:         1,
-		TechnicalSummary: `Cannot connect to elasticsearch concept writer. If this check fails, check that the configured writer returns a healthy gtg`,
+		PanicGuide:       "https://dewey.ft.com/aggregate-concept-transformer.html",
+		Severity:         2,
+		TechnicalSummary: `Cannot connect to elasticsearch concept writer. If this check fails, check health of concept-rw-elasiticsearch service`,
 		Checker:          h.checkElasticSearchWriterAvailability,
 	}
 }

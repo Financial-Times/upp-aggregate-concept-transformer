@@ -196,16 +196,17 @@ func TestMapJson_MappingInvalidJsonThrowsErrors(t *testing.T) {
 }
 
 func TestMapJson_SuccessfullyMapFromOldWorldJsonToNew(t *testing.T) {
-	conceptJson := getFileAsBytesArray(t, "../util/conceptJson/genre.json")
+	conceptJson := getFileAsBytesArray(t, "../util/conceptJson/person.json")
 	sourceConceptModel := ut.SourceRepresentation{}
 	json.Unmarshal(conceptJson, &sourceConceptModel)
 	concordedJson, err := mapJson(sourceConceptModel, UUID)
 	assert.NoError(t, err, "All values should be present in json")
-	assert.Equal(t, "61d707b5-6fab-3541-b017-49b72de80772", concordedJson.UUID)
-	assert.Equal(t, "Analysis", concordedJson.PrefLabel)
-	assert.Equal(t, "Genre", concordedJson.Type)
+	assert.Equal(t, "b8baa012-1fa7-4a01-a90b-ebf9852edac8", concordedJson.UUID)
+	assert.Equal(t, "David Chapman", concordedJson.PrefLabel)
+	assert.Equal(t, "Person", concordedJson.Type)
 	assert.Equal(t, "TME", concordedJson.SourceRepresentations[0].Authority)
-	assert.Equal(t, "MQ==-R2VucmVz", concordedJson.SourceRepresentations[0].AuthValue)
+	assert.Equal(t, "TnN0Njc=-UE4=", concordedJson.SourceRepresentations[0].AuthValue)
+	assert.Equal(t, "Dave Chapman", concordedJson.SourceRepresentations[0].Aliases[0])
 }
 
 func TestGetHandler_ResponseCodeAndErrorMessageWhenBadConnectionToS3(t *testing.T) {
@@ -329,12 +330,12 @@ func (md *mocks3Driver) GetConceptAndTransactionId(UUID string) (bool, io.ReadCl
 	return md.found, body, tid, md.err
 }
 
-func (md *mocks3Driver) HealthCheck() (string, error) {
-	return "", md.err
+func (md *mocks3Driver) HealthCheck() error {
+	return md.err
 }
 
-func (md *mockSqsDriver) HealthCheck() (string, error) {
-	return "", md.err
+func (md *mockSqsDriver) HealthCheck() error {
+	return md.err
 }
 
 func (md *mockSqsDriver) ListenAndServeQueue() []*awsSqs.Message {
