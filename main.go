@@ -4,29 +4,32 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/Financial-Times/aggregate-concept-transformer/concept"
+	"github.com/Financial-Times/aggregate-concept-transformer/dynamodb"
 	"github.com/Financial-Times/aggregate-concept-transformer/s3"
-	"github.com/Financial-Times/aggregate-concept-transformer/service"
 	"github.com/Financial-Times/aggregate-concept-transformer/sqs"
 	log "github.com/Sirupsen/logrus"
 	"github.com/gorilla/mux"
 	"github.com/jawher/mow.cli"
 	_ "github.com/joho/godotenv/autoload"
-	"net"
-	"time"
 )
-
-var httpClient = http.Client{
-	Transport: &http.Transport{
-		MaxIdleConnsPerHost: 128,
-		Dial: (&net.Dialer{
-			Timeout:   30 * time.Second,
-			KeepAlive: 30 * time.Second,
-		}).Dial,
-	},
-}
 
 func main() {
 	app := cli.App("aggregate-concept-service", "Aggregating and concording concepts in UPP.")
+
+	appSystemCode := app.String(cli.StringOpt{
+		Name:   "app-system-code",
+		Value:  "aggregate-concept-transformer",
+		Desc:   "System Code of the application",
+		EnvVar: "APP_SYSTEM_CODE",
+	})
+
+	appName := app.String(cli.StringOpt{
+		Name:   "app-name",
+		Value:  "Aggregate Concept Transformer",
+		Desc:   "Application name",
+		EnvVar: "APP_NAME",
+	})
 
 	port := app.String(cli.StringOpt{
 		Name:   "port",
@@ -54,7 +57,7 @@ func main() {
 		EnvVar: "BUCKET_NAME",
 	})
 
-	queueUrl := app.String(cli.StringOpt{
+	queueURL := app.String(cli.StringOpt{
 		Name:   "queueUrl",
 		Desc:   "Url of AWS sqs queue to listen to",
 		EnvVar: "QUEUE_URL",
@@ -81,19 +84,44 @@ func main() {
 		EnvVar: "WAIT_TIME",
 	})
 
-	vulcanAddress := app.String(cli.StringOpt{
-		Name:   "vulcanAddress",
+	neoWriterAddress := app.String(cli.StringOpt{
+		Name:   "neo4jWriterAddress",
 		Value:  "http://localhost:8080/",
-		Desc:   "Vulcan address for routing requests",
-		EnvVar: "VULCAN_ADDR",
+		Desc:   "Address for the Neo4J Concept Writer",
+		EnvVar: "NEO_WRITER_ADDRESS",
+	})
+
+	elasticsearchWriterAddress := app.String(cli.StringOpt{
+		Name:   "elasticsearchWriterAddress",
+		Value:  "http://localhost:8080/",
+		Desc:   "Address for the Elasticsearch Concept Writer",
+		EnvVar: "ES_WRITER_ADDRESS",
+	})
+
+	dynamoDBTable := app.String(cli.StringOpt{
+		Name:   "dynamoDBTable",
+		Value:  "concordances",
+		Desc:   "DynamoDB table to read concordances from",
+		EnvVar: "DYNAMODB_TABLE",
 	})
 
 	app.Action = func() {
+
+		log.WithFields(log.Fields{
+			"DYNAMODB_TABLE":     *dynamoDBTable,
+			"ES_WRITER_ADDRESS":  *elasticsearchWriterAddress,
+			"NEO_WRITER_ADDRESS": *neoWriterAddress,
+			"BUCKET_REGION":      *bucketRegion,
+			"BUCKET_NAME":        *bucketName,
+			"SQS_REGION":         *sqsRegion,
+			"QUEUE_URL":          *queueURL,
+		}).Info("Starting app with arguments")
+
 		if *bucketName == "" {
 			log.Fatal("S3 bucket name not set")
 			return
 		}
-		if *queueUrl == "" {
+		if *queueURL == "" {
 			log.Fatal("SQS queue url not set")
 			return
 		}
@@ -108,22 +136,30 @@ func main() {
 
 		s3Client, err := s3.NewClient(*bucketName, *bucketRegion)
 		if err != nil {
-			log.Fatalf("Error creating S3 client: %v", err)
+			log.WithError(err).Fatal("Error creating S3 client")
 		}
 
-		sqsClient, err := sqs.NewClient(*sqsRegion, *queueUrl, *messagesToProcess, *visibilityTimeout, *waitTime)
+		sqsClient, err := sqs.NewClient(*sqsRegion, *queueURL, *messagesToProcess, *visibilityTimeout, *waitTime)
 		if err != nil {
-			log.Fatalf("Error creating SQS client: %v", err)
+			log.WithError(err).Fatal("Error creating SQS client")
 		}
+
+		dynamoClient, err := dynamodb.NewClient(*dynamoDBTable)
+		if err != nil {
+			log.WithError(err).Fatal("Error creating DynamoDB client")
+		}
+
+		svc := concept.NewService(s3Client, sqsClient, dynamoClient, *neoWriterAddress, *elasticsearchWriterAddress)
+		handler := concept.NewHandler(svc)
+		hs := concept.NewHealthService(svc, *appSystemCode, *appName, *port)
 
 		router := mux.NewRouter()
-		handler := service.NewHandler(s3Client, sqsClient, *vulcanAddress, &httpClient)
 		handler.RegisterHandlers(router)
-		handler.RegisterAdminHandlers(router)
+		handler.RegisterAdminHandlers(router, hs)
 
-		go handler.Run()
+		go svc.ListenForNotifications()
 
-		log.Infof("Listening on %v", *port)
+		log.Infof("Listening on port %v", *port)
 		if err := http.ListenAndServe(":"+*port, nil); err != nil {
 			log.Fatalf("Unable to start server: %v", err)
 		}
