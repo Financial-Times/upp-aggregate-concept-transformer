@@ -195,6 +195,7 @@ func createWriteRequest(baseUrl string, urlParam string, msgBody io.Reader, uuid
 
 //Turn stored singular type to plural form
 func resolveConceptType(conceptType string) string {
+	conceptType = strings.ToLower(conceptType)
 	var messageType string
 	switch conceptType {
 	case "person":
