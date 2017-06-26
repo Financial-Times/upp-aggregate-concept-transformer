@@ -4,6 +4,9 @@ import (
 	"net/http"
 	"os"
 
+	"net"
+	"time"
+
 	"github.com/Financial-Times/aggregate-concept-transformer/concept"
 	"github.com/Financial-Times/aggregate-concept-transformer/dynamodb"
 	"github.com/Financial-Times/aggregate-concept-transformer/s3"
@@ -105,7 +108,29 @@ func main() {
 		EnvVar: "DYNAMODB_TABLE",
 	})
 
+	dynamoDBRegion := app.String(cli.StringOpt{
+		Name:   "dynamoDBTable",
+		Value:  "eu-west-1",
+		Desc:   "AWS region the DynamoDB table is in",
+		EnvVar: "DYNAMODB_REGION",
+	})
+
+	logLevel := app.String(cli.StringOpt{
+		Name:   "logLevel",
+		Value:  "info",
+		Desc:   "App log level",
+		EnvVar: "LOG_LEVEL",
+	})
+
 	app.Action = func() {
+
+		log.SetFormatter(&log.JSONFormatter{})
+		lvl, err := log.ParseLevel(*logLevel)
+		if err != nil {
+			log.WithField("LOG_LEVEL", *logLevel).Warn("Cannot parse log level, setting it to INFO.")
+			lvl = log.InfoLevel
+		}
+		log.SetLevel(lvl)
 
 		log.WithFields(log.Fields{
 			"DYNAMODB_TABLE":     *dynamoDBTable,
@@ -115,6 +140,7 @@ func main() {
 			"BUCKET_NAME":        *bucketName,
 			"SQS_REGION":         *sqsRegion,
 			"QUEUE_URL":          *queueURL,
+			"LOG_LEVEL":          *logLevel,
 		}).Info("Starting app with arguments")
 
 		if *bucketName == "" {
@@ -144,12 +170,12 @@ func main() {
 			log.WithError(err).Fatal("Error creating SQS client")
 		}
 
-		dynamoClient, err := dynamodb.NewClient(*dynamoDBTable)
+		dynamoClient, err := dynamodb.NewClient(*dynamoDBRegion, *dynamoDBTable)
 		if err != nil {
 			log.WithError(err).Fatal("Error creating DynamoDB client")
 		}
 
-		svc := concept.NewService(s3Client, sqsClient, dynamoClient, *neoWriterAddress, *elasticsearchWriterAddress)
+		svc := concept.NewService(s3Client, sqsClient, dynamoClient, *neoWriterAddress, *elasticsearchWriterAddress, defaultHTTPClient())
 		handler := concept.NewHandler(svc)
 		hs := concept.NewHealthService(svc, *appSystemCode, *appName, *port)
 
@@ -165,4 +191,16 @@ func main() {
 		}
 	}
 	app.Run(os.Args)
+}
+
+func defaultHTTPClient() *http.Client {
+	return &http.Client{
+		Transport: &http.Transport{
+			MaxIdleConnsPerHost: 128,
+			Dial: (&net.Dialer{
+				Timeout:   30 * time.Second,
+				KeepAlive: 30 * time.Second,
+			}).Dial,
+		},
+	}
 }

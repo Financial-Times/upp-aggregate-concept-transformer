@@ -5,12 +5,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net"
 	"net/http"
 	"strconv"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/Financial-Times/aggregate-concept-transformer/dynamodb"
 	"github.com/Financial-Times/aggregate-concept-transformer/s3"
@@ -35,22 +33,14 @@ type AggregateService struct {
 	httpClient                 httpClient
 }
 
-func NewService(S3Client s3.Client, SQSClient sqs.Client, dynamoClient dynamodb.Client, neoAddress string, elasticsearchAddress string) Service {
+func NewService(S3Client s3.Client, SQSClient sqs.Client, dynamoClient dynamodb.Client, neoAddress string, elasticsearchAddress string, httpClient httpClient) Service {
 	return &AggregateService{
 		s3:                         S3Client,
 		db:                         dynamoClient,
 		sqs:                        SQSClient,
 		neoWriterAddress:           neoAddress,
 		elasticsearchWriterAddress: elasticsearchAddress,
-		httpClient: &http.Client{
-			Transport: &http.Transport{
-				MaxIdleConnsPerHost: 128,
-				Dial: (&net.Dialer{
-					Timeout:   30 * time.Second,
-					KeepAlive: 30 * time.Second,
-				}).Dial,
-			},
-		},
+		httpClient:                 httpClient,
 	}
 }
 
@@ -63,9 +53,13 @@ func (s *AggregateService) ListenForNotifications() {
 			for _, n := range notifications {
 				go func(n sqs.Notification) {
 					defer wg.Done()
-					s.ProcessMessage(n)
+					err := s.ProcessMessage(n)
+					if err != nil {
+						log.WithError(err).WithField("UUID", n.UUID).Error("Error processing message.")
+					}
 				}(n)
 			}
+			wg.Wait()
 		}
 	}
 }
@@ -90,9 +84,11 @@ func (s *AggregateService) ProcessMessage(notification sqs.Notification) error {
 		return err
 	}
 
-	err = s.sqs.RemoveMessageFromQueue(notification.ReceiptHandle)
-	if err != nil {
-		return err
+	if notification.ReceiptHandle != nil {
+		err = s.sqs.RemoveMessageFromQueue(notification.ReceiptHandle)
+		if err != nil {
+			return err
+		}
 	}
 
 	log.WithFields(log.Fields{
@@ -121,10 +117,9 @@ func (s *AggregateService) GetConcordedConcept(UUID string) (ConcordedConcept, s
 			return ConcordedConcept{}, "", err
 		}
 		if !found {
-			return ConcordedConcept{}, "", errors.New("Not found")
+			return ConcordedConcept{}, "", fmt.Errorf("Concept not found: %s", UUID)
 		}
 
-		//allConcepts = append(allConcepts, s3Concept)
 		concordedConcept = mergeCanonicalInformation(concordedConcept, s3Concept)
 	}
 
@@ -133,7 +128,7 @@ func (s *AggregateService) GetConcordedConcept(UUID string) (ConcordedConcept, s
 		return ConcordedConcept{}, "", err
 	}
 	if !found {
-		return ConcordedConcept{}, "", errors.New("Not found")
+		return ConcordedConcept{}, "", fmt.Errorf("SL Concept not found: %s", UUID)
 	}
 
 	// Aggregate concepts

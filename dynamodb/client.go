@@ -1,9 +1,9 @@
 package dynamodb
 
 import (
+	fthealth "github.com/Financial-Times/go-fthealth/v1_1"
 	log "github.com/Sirupsen/logrus"
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
@@ -11,48 +11,75 @@ import (
 
 type Client interface {
 	GetConcordance(uuid string) (ConceptConcordance, error)
+	Healthcheck() fthealth.Check
 }
 
 type DynamoClient struct {
-	table string
-	svc   *dynamodb.DynamoDB
+	table  string
+	region string
+	svc    *dynamodb.DynamoDB
 }
 
-func NewClient(table string) (Client, error) {
+func NewClient(region, table string) (Client, error) {
 	sess := session.Must(session.NewSession())
-	svc := dynamodb.New(sess)
+	svc := dynamodb.New(sess, &aws.Config{
+		Region: aws.String(region),
+	})
 
 	return &DynamoClient{
-		table: table,
-		svc:   svc,
+		table:  table,
+		region: region,
+		svc:    svc,
 	}, nil
 }
 
 func (c *DynamoClient) GetConcordance(uuid string) (ConceptConcordance, error) {
 
-	input := &dynamodb.GetItemInput{
-		Key: map[string]*dynamodb.AttributeValue{
-			"conceptId": {
-				S: aws.String(uuid),
-			},
+	scanInput := &dynamodb.ScanInput{
+		TableName:        aws.String(c.table),
+		FilterExpression: aws.String("#conceptId = :x or contains(#concordedIds, :y)"),
+		ExpressionAttributeNames: map[string]*string{
+			"#conceptId":    aws.String("conceptId"),
+			"#concordedIds": aws.String("concordedIds"),
 		},
-		TableName: aws.String(c.table),
+		ExpressionAttributeValues: map[string]*dynamodb.AttributeValue{
+			":x": {S: aws.String(uuid)},
+			":y": {S: aws.String(uuid)},
+		},
 	}
 
-	result, err := c.svc.GetItem(input)
+	result, err := c.svc.Scan(scanInput)
 	if err != nil {
-		log.WithError(err.(awserr.Error)).Error("Error response from DynamoDB")
+		log.WithError(err).Error("Error scanning DynamoDB")
+		return ConceptConcordance{}, err
+	}
+	if int(*result.Count) != 1 {
 		return ConceptConcordance{}, err
 	}
 
-	if result.Item == nil {
-		// We don't find a concordance, but that's probably fine.  We'll return an record without concordances.
-		log.WithField("UUID", uuid).Info("No concordance record found")
-		return ConceptConcordance{UUID: uuid, ConcordedIds: []string{}}, nil
-	}
-
 	var concordance ConceptConcordance
-	err = dynamodbattribute.UnmarshalMap(result.Item, &concordance)
+	err = dynamodbattribute.UnmarshalMap(result.Items[0], &concordance)
+
+	log.Debug(concordance)
 
 	return concordance, nil
+}
+
+func (c *DynamoClient) Healthcheck() fthealth.Check {
+	return fthealth.Check{
+		BusinessImpact:   "Editorial updates of concepts will not be written into UPP",
+		Name:             "Check connectivity to DynamoDB",
+		PanicGuide:       "https://dewey.ft.com/aggregate-concept-transformer.html",
+		Severity:         2,
+		TechnicalSummary: `Cannot connect to DynamoDB. If this check fails, check that Amazon DynamoDB is available`,
+		Checker: func() (string, error) {
+			_, err := c.svc.DescribeTable(&dynamodb.DescribeTableInput{
+				TableName: aws.String(c.table),
+			})
+			if err != nil {
+				return "Cannot connect to DynamoDB", err
+			}
+			return "", nil
+		},
+	}
 }
