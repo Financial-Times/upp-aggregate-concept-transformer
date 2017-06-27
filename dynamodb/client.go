@@ -53,7 +53,12 @@ func (c *DynamoClient) GetConcordance(uuid string) (ConceptConcordance, error) {
 		log.WithError(err).Error("Error scanning DynamoDB")
 		return ConceptConcordance{}, err
 	}
-	if int(*result.Count) != 1 {
+
+	if int(*result.Count) == 0 {
+		return ConceptConcordance{UUID: uuid, ConcordedIds: []string{}}, nil
+	}
+	if int(*result.Count) > 1 {
+		log.WithField("UUID", uuid).Error("More than one concordance found.")
 		return ConceptConcordance{}, err
 	}
 
