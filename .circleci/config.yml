@@ -1,0 +1,72 @@
+version: 2
+jobs:
+  build:
+    working_directory: /go/src/github.com/Financial-Times/aggregate-concept-transformer
+    docker:
+      - image: circleci/golang:1.8
+        environment:
+          TEST_DIR: /tmp/test-results
+      - image: dwmkerr/dynamodb
+    steps:
+      - checkout
+      - run:
+          name: Make go get work
+          command: sudo chown -R circleci:circleci /go/src
+      - run:
+          name: Create test folder
+          command: mkdir -p $TEST_DIR
+      - run:
+          name: External Dependancies
+          command: |
+            go get -u github.com/kardianos/govendor
+            go get -u github.com/jstemmer/go-junit-report
+            go get -u github.com/mattn/goveralls
+      - run:
+          name: Govendor Sync
+          command: govendor sync -v
+      - run:
+          name: Govendor build
+          command: govendor build -v
+      - run:
+          name: Run Tests
+          command: |
+            echo "mode: atomic" > $TEST_DIR/coverage.out
+            PACKAGES=`govendor list -no-status +local`
+            PACKAGES_LIST=`govendor list -no-status +local | paste -sd ',' -`
+            EXIT_CODE=0
+            for PKG in $PACKAGES; do
+              echo =-= $PKG
+              govendor test -v -race -coverpkg=$PACKAGES_LIST -coverprofile=$TEST_DIR/profile.out $PKG; __EXIT_CODE__=$?
+              if [ "$__EXIT_CODE__" -ne "0" ]; then
+                EXIT_CODE=$__EXIT_CODE__
+              fi
+              if [ -f $TEST_DIR/profile.out ]; then
+                tail -n +2 $TEST_DIR/profile.out >> $TEST_DIR/coverage.out; rm $TEST_DIR/profile.out
+              fi
+            done
+            exit $EXIT_CODE
+      - run:
+          name: Upload to Coveralls
+          command: goveralls -coverprofile=$TEST_DIR/coverage.out -service=circle-ci -repotoken=$COVERALLS_TOKEN
+      - store_artifacts:
+          path: /tmp/test-results
+          destination: raw-test-output
+      - store_test_results:
+          path: /tmp/test-results
+  docker_build:
+    working_directory: /aggregate-concept-transformer
+    docker:
+      - image: docker:1.12.6-git
+    steps:
+      - checkout
+      - setup_docker_engine
+      - run:
+          name: Build Dockerfile
+          command: docker build .
+
+workflows:
+  version: 2
+  tests_and_docker:
+    jobs:
+      - build
+      - docker_build

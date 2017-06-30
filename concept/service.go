@@ -75,12 +75,14 @@ func (s *AggregateService) ProcessMessage(notification sqs.Notification) error {
 	// Write to Neo4j
 	err = sendToWriter(s.httpClient, s.neoWriterAddress, resolveConceptType(concordedConcept.Type), concordedConcept.PrefUUID, concordedConcept, transactionID)
 	if err != nil {
+		log.WithError(err).Error("Error writing concept to Neo4j")
 		return err
 	}
 
 	// Write to elastic search
 	err = sendToWriter(s.httpClient, s.elasticsearchWriterAddress, resolveConceptType(concordedConcept.Type), concordedConcept.PrefUUID, concordedConcept, transactionID)
 	if err != nil {
+		log.WithError(err).Error("Error writing concept to Elasticsearch")
 		return err
 	}
 
@@ -219,7 +221,11 @@ func (s *AggregateService) RWNeo4JHealthCheck() fthealth.Check {
 		TechnicalSummary: `Cannot connect to concept writer neo4j. If this check fails, check health of concepts-rw-neo4j service`,
 		Checker: func() (string, error) {
 			urlToCheck := strings.TrimRight(s.neoWriterAddress, "/") + "/__gtg"
-			resp, err := http.Get(urlToCheck)
+			req, err := http.NewRequest("GET", urlToCheck, nil)
+			if err != nil {
+				return "", err
+			}
+			resp, err := s.httpClient.Do(req)
 			if err != nil {
 				return "", fmt.Errorf("Error calling writer at %s : %v", urlToCheck, err)
 			}
@@ -241,7 +247,11 @@ func (s *AggregateService) RWElasticsearchHealthCheck() fthealth.Check {
 		TechnicalSummary: `Cannot connect to elasticsearch concept writer. If this check fails, check health of concept-rw-elasticsearch service`,
 		Checker: func() (string, error) {
 			urlToCheck := strings.TrimRight(s.elasticsearchWriterAddress, "/") + "/__gtg"
-			resp, err := http.Get(urlToCheck)
+			req, err := http.NewRequest("GET", urlToCheck, nil)
+			if err != nil {
+				return "", err
+			}
+			resp, err := s.httpClient.Do(req)
 			if err != nil {
 				return "", fmt.Errorf("Error calling writer at %s : %v", urlToCheck, err)
 			}

@@ -1,6 +1,8 @@
 package dynamodb
 
 import (
+	"errors"
+
 	fthealth "github.com/Financial-Times/go-fthealth/v1_1"
 	log "github.com/Sirupsen/logrus"
 	"github.com/aws/aws-sdk-go/aws"
@@ -59,7 +61,7 @@ func (c *DynamoClient) GetConcordance(uuid string) (ConceptConcordance, error) {
 	}
 	if int(*result.Count) > 1 {
 		log.WithField("UUID", uuid).Error("More than one concordance found.")
-		return ConceptConcordance{}, err
+		return ConceptConcordance{}, errors.New("More than one concordance found.")
 	}
 
 	var concordance ConceptConcordance

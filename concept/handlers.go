@@ -5,6 +5,8 @@ import (
 
 	"encoding/json"
 
+	"fmt"
+
 	"github.com/Financial-Times/aggregate-concept-transformer/sqs"
 	fthealth "github.com/Financial-Times/go-fthealth/v1_1"
 	"github.com/Financial-Times/http-handlers-go/httphandlers"
@@ -65,6 +67,8 @@ func (h *AggregateConceptHandler) SendHandler(w http.ResponseWriter, r *http.Req
 		w.Write([]byte("Could not process the concept"))
 		return
 	}
+
+	w.Write([]byte(fmt.Sprintf("Concept %s sent successfully.", UUID)))
 }
 
 func (h *AggregateConceptHandler) RegisterHandlers(router *mux.Router) {
@@ -79,7 +83,7 @@ func (h *AggregateConceptHandler) RegisterHandlers(router *mux.Router) {
 	router.Handle("/concept/{uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}}/send", sh)
 }
 
-func (h *AggregateConceptHandler) RegisterAdminHandlers(router *mux.Router, healthService *HealthService) {
+func (h *AggregateConceptHandler) RegisterAdminHandlers(router *mux.Router, healthService *HealthService) http.Handler {
 	log.Info("Registering admin handlers")
 
 	hc := fthealth.HealthCheck{SystemCode: healthService.config.appSystemCode, Name: healthService.config.appName, Description: appDescription, Checks: healthService.Checks}
@@ -90,5 +94,5 @@ func (h *AggregateConceptHandler) RegisterAdminHandlers(router *mux.Router, heal
 	var monitoringRouter http.Handler = router
 	monitoringRouter = httphandlers.TransactionAwareRequestLoggingHandler(log.StandardLogger(), monitoringRouter)
 	monitoringRouter = httphandlers.HTTPMetricsHandler(metrics.DefaultRegistry, monitoringRouter)
-	http.Handle("/", monitoringRouter)
+	return monitoringRouter
 }

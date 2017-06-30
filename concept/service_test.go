@@ -5,12 +5,9 @@ import (
 	"errors"
 	"io/ioutil"
 	"net/http"
-
-	"testing"
-
-	"time"
-
 	"sync"
+	"testing"
+	"time"
 
 	"github.com/Financial-Times/aggregate-concept-transformer/dynamodb"
 	"github.com/Financial-Times/aggregate-concept-transformer/s3"
@@ -55,7 +52,11 @@ func (c *mockSQSClient) Queue() map[string]string {
 }
 
 func (c *mockSQSClient) Healthcheck() fthealth.Check {
-	return fthealth.Check{}
+	return fthealth.Check{
+		Checker: func() (string, error) {
+			return "", nil
+		},
+	}
 }
 
 type mockDynamoDBClient struct {
@@ -94,7 +95,11 @@ func (s *mockS3Client) GetConceptAndTransactionId(UUID string) (bool, s3.Concept
 	return false, s3.Concept{}, "", s.err
 }
 func (s *mockS3Client) Healthcheck() fthealth.Check {
-	return fthealth.Check{}
+	return fthealth.Check{
+		Checker: func() (string, error) {
+			return "", nil
+		},
+	}
 }
 
 type mockHTTPClient struct {
@@ -109,19 +114,19 @@ func (c mockHTTPClient) Do(req *http.Request) (resp *http.Response, err error) {
 }
 
 func TestNewService(t *testing.T) {
-	svc, _, _, _ := setupTestService()
+	svc, _, _, _ := setupTestService(200)
 	assert.Equal(t, 4, len(svc.Healthchecks()))
 }
 
 func TestAggregateService_ListenForNotifications(t *testing.T) {
-	svc, _, sqs, _ := setupTestService()
+	svc, _, sqs, _ := setupTestService(200)
 	go svc.ListenForNotifications()
 	time.Sleep(1 * time.Second)
 	assert.Equal(t, 0, len(sqs.Queue()))
 }
 
 func TestAggregateService_GetConcordedConcept_NoConcordance(t *testing.T) {
-	svc, _, _, _ := setupTestService()
+	svc, _, _, _ := setupTestService(200)
 
 	c, tid, err := svc.GetConcordedConcept("99247059-04ec-3abb-8693-a0b8951fdcab")
 	assert.NoError(t, err)
@@ -130,15 +135,79 @@ func TestAggregateService_GetConcordedConcept_NoConcordance(t *testing.T) {
 }
 
 func TestAggregateService_GetConcordedConcept_TMEConcordance(t *testing.T) {
-	svc, _, _, _ := setupTestService()
+	svc, _, _, _ := setupTestService(200)
 
 	c, tid, err := svc.GetConcordedConcept("28090964-9997-4bc2-9638-7a11135aaff9")
 	assert.NoError(t, err)
 	assert.Equal(t, "tid_456", tid)
-	assert.Equal(t, "Root Concept", c.PrefLabel)
+	assert.Equal(t, ConcordedConcept{
+		PrefUUID:  "28090964-9997-4bc2-9638-7a11135aaff9",
+		PrefLabel: "Root Concept",
+		Type:      "Person",
+		SourceRepresentations: []s3.Concept{
+			{
+				UUID:      "34a571fb-d779-4610-a7ba-2e127676db4d",
+				PrefLabel: "TME Concept",
+				Authority: "TME",
+				AuthValue: "TME-123",
+				Type:      "Person",
+			},
+			{
+				UUID:      "28090964-9997-4bc2-9638-7a11135aaff9",
+				PrefLabel: "Root Concept",
+				Authority: "Smartlogic",
+				AuthValue: "28090964-9997-4bc2-9638-7a11135aaff9",
+				Type:      "Person",
+			},
+		},
+	}, c)
 }
 
-func setupTestService() (Service, *mockS3Client, *mockSQSClient, *mockDynamoDBClient) {
+func TestAggregateService_ProcessMessage_Success(t *testing.T) {
+	svc, _, _, _ := setupTestService(200)
+
+	err := svc.ProcessMessage(sqs.Notification{UUID: "28090964-9997-4bc2-9638-7a11135aaff9"})
+	assert.NoError(t, err)
+}
+
+func TestAggregateService_ProcessMessage_NeoFail(t *testing.T) {
+	svc, _, _, _ := setupTestService(503)
+
+	err := svc.ProcessMessage(sqs.Notification{UUID: "28090964-9997-4bc2-9638-7a11135aaff9"})
+	assert.Error(t, err)
+	assert.Equal(t, "Request to neoAddress/people/28090964-9997-4bc2-9638-7a11135aaff9 returned status: 503; skipping 28090964-9997-4bc2-9638-7a11135aaff9", err.Error())
+}
+
+func TestAggregateService_ProcessMessage_NotFound(t *testing.T) {
+	svc, _, _, _ := setupTestService(200)
+
+	err := svc.ProcessMessage(sqs.Notification{UUID: "090905b8-e0d5-41e6-b9e4-21171ab73dc1"})
+	assert.Error(t, err)
+	assert.Equal(t, "SL Concept not found: 090905b8-e0d5-41e6-b9e4-21171ab73dc1", err.Error())
+}
+
+func TestAggregateService_ProcessMessage_NoMessageOnQueue(t *testing.T) {
+	svc, _, _, _ := setupTestService(200)
+
+	msgTag := "222"
+
+	err := svc.ProcessMessage(sqs.Notification{UUID: "28090964-9997-4bc2-9638-7a11135aaff9", ReceiptHandle: &msgTag})
+	assert.Error(t, err)
+	assert.Equal(t, "Not found", err.Error())
+}
+
+func TestAggregateService_Healthchecks(t *testing.T) {
+	svc, _, _, _ := setupTestService(200)
+	healthchecks := svc.Healthchecks()
+
+	for _, v := range healthchecks {
+		s, e := v.Checker()
+		assert.NoError(t, e)
+		assert.Equal(t, "", s)
+	}
+}
+
+func setupTestService(httpError int) (Service, *mockS3Client, *mockSQSClient, *mockDynamoDBClient) {
 	s3 := &mockS3Client{
 		concepts: map[string]struct {
 			transactionID string
@@ -192,7 +261,7 @@ func setupTestService() (Service, *mockS3Client, *mockSQSClient, *mockDynamoDBCl
 		"esAddress",
 		&mockHTTPClient{
 			resp:       "",
-			statusCode: 200,
+			statusCode: httpError,
 			err:        nil,
 		},
 	), s3, sqs, dynamo

@@ -181,12 +181,12 @@ func main() {
 
 		router := mux.NewRouter()
 		handler.RegisterHandlers(router)
-		handler.RegisterAdminHandlers(router, hs)
+		r := handler.RegisterAdminHandlers(router, hs)
 
 		go svc.ListenForNotifications()
 
 		log.Infof("Listening on port %v", *port)
-		if err := http.ListenAndServe(":"+*port, nil); err != nil {
+		if err := http.ListenAndServe(":"+*port, r); err != nil {
 			log.Fatalf("Unable to start server: %v", err)
 		}
 	}
