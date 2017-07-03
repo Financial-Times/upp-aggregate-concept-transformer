@@ -52,23 +52,26 @@ func (c *DynamoClient) GetConcordance(uuid string) (ConceptConcordance, error) {
 
 	result, err := c.svc.Scan(scanInput)
 	if err != nil {
-		log.WithError(err).Error("Error scanning DynamoDB")
+		log.WithError(err).WithField("UUID", uuid).Error("Error scanning DynamoDB for concordance record")
 		return ConceptConcordance{}, err
 	}
 
 	if int(*result.Count) == 0 {
+		// No concordance found, so we'll create a fake record to return the solo concept.
 		return ConceptConcordance{UUID: uuid, ConcordedIds: []string{}}, nil
 	}
 	if int(*result.Count) > 1 {
-		log.WithField("UUID", uuid).Error("More than one concordance found.")
+		log.WithFields(log.Fields{
+			"UUID": uuid,
+		}).Error("More than one concordance found.")
 		return ConceptConcordance{}, errors.New("More than one concordance found.")
 	}
 
 	var concordance ConceptConcordance
-	err = dynamodbattribute.UnmarshalMap(result.Items[0], &concordance)
-
-	log.Debug(concordance)
-
+	if err = dynamodbattribute.UnmarshalMap(result.Items[0], &concordance); err != nil {
+		log.WithError(err).WithField("UUID", uuid).Error("Unable to unmarshal concordance object")
+		return ConceptConcordance{}, errors.New("Unable to unmarshal concordance object")
+	}
 	return concordance, nil
 }
 

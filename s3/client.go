@@ -48,6 +48,7 @@ func NewClient(bucketName string, awsRegion string) (Client, error) {
 			HTTPClient: &hc,
 		})
 	if err != nil {
+		log.WithError(err).Error("Unable to create an S3 client")
 		return &ConceptClient{}, err
 	}
 	client := s3.New(sess)
@@ -68,8 +69,12 @@ func (c *ConceptClient) GetConceptAndTransactionId(UUID string) (bool, Concept, 
 	if err != nil {
 		e, ok := err.(awserr.Error)
 		if ok && e.Code() == "NoSuchKey" {
+			// NotFound rather than error, so no logging needed.
 			return false, Concept{}, "", nil
 		}
+		log.WithError(err).WithFields(log.Fields{
+			"UUID": UUID,
+		}).Error("Error retrieving concept from S3")
 		return false, Concept{}, "", err
 	}
 
@@ -79,13 +84,19 @@ func (c *ConceptClient) GetConceptAndTransactionId(UUID string) (bool, Concept, 
 	}
 	ho, err := c.s3.HeadObject(getHeadersParams)
 	if err != nil {
-		log.Error("Cannot access s3 data")
+		log.WithError(err).WithFields(log.Fields{
+			"UUID": UUID,
+		}).Error("Cannot access S3 object")
 		return false, Concept{}, "", err
 	}
 	tid := ho.Metadata["Transaction_id"]
 
 	var concept Concept
-	err = json.NewDecoder(resp.Body).Decode(&concept)
+	if err = json.NewDecoder(resp.Body).Decode(&concept); err != nil{
+		log.WithError(err).WithFields(log.Fields{
+			"UUID": UUID,
+		}).Error("Cannot unmarshal object into a concept")
+	}
 
 	return true, concept, *tid, err
 }

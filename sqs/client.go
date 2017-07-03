@@ -39,6 +39,7 @@ func NewClient(awsRegion string, queueUrl string, messagesToProcess int, visibil
 		MaxRetries: aws.Int(3),
 	})
 	if err != nil {
+		log.WithError(err).Error("Unable to create an SQS client")
 		return &NotificationClient{}, err
 	}
 	client := sqs.New(sess)
@@ -62,8 +63,11 @@ func (c *NotificationClient) RemoveMessageFromQueue(receiptHandle *string) error
 		QueueUrl:      aws.String(c.queueUrl),
 		ReceiptHandle: receiptHandle,
 	}
-	_, err := c.sqs.DeleteMessage(&deleteParams)
-	return err
+	if _, err := c.sqs.DeleteMessage(&deleteParams); err != nil {
+		log.WithError(err).Error("Error deleting message from SQS")
+		return err
+	}
+	return nil
 }
 
 func getNotificationsFromMessages(messages []*sqs.Message) []Notification {
