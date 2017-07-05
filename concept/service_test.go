@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"sort"
+
 	"github.com/Financial-Times/aggregate-concept-transformer/dynamodb"
 	"github.com/Financial-Times/aggregate-concept-transformer/s3"
 	"github.com/Financial-Times/aggregate-concept-transformer/sqs"
@@ -137,10 +139,7 @@ func TestAggregateService_GetConcordedConcept_NoConcordance(t *testing.T) {
 func TestAggregateService_GetConcordedConcept_TMEConcordance(t *testing.T) {
 	svc, _, _, _ := setupTestService(200)
 
-	c, tid, err := svc.GetConcordedConcept("28090964-9997-4bc2-9638-7a11135aaff9")
-	assert.NoError(t, err)
-	assert.Equal(t, "tid_456", tid)
-	assert.Equal(t, ConcordedConcept{
+	expectedConcept := ConcordedConcept{
 		PrefUUID:  "28090964-9997-4bc2-9638-7a11135aaff9",
 		PrefLabel: "Root Concept",
 		Type:      "Person",
@@ -161,7 +160,14 @@ func TestAggregateService_GetConcordedConcept_TMEConcordance(t *testing.T) {
 				Type:      "Person",
 			},
 		},
-	}, c)
+	}
+
+	c, tid, err := svc.GetConcordedConcept("28090964-9997-4bc2-9638-7a11135aaff9")
+	sort.Strings(c.Aliases)
+	sort.Strings(expectedConcept.Aliases)
+	assert.NoError(t, err)
+	assert.Equal(t, "tid_456", tid)
+	assert.Equal(t, expectedConcept, c)
 }
 
 func TestAggregateService_ProcessMessage_Success(t *testing.T) {
