@@ -18,12 +18,13 @@ type config struct {
 	description   string
 }
 
-func NewHealthService(svc Service, appSystemCode string, appName string, port string) *HealthService {
+func NewHealthService(svc Service, appSystemCode string, appName string, port string, description string) *HealthService {
 	service := &HealthService{
 		config: &config{
 			appSystemCode: appSystemCode,
 			appName:       appName,
 			port:          port,
+			description:   description,
 		},
 		svc: svc,
 	}

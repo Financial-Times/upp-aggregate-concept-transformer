@@ -3,7 +3,6 @@ package concept
 import (
 	"bytes"
 	"errors"
-	"io"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -128,7 +127,7 @@ func TestHandlers(t *testing.T) {
 			handler := NewHandler(mockService)
 			m := mux.NewRouter()
 			handler.RegisterHandlers(m)
-			handler.RegisterAdminHandlers(m, NewHealthService(mockService, "system-code", "app-name", "8080"))
+			handler.RegisterAdminHandlers(m, NewHealthService(mockService, "system-code", "app-name", "8080", "description"))
 
 			req, _ := http.NewRequest(d.method, d.url, bytes.NewBufferString(d.requestBody))
 			rr := httptest.NewRecorder()
@@ -143,21 +142,6 @@ func TestHandlers(t *testing.T) {
 			}
 		})
 	}
-}
-
-func newRequest(method, url string, body string) *http.Request {
-	var payload io.Reader
-	if body != "" {
-		payload = bytes.NewReader([]byte(body))
-	}
-	req, err := http.NewRequest(method, url, payload)
-	req.Header = map[string][]string{
-		"Content-Type": {ExpectedContentType},
-	}
-	if err != nil {
-		panic(err)
-	}
-	return req
 }
 
 type MockService struct {
@@ -177,15 +161,15 @@ func NewMockService(concepts map[string]ConcordedConcept, notifications []sqs.No
 
 func (s *MockService) ListenForNotifications() {
 	for _, n := range s.notifications {
-		s.ProcessMessage(n)
+		s.ProcessMessage(n.UUID)
 	}
 }
 
-func (s *MockService) ProcessMessage(notification sqs.Notification) error {
+func (s *MockService) ProcessMessage(UUID string) error {
 	//s.m.Lock()
 	//defer s.m.Unlock()
 
-	if _, _, err := s.GetConcordedConcept(notification.UUID); err != nil {
+	if _, _, err := s.GetConcordedConcept(UUID); err != nil {
 		return err
 	}
 	return nil

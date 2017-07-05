@@ -19,7 +19,7 @@ import (
 
 type Service interface {
 	ListenForNotifications()
-	ProcessMessage(notification sqs.Notification) error
+	ProcessMessage(UUID string) error
 	GetConcordedConcept(UUID string) (ConcordedConcept, string, error)
 	Healthchecks() []fthealth.Check
 }
@@ -53,9 +53,14 @@ func (s *AggregateService) ListenForNotifications() {
 			for _, n := range notifications {
 				go func(n sqs.Notification) {
 					defer wg.Done()
-					err := s.ProcessMessage(n)
+					err := s.ProcessMessage(n.UUID)
 					if err != nil {
 						log.WithError(err).WithField("UUID", n.UUID).Error("Error processing message.")
+						return
+					}
+					err = s.sqs.RemoveMessageFromQueue(n.ReceiptHandle)
+					if err != nil {
+						log.WithError(err).WithField("UUID", n.UUID).Error("Error removing message from SQS.")
 					}
 				}(n)
 			}
@@ -64,33 +69,34 @@ func (s *AggregateService) ListenForNotifications() {
 	}
 }
 
-func (s *AggregateService) ProcessMessage(notification sqs.Notification) error {
+func (s *AggregateService) ProcessMessage(UUID string) error {
 
 	// Get the concorded concept
-	concordedConcept, transactionID, err := s.GetConcordedConcept(notification.UUID)
+	concordedConcept, transactionID, err := s.GetConcordedConcept(UUID)
 	if err != nil {
 		return err
 	}
 
 	// Write to Neo4j
+	log.WithFields(log.Fields{
+		"UUID":          concordedConcept.PrefUUID,
+		"TransactionID": transactionID,
+	}).Info("Writing concept to Neo4j")
 	err = sendToWriter(s.httpClient, s.neoWriterAddress, resolveConceptType(concordedConcept.Type), concordedConcept.PrefUUID, concordedConcept, transactionID)
 	if err != nil {
 		log.WithError(err).Error("Error writing concept to Neo4j")
 		return err
 	}
 
-	// Write to elastic search
+	// Write to Elasticsearch
+	log.WithFields(log.Fields{
+		"UUID":          concordedConcept.PrefUUID,
+		"TransactionID": transactionID,
+	}).Info("Writing concept to Elasticsearch")
 	err = sendToWriter(s.httpClient, s.elasticsearchWriterAddress, resolveConceptType(concordedConcept.Type), concordedConcept.PrefUUID, concordedConcept, transactionID)
 	if err != nil {
 		log.WithError(err).Error("Error writing concept to Elasticsearch")
 		return err
-	}
-
-	if notification.ReceiptHandle != nil {
-		err = s.sqs.RemoveMessageFromQueue(notification.ReceiptHandle)
-		if err != nil {
-			return err
-		}
 	}
 
 	log.WithFields(log.Fields{
@@ -135,6 +141,8 @@ func (s *AggregateService) GetConcordedConcept(UUID string) (ConcordedConcept, s
 
 	// Aggregate concepts
 	concordedConcept = mergeCanonicalInformation(concordedConcept, primaryConcept)
+	concordedConcept.Aliases = deduplicateAliases(concordedConcept.Aliases)
+
 	return concordedConcept, transactionID, nil
 }
 
@@ -147,11 +155,24 @@ func (s *AggregateService) Healthchecks() []fthealth.Check {
 	}
 }
 
+func deduplicateAliases(aliases []string) []string {
+	aMap := map[string]bool{}
+	outAliases := []string{}
+	for _, v := range aliases {
+		aMap[v] = true
+	}
+	for a := range aMap {
+		outAliases = append(outAliases, a)
+	}
+	return outAliases
+}
+
 func mergeCanonicalInformation(c ConcordedConcept, s s3.Concept) ConcordedConcept {
 	c.PrefUUID = s.UUID
 	c.PrefLabel = s.PrefLabel
 	c.Type = s.Type
-	c.Aliases = s.Aliases
+	c.Aliases = append(c.Aliases, s.Aliases...)
+	c.Aliases = append(c.Aliases, s.PrefLabel)
 	c.Strapline = s.Strapline
 	c.DescriptionXML = s.DescriptionXML
 	c.ImageURL = s.ImageURL

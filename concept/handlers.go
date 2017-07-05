@@ -7,7 +7,6 @@ import (
 
 	"fmt"
 
-	"github.com/Financial-Times/aggregate-concept-transformer/sqs"
 	fthealth "github.com/Financial-Times/go-fthealth/v1_1"
 	"github.com/Financial-Times/http-handlers-go/httphandlers"
 	status "github.com/Financial-Times/service-status-go/httphandlers"
@@ -16,8 +15,6 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/rcrowley/go-metrics"
 )
-
-const appDescription = "Service to aggregate concepts from different sources and produce a canonical view."
 
 type AggregateConceptHandler struct {
 	svc Service
@@ -38,7 +35,7 @@ func (h *AggregateConceptHandler) GetHandler(w http.ResponseWriter, r *http.Requ
 	concordedConcept, transactionID, err := h.svc.GetConcordedConcept(UUID)
 	if err != nil {
 		//Do error stuff
-		log.WithError(err).Error("An error getting the concept occurred.  Naughty system.")
+		log.WithError(err).Error("An error getting the concept occurred.")
 		w.Header().Set("Content-Type", "text/plain")
 		w.WriteHeader(http.StatusNotFound)
 		w.Write([]byte("Could not load the full concept"))
@@ -55,13 +52,10 @@ func (h *AggregateConceptHandler) SendHandler(w http.ResponseWriter, r *http.Req
 	vars := mux.Vars(r)
 	UUID := vars["uuid"]
 
-	err := h.svc.ProcessMessage(sqs.Notification{
-		UUID:          UUID,
-		ReceiptHandle: nil,
-	})
+	err := h.svc.ProcessMessage(UUID)
 
 	if err != nil {
-		log.WithError(err).Error("An error processing the concept occurred.  Naughty system.")
+		log.WithError(err).Error("An error processing the concept occurred.")
 		w.Header().Set("Content-Type", "text/plain")
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte("Could not process the concept"))
@@ -86,7 +80,7 @@ func (h *AggregateConceptHandler) RegisterHandlers(router *mux.Router) {
 func (h *AggregateConceptHandler) RegisterAdminHandlers(router *mux.Router, healthService *HealthService) http.Handler {
 	log.Info("Registering admin handlers")
 
-	hc := fthealth.HealthCheck{SystemCode: healthService.config.appSystemCode, Name: healthService.config.appName, Description: appDescription, Checks: healthService.Checks}
+	hc := fthealth.HealthCheck{SystemCode: healthService.config.appSystemCode, Name: healthService.config.appName, Description: healthService.config.description, Checks: healthService.Checks}
 	router.HandleFunc("/__health", fthealth.Handler(hc))
 	router.HandleFunc(status.GTGPath, status.NewGoodToGoHandler(healthService.GtgCheck))
 	router.HandleFunc(status.BuildInfoPath, status.BuildInfoHandler)

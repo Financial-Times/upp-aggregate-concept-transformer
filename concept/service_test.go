@@ -144,6 +144,7 @@ func TestAggregateService_GetConcordedConcept_TMEConcordance(t *testing.T) {
 		PrefUUID:  "28090964-9997-4bc2-9638-7a11135aaff9",
 		PrefLabel: "Root Concept",
 		Type:      "Person",
+		Aliases:   []string{"TME Concept", "Root Concept"},
 		SourceRepresentations: []s3.Concept{
 			{
 				UUID:      "34a571fb-d779-4610-a7ba-2e127676db4d",
@@ -166,14 +167,14 @@ func TestAggregateService_GetConcordedConcept_TMEConcordance(t *testing.T) {
 func TestAggregateService_ProcessMessage_Success(t *testing.T) {
 	svc, _, _, _ := setupTestService(200)
 
-	err := svc.ProcessMessage(sqs.Notification{UUID: "28090964-9997-4bc2-9638-7a11135aaff9"})
+	err := svc.ProcessMessage("28090964-9997-4bc2-9638-7a11135aaff9")
 	assert.NoError(t, err)
 }
 
 func TestAggregateService_ProcessMessage_NeoFail(t *testing.T) {
 	svc, _, _, _ := setupTestService(503)
 
-	err := svc.ProcessMessage(sqs.Notification{UUID: "28090964-9997-4bc2-9638-7a11135aaff9"})
+	err := svc.ProcessMessage("28090964-9997-4bc2-9638-7a11135aaff9")
 	assert.Error(t, err)
 	assert.Equal(t, "Request to neoAddress/people/28090964-9997-4bc2-9638-7a11135aaff9 returned status: 503; skipping 28090964-9997-4bc2-9638-7a11135aaff9", err.Error())
 }
@@ -181,19 +182,9 @@ func TestAggregateService_ProcessMessage_NeoFail(t *testing.T) {
 func TestAggregateService_ProcessMessage_NotFound(t *testing.T) {
 	svc, _, _, _ := setupTestService(200)
 
-	err := svc.ProcessMessage(sqs.Notification{UUID: "090905b8-e0d5-41e6-b9e4-21171ab73dc1"})
+	err := svc.ProcessMessage("090905b8-e0d5-41e6-b9e4-21171ab73dc1")
 	assert.Error(t, err)
 	assert.Equal(t, "SL Concept not found: 090905b8-e0d5-41e6-b9e4-21171ab73dc1", err.Error())
-}
-
-func TestAggregateService_ProcessMessage_NoMessageOnQueue(t *testing.T) {
-	svc, _, _, _ := setupTestService(200)
-
-	msgTag := "222"
-
-	err := svc.ProcessMessage(sqs.Notification{UUID: "28090964-9997-4bc2-9638-7a11135aaff9", ReceiptHandle: &msgTag})
-	assert.Error(t, err)
-	assert.Equal(t, "Not found", err.Error())
 }
 
 func TestAggregateService_Healthchecks(t *testing.T) {
@@ -205,6 +196,20 @@ func TestAggregateService_Healthchecks(t *testing.T) {
 		assert.NoError(t, e)
 		assert.Equal(t, "", s)
 	}
+}
+
+func TestResolveConceptType(t *testing.T) {
+	person := resolveConceptType("Person")
+	assert.Equal(t, "people", person)
+
+	specialReport := resolveConceptType("SpecialReport")
+	assert.Equal(t, "special-reports", specialReport)
+
+	alphavilleSeries := resolveConceptType("AlphavilleSeries")
+	assert.Equal(t, "alphaville-series", alphavilleSeries)
+
+	topic := resolveConceptType("Topic")
+	assert.Equal(t, "topics", topic)
 }
 
 func setupTestService(httpError int) (Service, *mockS3Client, *mockSQSClient, *mockDynamoDBClient) {

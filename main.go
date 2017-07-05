@@ -17,6 +17,8 @@ import (
 	_ "github.com/joho/godotenv/autoload"
 )
 
+const appDescription = "Service to aggregate concepts from different sources and produce a canonical view."
+
 func main() {
 	app := cli.App("aggregate-concept-service", "Aggregating and concording concepts in UPP.")
 
@@ -153,11 +155,11 @@ func main() {
 		}
 
 		if *bucketRegion == "" {
-			log.Fatal("Aws bucket region not set")
+			log.Fatal("AWS bucket region not set")
 		}
 
 		if *sqsRegion == "" {
-			log.Fatal("Aws sqs region not set")
+			log.Fatal("AWS SQS region not set")
 		}
 
 		s3Client, err := s3.NewClient(*bucketName, *bucketRegion)
@@ -177,7 +179,7 @@ func main() {
 
 		svc := concept.NewService(s3Client, sqsClient, dynamoClient, *neoWriterAddress, *elasticsearchWriterAddress, defaultHTTPClient())
 		handler := concept.NewHandler(svc)
-		hs := concept.NewHealthService(svc, *appSystemCode, *appName, *port)
+		hs := concept.NewHealthService(svc, *appSystemCode, *appName, *port, appDescription)
 
 		router := mux.NewRouter()
 		handler.RegisterHandlers(router)
