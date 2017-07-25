@@ -7,7 +7,7 @@ env:
   BUCKET_REGION: eu-west-1
   BUCKET_NAME: upp-concept-normalised-store-k8s-eu
   NEO_WRITER_ADDRESS: http://concepts-rw-neo4j:8080
-  ES_WRITER_ADDRESS: http://concept-rw-elasticsearch:8080/bulk
+  ES_WRITER_ADDRESS: http://concept-rw-elasticsearch:8080
   DYNAMODB_TABLE: upp-concordance-store-k8s-eu
   QUEUE_URL: https://sqs.eu-west-1.amazonaws.com/027104099916/upp-concept-publish-notifications-k8s-eu-1
   MAX_MESSAGES: 10
