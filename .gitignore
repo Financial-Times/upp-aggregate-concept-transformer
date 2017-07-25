@@ -23,7 +23,7 @@ _testmain.go
 *.test
 *.prof
 
-aggregate-concept-transformer
+/aggregate-concept-transformer
 
 .idea/*
 vendor/*/

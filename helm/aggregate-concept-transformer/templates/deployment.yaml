@@ -1,0 +1,74 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: {{ .Values.service.name }} 
+  labels:
+    chart: "{{ .Chart.Name }}-{{ .Chart.Version }}" 
+    visualize: "true" 
+    app: {{ .Values.service.name }} 
+spec:
+  replicas: {{ .Values.replicaCount }} 
+  selector: 
+    matchLabels:
+      app: {{ .Values.service.name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.service.name }}
+        visualize: "true" 
+    spec:
+      containers: 
+      - name: {{ .Values.service.name }} 
+        image: "{{ .Values.image.repository }}:{{ .Chart.Version }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        env: 
+        - name: APP_PORT 
+          value: "{{ .Values.env.APP_PORT }}"
+        - name: SQS_REGION 
+          valueFrom:
+            configMapKeyRef:
+              name: global-config
+              key: aws.region
+        - name: BUCKET_REGION 
+          value: {{ .Values.env.BUCKET_REGION }}
+        - name: BUCKET_NAME 
+          value: {{ .Values.env.BUCKET_NAME }}
+        - name: NEO_WRITER_ADDRESS 
+          value: {{ .Values.env.NEO_WRITER_ADDRESS }}
+        - name: ES_WRITER_ADDRESS 
+          value: {{ .Values.env.ES_WRITER_ADDRESS }}
+        - name: DYNAMODB_TABLE 
+          value: {{ .Values.env.DYNAMODB_TABLE }}
+        - name: QUEUE_URL 
+          value: {{ .Values.env.QUEUE_URL }}
+        - name: MAX_MESSAGES 
+          value: "{{ .Values.env.BUCMAX_MESSAGESKET_NAME }}"
+        - name: VISIBILITY_TIMEOUT
+          value: "{{ .Values.env.VISIBILITY_TIMEOUT }}"
+        - name: WAIT_TIME
+          value: "{{ .Values.env.WAIT_TIME }}"
+        - name: AWS_ACCESS_KEY_ID
+          valueFrom:
+            secretKeyRef:
+              name: global-secrets
+              key: aws.access_key_id
+        - name: AWS_SECRET_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: global-secrets
+              key: aws.secret_access_key
+        ports: 
+        - containerPort: {{ .Values.env.APP_PORT }} 
+        livenessProbe: 
+          tcpSocket: 
+            port: {{ .Values.env.APP_PORT }} 
+          initialDelaySeconds: 10 
+        readinessProbe: 
+          httpGet: 
+            path: "/__gtg" 
+            port: {{ .Values.env.APP_PORT }} 
+          initialDelaySeconds: 15 
+          periodSeconds: 30 
+        resources: 
+{{ toYaml .Values.resources | indent 12 }}
+
