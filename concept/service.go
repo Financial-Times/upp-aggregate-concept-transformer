@@ -267,7 +267,7 @@ func (s *AggregateService) RWElasticsearchHealthCheck() fthealth.Check {
 		Severity:         2,
 		TechnicalSummary: `Cannot connect to elasticsearch concept writer. If this check fails, check health of concept-rw-elasticsearch service`,
 		Checker: func() (string, error) {
-			urlToCheck := strings.TrimRight(s.elasticsearchWriterAddress, "/") + "/__gtg"
+			urlToCheck := strings.TrimRight(s.elasticsearchWriterAddress, "/bulk") + "/__gtg"
 			req, err := http.NewRequest("GET", urlToCheck, nil)
 			if err != nil {
 				return "", err
