@@ -34,7 +34,6 @@ func (h *AggregateConceptHandler) GetHandler(w http.ResponseWriter, r *http.Requ
 	w.Header().Set("Content-Type", "application/json")
 
 	concordedConcept, transactionID, err, logMsg, status := h.svc.GetConcordedConcept(UUID)
-	fmt.Printf("Log message is %s\n", logMsg)
 	if err != nil {
 		writeResponse(w, status, logMsg)
 		return
@@ -63,7 +62,6 @@ func (h *AggregateConceptHandler) SendHandler(w http.ResponseWriter, r *http.Req
 
 func writeResponse(rw http.ResponseWriter, updateStatus httpStatus, logMsg string) {
 	rw.Header().Set("Content-Type", "application/json")
-	fmt.Printf("Log message is %s\n", logMsg)
 	switch updateStatus {
 	case NOT_FOUND:
 		rw.WriteHeader(http.StatusNotFound)

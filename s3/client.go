@@ -92,7 +92,7 @@ func (c *ConceptClient) GetConceptAndTransactionId(UUID string) (bool, Concept, 
 	tid := ho.Metadata["Transaction_id"]
 
 	var concept Concept
-	if err = json.NewDecoder(resp.Body).Decode(&concept); err != nil{
+	if err = json.NewDecoder(resp.Body).Decode(&concept); err != nil {
 		log.WithError(err).WithFields(log.Fields{
 			"UUID": UUID,
 		}).Error("Cannot unmarshal object into a concept")

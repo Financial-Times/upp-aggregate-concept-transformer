@@ -78,7 +78,6 @@ func (s *AggregateService) ListenForNotifications() {
 }
 
 func (s *AggregateService) ProcessMessage(UUID string) error {
-
 	// Get the concorded concept
 	concordedConcept, transactionID, err, _, _ := s.GetConcordedConcept(UUID)
 	if err != nil {
@@ -192,7 +191,14 @@ func mergeCanonicalInformation(c ConcordedConcept, s s3.Concept) ConcordedConcep
 	c.Strapline = s.Strapline
 	c.DescriptionXML = s.DescriptionXML
 	c.ImageURL = s.ImageURL
+	c.EmailAddress = s.EmailAddress
+	c.FacebookPage = s.FacebookPage
+	c.TwitterHandle = s.TwitterHandle
+	c.ScopeNote = s.ScopeNote
+	c.ShortLabel = s.ShortLabel
 	c.ParentUUIDs = s.ParentUUIDs
+	c.BroaderUUIDs = s.BroaderUUIDs
+	c.RelatedUUIDs = s.RelatedUUIDs
 	c.SourceRepresentations = append(c.SourceRepresentations, s)
 	return c
 }
@@ -207,7 +213,7 @@ func sendToWriter(client httpClient, baseUrl string, urlParam string, conceptUUI
 	request, reqUrl, err := createWriteRequest(baseUrl, urlParam, strings.NewReader(string(body)), conceptUUID)
 	if err != nil {
 		err := errors.New("Failed to create request to " + reqUrl + " with body " + string(body))
-		log.WithFields(log.Fields{"UUID": conceptUUID, "transaction_id":tid}).Error(err)
+		log.WithFields(log.Fields{"UUID": conceptUUID, "transaction_id": tid}).Error(err)
 		return err
 	}
 	request.ContentLength = -1
@@ -216,11 +222,11 @@ func sendToWriter(client httpClient, baseUrl string, urlParam string, conceptUUI
 	resp, reqErr := client.Do(request)
 
 	if resp.StatusCode == 404 && strings.Contains(baseUrl, "elastic") {
-		log.WithFields(log.Fields{"UUID": conceptUUID, "transaction_id":tid}).Debugf("Elastic search rw cannot handle concept: %s, because it has an unsupported type %s; skipping record", conceptUUID, concept.Type)
+		log.WithFields(log.Fields{"UUID": conceptUUID, "transaction_id": tid}).Debugf("Elastic search rw cannot handle concept: %s, because it has an unsupported type %s; skipping record", conceptUUID, concept.Type)
 		return nil
 	} else if reqErr != nil || resp.StatusCode != 200 {
 		err := errors.New("Request to " + reqUrl + " returned status: " + strconv.Itoa(resp.StatusCode) + "; skipping " + conceptUUID)
-		log.WithFields(log.Fields{"UUID": conceptUUID, "transaction_id":tid}).Error(err)
+		log.WithFields(log.Fields{"UUID": conceptUUID, "transaction_id": tid}).Error(err)
 		return err
 	}
 	defer resp.Body.Close()
