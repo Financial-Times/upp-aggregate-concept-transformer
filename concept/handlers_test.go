@@ -54,7 +54,7 @@ func TestHandlers(t *testing.T) {
 			"/concept/f7fd05ea-9999-47c0-9be9-c99dd84d0097",
 			"",
 			404,
-			"Could not load the full concept",
+			"{\"message\": \"Source concept not found in S3\"}\n",
 			nil,
 			map[string]ConcordedConcept{},
 			[]sqs.Notification{},
@@ -169,19 +169,19 @@ func (s *MockService) ProcessMessage(UUID string) error {
 	//s.m.Lock()
 	//defer s.m.Unlock()
 
-	if _, _, err := s.GetConcordedConcept(UUID); err != nil {
+	if _, _, err, _, _ := s.GetConcordedConcept(UUID); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (s *MockService) GetConcordedConcept(UUID string) (ConcordedConcept, string, error) {
+func (s *MockService) GetConcordedConcept(UUID string) (ConcordedConcept, string, error, string, httpStatus) {
 	//s.m.Lock()
 	//defer s.m.Unlock()
 	if c, ok := s.concepts[UUID]; ok {
-		return c, "tid", nil
+		return c, "tid", nil, "", SUCCESS
 	}
-	return ConcordedConcept{}, "", errors.New("Not found")
+	return ConcordedConcept{}, "", errors.New("Not found"), "Source concept not found in S3", NOT_FOUND
 }
 
 func (s *MockService) Healthchecks() []fthealth.Check {

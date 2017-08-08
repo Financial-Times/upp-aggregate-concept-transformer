@@ -20,7 +20,7 @@ import (
 type Service interface {
 	ListenForNotifications()
 	ProcessMessage(UUID string) error
-	GetConcordedConcept(UUID string) (ConcordedConcept, string, error)
+	GetConcordedConcept(UUID string) (ConcordedConcept, string, error, string, httpStatus)
 	Healthchecks() []fthealth.Check
 }
 
@@ -43,6 +43,14 @@ func NewService(S3Client s3.Client, SQSClient sqs.Client, dynamoClient dynamodb.
 		httpClient:                 httpClient,
 	}
 }
+
+type httpStatus int
+
+const (
+	NOT_FOUND httpStatus = iota
+	DOWNSTREAM_ERROR
+	SUCCESS
+)
 
 func (s *AggregateService) ListenForNotifications() {
 	for {
@@ -72,7 +80,7 @@ func (s *AggregateService) ListenForNotifications() {
 func (s *AggregateService) ProcessMessage(UUID string) error {
 
 	// Get the concorded concept
-	concordedConcept, transactionID, err := s.GetConcordedConcept(UUID)
+	concordedConcept, transactionID, err, _, _ := s.GetConcordedConcept(UUID)
 	if err != nil {
 		return err
 	}
@@ -84,7 +92,6 @@ func (s *AggregateService) ProcessMessage(UUID string) error {
 	}).Info("Writing concept to Neo4j")
 	err = sendToWriter(s.httpClient, s.neoWriterAddress, resolveConceptType(concordedConcept.Type), concordedConcept.PrefUUID, concordedConcept, transactionID)
 	if err != nil {
-		log.WithError(err).Error("Error writing concept to Neo4j")
 		return err
 	}
 
@@ -95,7 +102,6 @@ func (s *AggregateService) ProcessMessage(UUID string) error {
 	}).Info("Writing concept to Elasticsearch")
 	err = sendToWriter(s.httpClient, s.elasticsearchWriterAddress, resolveConceptType(concordedConcept.Type), concordedConcept.PrefUUID, concordedConcept, transactionID)
 	if err != nil {
-		log.WithError(err).Error("Error writing concept to Elasticsearch")
 		return err
 	}
 
@@ -107,25 +113,30 @@ func (s *AggregateService) ProcessMessage(UUID string) error {
 	return nil
 }
 
-func (s *AggregateService) GetConcordedConcept(UUID string) (ConcordedConcept, string, error) {
+func (s *AggregateService) GetConcordedConcept(UUID string) (ConcordedConcept, string, error, string, httpStatus) {
 	concordedConcept := ConcordedConcept{}
 	// Get concordance UUIDs.
 	concordances, err := s.db.GetConcordance(UUID)
 	if err != nil {
-		log.WithField("UUID", UUID).Error("Can't get concordance from DynamoDB")
-		return ConcordedConcept{}, "", err
+		logMsg := "Could not get concordance record from DynamoDB"
+		log.WithError(err).WithField("UUID", UUID).Error(logMsg)
+		return ConcordedConcept{}, "", err, logMsg, DOWNSTREAM_ERROR
 	}
 
 	// Get all concepts from S3.
-	for _, UUID := range concordances.ConcordedIds {
-		found, s3Concept, _, err := s.s3.GetConceptAndTransactionId(UUID)
+	for _, sourceId := range concordances.ConcordedIds {
+		found, s3Concept, _, err := s.s3.GetConceptAndTransactionId(sourceId)
 
 		if err != nil {
-			log.WithError(err).WithField("UUID", UUID).Error("Error getting concept from S3")
-			return ConcordedConcept{}, "", err
+			logMsg := "Error getting source concept from S3"
+			log.WithError(err).WithField("UUID", sourceId).Error(logMsg)
+			return ConcordedConcept{}, "", err, logMsg, DOWNSTREAM_ERROR
 		}
 		if !found {
-			return ConcordedConcept{}, "", fmt.Errorf("Concept not found: %s", UUID)
+			logMsg := "Source concept not found in S3"
+			err := fmt.Errorf("Source concept not found: %s", sourceId)
+			log.WithError(err).WithField("UUID", sourceId).Error(logMsg)
+			return ConcordedConcept{}, "", err, logMsg, NOT_FOUND
 		}
 
 		concordedConcept = mergeCanonicalInformation(concordedConcept, s3Concept)
@@ -133,17 +144,22 @@ func (s *AggregateService) GetConcordedConcept(UUID string) (ConcordedConcept, s
 
 	found, primaryConcept, transactionID, err := s.s3.GetConceptAndTransactionId(concordances.UUID)
 	if err != nil {
-		return ConcordedConcept{}, "", err
+		logMsg := "Error retrieving canonical concept from S3"
+		log.WithError(err).WithField("UUID", UUID).Error(logMsg)
+		return ConcordedConcept{}, "", err, logMsg, DOWNSTREAM_ERROR
 	}
 	if !found {
-		return ConcordedConcept{}, "", fmt.Errorf("SL Concept not found: %s", UUID)
+		logMsg := "Cannonical concept not found in S3"
+		err := fmt.Errorf("Canonical concept not found: %s", UUID)
+		log.WithError(err).WithField("UUID", UUID).Error(logMsg)
+		return ConcordedConcept{}, "", err, logMsg, NOT_FOUND
 	}
 
 	// Aggregate concepts
 	concordedConcept = mergeCanonicalInformation(concordedConcept, primaryConcept)
 	concordedConcept.Aliases = deduplicateAliases(concordedConcept.Aliases)
 
-	return concordedConcept, transactionID, nil
+	return concordedConcept, transactionID, nil, "", SUCCESS
 }
 
 func (s *AggregateService) Healthchecks() []fthealth.Check {
@@ -190,15 +206,22 @@ func sendToWriter(client httpClient, baseUrl string, urlParam string, conceptUUI
 
 	request, reqUrl, err := createWriteRequest(baseUrl, urlParam, strings.NewReader(string(body)), conceptUUID)
 	if err != nil {
-		return errors.New("Failed to create request to " + reqUrl + " with body " + string(body))
+		err := errors.New("Failed to create request to " + reqUrl + " with body " + string(body))
+		log.WithFields(log.Fields{"UUID": conceptUUID, "transaction_id":tid}).Error(err)
+		return err
 	}
 	request.ContentLength = -1
 	request.Header.Set("X-Request-Id", tid)
 
 	resp, reqErr := client.Do(request)
 
-	if reqErr != nil || resp.StatusCode != 200 {
-		return errors.New("Request to " + reqUrl + " returned status: " + strconv.Itoa(resp.StatusCode) + "; skipping " + conceptUUID)
+	if resp.StatusCode == 404 && strings.Contains(baseUrl, "elastic") {
+		log.WithFields(log.Fields{"UUID": conceptUUID, "transaction_id":tid}).Debugf("Elastic search rw cannot handle concept: %s, because it has an unsupported type %s; skipping record", conceptUUID, concept.Type)
+		return nil
+	} else if reqErr != nil || resp.StatusCode != 200 {
+		err := errors.New("Request to " + reqUrl + " returned status: " + strconv.Itoa(resp.StatusCode) + "; skipping " + conceptUUID)
+		log.WithFields(log.Fields{"UUID": conceptUUID, "transaction_id":tid}).Error(err)
+		return err
 	}
 	defer resp.Body.Close()
 

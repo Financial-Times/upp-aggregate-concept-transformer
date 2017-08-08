@@ -130,7 +130,7 @@ func TestAggregateService_ListenForNotifications(t *testing.T) {
 func TestAggregateService_GetConcordedConcept_NoConcordance(t *testing.T) {
 	svc, _, _, _ := setupTestService(200)
 
-	c, tid, err := svc.GetConcordedConcept("99247059-04ec-3abb-8693-a0b8951fdcab")
+	c, tid, err, _, _ := svc.GetConcordedConcept("99247059-04ec-3abb-8693-a0b8951fdcab")
 	assert.NoError(t, err)
 	assert.Equal(t, "tid_123", tid)
 	assert.Equal(t, "Test Concept", c.PrefLabel)
@@ -162,7 +162,7 @@ func TestAggregateService_GetConcordedConcept_TMEConcordance(t *testing.T) {
 		},
 	}
 
-	c, tid, err := svc.GetConcordedConcept("28090964-9997-4bc2-9638-7a11135aaff9")
+	c, tid, err, _, _ := svc.GetConcordedConcept("28090964-9997-4bc2-9638-7a11135aaff9")
 	sort.Strings(c.Aliases)
 	sort.Strings(expectedConcept.Aliases)
 	assert.NoError(t, err)
@@ -190,7 +190,7 @@ func TestAggregateService_ProcessMessage_NotFound(t *testing.T) {
 
 	err := svc.ProcessMessage("090905b8-e0d5-41e6-b9e4-21171ab73dc1")
 	assert.Error(t, err)
-	assert.Equal(t, "SL Concept not found: 090905b8-e0d5-41e6-b9e4-21171ab73dc1", err.Error())
+	assert.Equal(t, "Canonical concept not found: 090905b8-e0d5-41e6-b9e4-21171ab73dc1", err.Error())
 }
 
 func TestAggregateService_Healthchecks(t *testing.T) {
