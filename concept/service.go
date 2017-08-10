@@ -11,6 +11,7 @@ import (
 	"sync"
 
 	"github.com/Financial-Times/aggregate-concept-transformer/dynamodb"
+	"github.com/Financial-Times/aggregate-concept-transformer/kinesis"
 	"github.com/Financial-Times/aggregate-concept-transformer/s3"
 	"github.com/Financial-Times/aggregate-concept-transformer/sqs"
 	fthealth "github.com/Financial-Times/go-fthealth/v1_1"
@@ -28,16 +29,18 @@ type AggregateService struct {
 	s3                         s3.Client
 	db                         dynamodb.Client
 	sqs                        sqs.Client
+	kinesis                    kinesis.Client
 	neoWriterAddress           string
 	elasticsearchWriterAddress string
 	httpClient                 httpClient
 }
 
-func NewService(S3Client s3.Client, SQSClient sqs.Client, dynamoClient dynamodb.Client, neoAddress string, elasticsearchAddress string, httpClient httpClient) Service {
+func NewService(S3Client s3.Client, SQSClient sqs.Client, dynamoClient dynamodb.Client, kinesisClient kinesis.Client, neoAddress string, elasticsearchAddress string, httpClient httpClient) Service {
 	return &AggregateService{
 		s3:                         S3Client,
 		db:                         dynamoClient,
 		sqs:                        SQSClient,
+		kinesis:                    kinesisClient,
 		neoWriterAddress:           neoAddress,
 		elasticsearchWriterAddress: elasticsearchAddress,
 		httpClient:                 httpClient,
@@ -100,6 +103,16 @@ func (s *AggregateService) ProcessMessage(UUID string) error {
 		"TransactionID": transactionID,
 	}).Info("Writing concept to Elasticsearch")
 	err = sendToWriter(s.httpClient, s.elasticsearchWriterAddress, resolveConceptType(concordedConcept.Type), concordedConcept.PrefUUID, concordedConcept, transactionID)
+	if err != nil {
+		return err
+	}
+
+	//Add to stream
+	log.WithFields(log.Fields{
+		"UUID":          concordedConcept.PrefUUID,
+		"TransactionID": transactionID,
+	}).Info("Writing concept to Elasticsearch")
+	err = s.kinesis.AddRecordToStream(concordedConcept.PrefUUID, concordedConcept.Type, transactionID)
 	if err != nil {
 		return err
 	}

@@ -82,6 +82,20 @@ func (d *mockDynamoDBClient) Healthcheck() fthealth.Check {
 	return fthealth.Check{}
 }
 
+type mockKinesisStreamClient struct {
+	err error
+}
+
+func (k *mockKinesisStreamClient) AddRecordToStream(record string, conceptType string, tid string) error {
+	if k.err != nil {
+		return k.err
+	}
+	return nil
+}
+func (d *mockKinesisStreamClient) Healthcheck() fthealth.Check {
+	return fthealth.Check{}
+}
+
 type mockS3Client struct {
 	concepts map[string]struct {
 		transactionID string
@@ -116,19 +130,19 @@ func (c mockHTTPClient) Do(req *http.Request) (resp *http.Response, err error) {
 }
 
 func TestNewService(t *testing.T) {
-	svc, _, _, _ := setupTestService(200)
+	svc, _, _, _, _ := setupTestService(200)
 	assert.Equal(t, 4, len(svc.Healthchecks()))
 }
 
 func TestAggregateService_ListenForNotifications(t *testing.T) {
-	svc, _, sqs, _ := setupTestService(200)
+	svc, _, sqs, _, _ := setupTestService(200)
 	go svc.ListenForNotifications()
 	time.Sleep(1 * time.Second)
 	assert.Equal(t, 0, len(sqs.Queue()))
 }
 
 func TestAggregateService_GetConcordedConcept_NoConcordance(t *testing.T) {
-	svc, _, _, _ := setupTestService(200)
+	svc, _, _, _, _ := setupTestService(200)
 
 	c, tid, err, _, _ := svc.GetConcordedConcept("99247059-04ec-3abb-8693-a0b8951fdcab")
 	assert.NoError(t, err)
@@ -137,7 +151,7 @@ func TestAggregateService_GetConcordedConcept_NoConcordance(t *testing.T) {
 }
 
 func TestAggregateService_GetConcordedConcept_TMEConcordance(t *testing.T) {
-	svc, _, _, _ := setupTestService(200)
+	svc, _, _, _, _ := setupTestService(200)
 
 	expectedConcept := ConcordedConcept{
 		PrefUUID:      "28090964-9997-4bc2-9638-7a11135aaff9",
@@ -176,22 +190,31 @@ func TestAggregateService_GetConcordedConcept_TMEConcordance(t *testing.T) {
 }
 
 func TestAggregateService_ProcessMessage_Success(t *testing.T) {
-	svc, _, _, _ := setupTestService(200)
+	svc, _, _, _, _ := setupTestService(200)
 
 	err := svc.ProcessMessage("28090964-9997-4bc2-9638-7a11135aaff9")
 	assert.NoError(t, err)
 }
 
 func TestAggregateService_ProcessMessage_NeoFail(t *testing.T) {
-	svc, _, _, _ := setupTestService(503)
+	svc, _, _, _, _ := setupTestService(503)
 
 	err := svc.ProcessMessage("28090964-9997-4bc2-9638-7a11135aaff9")
 	assert.Error(t, err)
 	assert.Equal(t, "Request to neoAddress/people/28090964-9997-4bc2-9638-7a11135aaff9 returned status: 503; skipping 28090964-9997-4bc2-9638-7a11135aaff9", err.Error())
 }
 
+func TestAggregateService_ProcessMessage_KinesisFail(t *testing.T) {
+	svc, _, _, _, k := setupTestService(200)
+	k.err = errors.New("Failed to add record to stream")
+
+	err := svc.ProcessMessage("28090964-9997-4bc2-9638-7a11135aaff9")
+	assert.Error(t, err)
+	assert.Equal(t, "Failed to add record to stream", err.Error())
+}
+
 func TestAggregateService_ProcessMessage_NotFound(t *testing.T) {
-	svc, _, _, _ := setupTestService(200)
+	svc, _, _, _, _ := setupTestService(200)
 
 	err := svc.ProcessMessage("090905b8-e0d5-41e6-b9e4-21171ab73dc1")
 	assert.Error(t, err)
@@ -199,7 +222,7 @@ func TestAggregateService_ProcessMessage_NotFound(t *testing.T) {
 }
 
 func TestAggregateService_Healthchecks(t *testing.T) {
-	svc, _, _, _ := setupTestService(200)
+	svc, _, _, _, _ := setupTestService(200)
 	healthchecks := svc.Healthchecks()
 
 	for _, v := range healthchecks {
@@ -223,7 +246,7 @@ func TestResolveConceptType(t *testing.T) {
 	assert.Equal(t, "topics", topic)
 }
 
-func setupTestService(httpError int) (Service, *mockS3Client, *mockSQSClient, *mockDynamoDBClient) {
+func setupTestService(httpError int) (Service, *mockS3Client, *mockSQSClient, *mockDynamoDBClient, *mockKinesisStreamClient) {
 	s3 := &mockS3Client{
 		concepts: map[string]struct {
 			transactionID string
@@ -275,7 +298,9 @@ func setupTestService(httpError int) (Service, *mockS3Client, *mockSQSClient, *m
 		},
 	}
 
-	return NewService(s3, sqs, dynamo,
+	kinesis := &mockKinesisStreamClient{}
+
+	return NewService(s3, sqs, dynamo, kinesis,
 		"neoAddress",
 		"esAddress",
 		&mockHTTPClient{
@@ -283,5 +308,5 @@ func setupTestService(httpError int) (Service, *mockS3Client, *mockSQSClient, *m
 			statusCode: httpError,
 			err:        nil,
 		},
-	), s3, sqs, dynamo
+	), s3, sqs, dynamo, kinesis
 }

@@ -230,6 +230,12 @@
 			"revisionTime": "2017-06-21T21:35:11Z"
 		},
 		{
+			"checksumSHA1": "fE6Lygzxvif/yfo9bncKyRUCqs8=",
+			"path": "github.com/aws/aws-sdk-go/service/kinesis",
+			"revision": "0fe261219ed324b1c71cc942f85346d5ced0f7aa",
+			"revisionTime": "2017-08-09T19:06:37Z"
+		},
+		{
 			"checksumSHA1": "lC6CowuZ0Zjvbcw3hjYSc1cxbPE=",
 			"path": "github.com/aws/aws-sdk-go/service/s3",
 			"revision": "2b30c0d3795409731d69596ac9573b97a41af51e",
