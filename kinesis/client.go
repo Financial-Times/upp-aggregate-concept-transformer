@@ -2,44 +2,43 @@ package kinesis
 
 import (
 	fthealth "github.com/Financial-Times/go-fthealth/v1_1"
-	log "github.com/Sirupsen/logrus"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/kinesis"
 )
 
 type Client interface {
-	AddRecordToStream(record string, conceptType string, tid string) error
+	AddRecordToStream(record string, conceptType string) error
 	Healthcheck() fthealth.Check
 }
 
 type KinesisClient struct {
 	streamName string
-	svc        *kinesis.Kinesis
+	svc 	   *kinesis.Kinesis
 }
 
 func NewClient(streamName string, region string) (Client, error) {
 	sess := session.Must(session.NewSession())
 	svc := kinesis.New(sess, &aws.Config{
 		Region: aws.String(region),
+
 	})
 
 	return &KinesisClient{
 		streamName: streamName,
-		svc:        svc,
+		svc: svc,
 	}, nil
 }
 
-func (c *KinesisClient) AddRecordToStream(record string, conceptType string, tid string) error {
+func (c *KinesisClient) AddRecordToStream(record string, conceptType string) error {
 	putRecordInput := &kinesis.PutRecordInput{
-		Data:         []byte(record),
-		StreamName:   aws.String(c.streamName),
+		Data: []byte(record),
+		StreamName: aws.String(c.streamName),
 		PartitionKey: aws.String(conceptType),
 	}
 
 	_, err := c.svc.PutRecord(putRecordInput)
 	if err != nil {
-		log.WithError(err).WithFields(log.Fields{"UUID": record, "transaction_id": tid}).Error("Failed to add record to stream")
 		return err
 	}
 	return nil

@@ -11,11 +11,11 @@ import (
 	"sync"
 
 	"github.com/Financial-Times/aggregate-concept-transformer/dynamodb"
-	"github.com/Financial-Times/aggregate-concept-transformer/kinesis"
 	"github.com/Financial-Times/aggregate-concept-transformer/s3"
 	"github.com/Financial-Times/aggregate-concept-transformer/sqs"
 	fthealth "github.com/Financial-Times/go-fthealth/v1_1"
 	log "github.com/Sirupsen/logrus"
+	"github.com/Financial-Times/aggregate-concept-transformer/kinesis"
 )
 
 type Service interface {
@@ -29,7 +29,7 @@ type AggregateService struct {
 	s3                         s3.Client
 	db                         dynamodb.Client
 	sqs                        sqs.Client
-	kinesis                    kinesis.Client
+	kinesis			   kinesis.Client
 	neoWriterAddress           string
 	elasticsearchWriterAddress string
 	httpClient                 httpClient
@@ -40,7 +40,7 @@ func NewService(S3Client s3.Client, SQSClient sqs.Client, dynamoClient dynamodb.
 		s3:                         S3Client,
 		db:                         dynamoClient,
 		sqs:                        SQSClient,
-		kinesis:                    kinesisClient,
+		kinesis:		    kinesisClient,
 		neoWriterAddress:           neoAddress,
 		elasticsearchWriterAddress: elasticsearchAddress,
 		httpClient:                 httpClient,
@@ -112,8 +112,9 @@ func (s *AggregateService) ProcessMessage(UUID string) error {
 		"UUID":          concordedConcept.PrefUUID,
 		"TransactionID": transactionID,
 	}).Info("Writing concept to Elasticsearch")
-	err = s.kinesis.AddRecordToStream(concordedConcept.PrefUUID, concordedConcept.Type, transactionID)
+	err = s.kinesis.AddRecordToStream(concordedConcept.PrefUUID, concordedConcept.Type)
 	if err != nil {
+		log.WithError(err).WithFields(log.Fields{"UUID": UUID, "transaction_id": transactionID}).Error("Failed to add record to stream")
 		return err
 	}
 

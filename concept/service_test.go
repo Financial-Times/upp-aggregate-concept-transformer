@@ -86,7 +86,7 @@ type mockKinesisStreamClient struct {
 	err error
 }
 
-func (k *mockKinesisStreamClient) AddRecordToStream(record string, conceptType string, tid string) error {
+func (k *mockKinesisStreamClient) AddRecordToStream(record string, conceptType string) error {
 	if k.err != nil {
 		return k.err
 	}
