@@ -14,8 +14,8 @@ import (
 	"github.com/Financial-Times/aggregate-concept-transformer/s3"
 	"github.com/Financial-Times/aggregate-concept-transformer/sqs"
 	fthealth "github.com/Financial-Times/go-fthealth/v1_1"
-	log "github.com/Sirupsen/logrus"
 	"github.com/Financial-Times/aggregate-concept-transformer/kinesis"
+	log "github.com/sirupsen/logrus"
 )
 
 type Service interface {

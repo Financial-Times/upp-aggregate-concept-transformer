@@ -12,11 +12,10 @@ import (
 	"github.com/Financial-Times/aggregate-concept-transformer/kinesis"
 	"github.com/Financial-Times/aggregate-concept-transformer/s3"
 	"github.com/Financial-Times/aggregate-concept-transformer/sqs"
-	log "github.com/Sirupsen/logrus"
 	"github.com/gorilla/mux"
 	"github.com/jawher/mow.cli"
 	_ "github.com/joho/godotenv/autoload"
-	_ "net/http/pprof"
+	log "github.com/sirupsen/logrus"
 )
 
 const appDescription = "Service to aggregate concepts from different sources and produce a canonical view."
