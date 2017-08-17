@@ -14,7 +14,7 @@ import (
 	"github.com/Financial-Times/aggregate-concept-transformer/s3"
 	"github.com/Financial-Times/aggregate-concept-transformer/sqs"
 	fthealth "github.com/Financial-Times/go-fthealth/v1_1"
-	log "github.com/Sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 	"github.com/Financial-Times/aggregate-concept-transformer/kinesis"
 )
 
@@ -90,7 +90,7 @@ func (s *AggregateService) ProcessMessage(UUID string) error {
 	// Write to Neo4j
 	log.WithFields(log.Fields{
 		"UUID":          concordedConcept.PrefUUID,
-		"TransactionID": transactionID,
+		"transaction_id": transactionID,
 	}).Info("Writing concept to Neo4j")
 	err = sendToWriter(s.httpClient, s.neoWriterAddress, resolveConceptType(concordedConcept.Type), concordedConcept.PrefUUID, concordedConcept, transactionID)
 	if err != nil {
@@ -100,7 +100,7 @@ func (s *AggregateService) ProcessMessage(UUID string) error {
 	// Write to Elasticsearch
 	log.WithFields(log.Fields{
 		"UUID":          concordedConcept.PrefUUID,
-		"TransactionID": transactionID,
+		"transaction_id": transactionID,
 	}).Info("Writing concept to Elasticsearch")
 	err = sendToWriter(s.httpClient, s.elasticsearchWriterAddress, resolveConceptType(concordedConcept.Type), concordedConcept.PrefUUID, concordedConcept, transactionID)
 	if err != nil {
@@ -110,7 +110,7 @@ func (s *AggregateService) ProcessMessage(UUID string) error {
 	//Add to stream
 	log.WithFields(log.Fields{
 		"UUID":          concordedConcept.PrefUUID,
-		"TransactionID": transactionID,
+		"transaction_id": transactionID,
 	}).Info("Writing concept to Elasticsearch")
 	err = s.kinesis.AddRecordToStream(concordedConcept.PrefUUID, concordedConcept.Type)
 	if err != nil {
