@@ -9,12 +9,14 @@ import (
 
 	"github.com/Financial-Times/aggregate-concept-transformer/concept"
 	"github.com/Financial-Times/aggregate-concept-transformer/dynamodb"
+	"github.com/Financial-Times/aggregate-concept-transformer/kinesis"
 	"github.com/Financial-Times/aggregate-concept-transformer/s3"
 	"github.com/Financial-Times/aggregate-concept-transformer/sqs"
-	log "github.com/sirupsen/logrus"
+	log "github.com/Sirupsen/logrus"
 	"github.com/gorilla/mux"
 	"github.com/jawher/mow.cli"
 	_ "github.com/joho/godotenv/autoload"
+	_ "net/http/pprof"
 )
 
 const appDescription = "Service to aggregate concepts from different sources and produce a canonical view."
@@ -117,6 +119,19 @@ func main() {
 		EnvVar: "DYNAMODB_REGION",
 	})
 
+	kinesisStreamName := app.String(cli.StringOpt{
+		Name:   "kinesisStreamName",
+		Desc:   "DynamoDB table to read concordances from",
+		EnvVar: "KINESIS_STREAM_NAME",
+	})
+
+	kinesisRegion := app.String(cli.StringOpt{
+		Name:   "kinesisRegion",
+		Value:  "eu-west-1",
+		Desc:   "AWS region the kinesis stream is located",
+		EnvVar: "KINESIS_REGION",
+	})
+
 	logLevel := app.String(cli.StringOpt{
 		Name:   "logLevel",
 		Value:  "info",
@@ -143,6 +158,7 @@ func main() {
 			"SQS_REGION":         *sqsRegion,
 			"QUEUE_URL":          *queueURL,
 			"LOG_LEVEL":          *logLevel,
+			"KINESIS_REGION":     *kinesisStreamName,
 		}).Info("Starting app with arguments")
 
 		if *bucketName == "" {
@@ -162,6 +178,10 @@ func main() {
 			log.Fatal("AWS SQS region not set")
 		}
 
+		if *kinesisStreamName == "" {
+			log.Fatal("Kinesis stream name not set")
+		}
+
 		s3Client, err := s3.NewClient(*bucketName, *bucketRegion)
 		if err != nil {
 			log.WithError(err).Fatal("Error creating S3 client")
@@ -177,7 +197,12 @@ func main() {
 			log.WithError(err).Fatal("Error creating DynamoDB client")
 		}
 
-		svc := concept.NewService(s3Client, sqsClient, dynamoClient, *neoWriterAddress, *elasticsearchWriterAddress, defaultHTTPClient())
+		kinesisClient, err := kinesis.NewClient(*kinesisStreamName, *kinesisRegion)
+		if err != nil {
+			log.WithError(err).Fatal("Error creating Kinesis client")
+		}
+
+		svc := concept.NewService(s3Client, sqsClient, dynamoClient, kinesisClient, *neoWriterAddress, *elasticsearchWriterAddress, defaultHTTPClient())
 		handler := concept.NewHandler(svc)
 		hs := concept.NewHealthService(svc, *appSystemCode, *appName, *port, appDescription)
 

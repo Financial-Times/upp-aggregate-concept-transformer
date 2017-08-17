@@ -14,7 +14,7 @@ import (
 	"github.com/Financial-Times/aggregate-concept-transformer/s3"
 	"github.com/Financial-Times/aggregate-concept-transformer/sqs"
 	fthealth "github.com/Financial-Times/go-fthealth/v1_1"
-	log "github.com/sirupsen/logrus"
+	log "github.com/Sirupsen/logrus"
 	"github.com/Financial-Times/aggregate-concept-transformer/kinesis"
 )
 
@@ -120,7 +120,7 @@ func (s *AggregateService) ProcessMessage(UUID string) error {
 
 	log.WithFields(log.Fields{
 		"UUID":          concordedConcept.PrefUUID,
-		"TransactionID": transactionID,
+		"transaction_id": transactionID,
 	}).Info("Finished processing update")
 
 	return nil
@@ -234,6 +234,7 @@ func sendToWriter(client httpClient, baseUrl string, urlParam string, conceptUUI
 	request.Header.Set("X-Request-Id", tid)
 
 	resp, reqErr := client.Do(request)
+	defer resp.Body.Close()
 
 	if resp.StatusCode == 404 && strings.Contains(baseUrl, "elastic") {
 		log.WithFields(log.Fields{"UUID": conceptUUID, "transaction_id": tid}).Debugf("Elastic search rw cannot handle concept: %s, because it has an unsupported type %s; skipping record", conceptUUID, concept.Type)
@@ -243,7 +244,6 @@ func sendToWriter(client httpClient, baseUrl string, urlParam string, conceptUUI
 		log.WithFields(log.Fields{"UUID": conceptUUID, "transaction_id": tid}).Error(err)
 		return err
 	}
-	defer resp.Body.Close()
 
 	return nil
 }
