@@ -20,3 +20,7 @@ type ConcordedConcept struct {
 	RelatedUUIDs          []string     `json:"relatedUUIDs,omitempty"`
 	SourceRepresentations []s3.Concept `json:"sourceRepresentations,omitempty"`
 }
+
+type UpdatedConcepts struct {
+	UpdatedIds []string `json: "updatedIds"`
+}

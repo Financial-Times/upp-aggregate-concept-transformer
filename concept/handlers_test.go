@@ -16,8 +16,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-const ExpectedContentType = "application/json"
-
 func TestHandlers(t *testing.T) {
 	testCases := []struct {
 		name          string
@@ -127,7 +125,7 @@ func TestHandlers(t *testing.T) {
 			handler := NewHandler(mockService)
 			m := mux.NewRouter()
 			handler.RegisterHandlers(m)
-			handler.RegisterAdminHandlers(m, NewHealthService(mockService, "system-code", "app-name", "8080", "description"))
+			handler.RegisterAdminHandlers(m, NewHealthService(mockService, "system-code", "app-name", "8080", "description"), true)
 
 			req, _ := http.NewRequest(d.method, d.url, bytes.NewBufferString(d.requestBody))
 			rr := httptest.NewRecorder()

@@ -1,8 +1,10 @@
 # Aggregate Concept Transformer (aggregate-concept-transformer)
 
-[![Circle CI](https://circleci.com/gh/Financial-Times/aggregate-concept-transformer/tree/master.png?style=shield)](https://circleci.com/gh/Financial-Times/aggregate-concept-transformer/tree/master) [![Go Report Card](https://goreportcard.com/badge/github.com/Financial-Times/aggregate-concept-transformer)](https://goreportcard.com/report/github.com/Financial-Times/aggregate-concept-transformer) [![Coverage Status](https://coveralls.io/repos/github/Financial-Times/aggregate-concept-transformer/badge.svg)](https://coveralls.io/github/Financial-Times/aggregate-concept-transformer)
+[![Circle CI](https://circleci.com/gh/Financial-Times/aggregate-concept-transformer/tree/master.png?style=shield)](https://circleci.com/gh/Financial-Times/aggregate-concept-transformer/tree/master)
+[![Go Report Card](https://goreportcard.com/badge/github.com/Financial-Times/aggregate-concept-transformer)](https://goreportcard.com/report/github.com/Financial-Times/aggregate-concept-transformer)
+[![Coverage Status](https://coveralls.io/repos/github/Financial-Times/aggregate-concept-transformer/badge.svg)](https://coveralls.io/github/Financial-Times/aggregate-concept-transformer)
 
-__A service which gets notified via SQS of updates to source concepts in an Amazon S3 bucket. It then returns all UUIDs with concordance to said concept, requests each in turn from S3, builds the concorded JSON model and sends the updated concept JSON to both Neo4j and Elasticsearch__
+__A service which gets notified via SQS of updates to source concepts in an Amazon S3 bucket. It then returns all UUIDs with concordance to said concept, requests each in turn from S3, builds the concorded JSON model and sends the updated concept JSON to both Neo4j and Elasticsearch. Finally it sends a notification of all updated concepts to a kinesis stream and removes the SNS message from the queue__
 
 # Installation
 
@@ -36,7 +38,10 @@ Options:
   --elasticsearchWriterAddress="http://localhost:8080/"   Address for the Elasticsearch Concept Writer ($ES_WRITER_ADDRESS)
   --dynamoDBTable="concordances"                          DynamoDB table to read concordances from ($DYNAMODB_TABLE)
   --dynamoDBTable="eu-west-1"                             AWS region the DynamoDB table is in ($DYNAMODB_REGION)
+  --kinesisStreamName="upp-stream-name"                   Kinesis stream name to send notifications of updated uuids to ($KINESIS_STREAM_NAME)
+  --kinesisRegion="eu-west-1"                             AWS region the Kinesis stream is in ($KINESIS_REGION)
   --logLevel="info"                                       App log level ($LOG_LEVEL)
+  --requestLoggingOn="true"                               Whether to log http requests/responses ($REQUEST_LOGGING_ON)
 ```
 
 
@@ -78,7 +83,6 @@ See [swagger.yml](api/swagger.yml)
 
 * Health checks: `http://localhost:8080/__health`
 * Good to go: `http://localhost:8080/__gtg`
-* Ping: `http://localhost:8080/__ping`
 * Build info: `http://localhost:8080/__build-info`
 
 ## Documentation

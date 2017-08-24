@@ -88,40 +88,35 @@ func (s *AggregateService) ProcessMessage(UUID string) error {
 	}
 
 	// Write to Neo4j
-	log.WithFields(log.Fields{
-		"UUID":          concordedConcept.PrefUUID,
-		"transaction_id": transactionID,
-	}).Info("Writing concept to Neo4j")
-	err = sendToWriter(s.httpClient, s.neoWriterAddress, resolveConceptType(concordedConcept.Type), concordedConcept.PrefUUID, concordedConcept, transactionID)
+	log.WithFields(log.Fields{"UUID": concordedConcept.PrefUUID, "transaction_id": transactionID,}).Debug("Writing concept to Neo4j")
+	updatedConcepts, err := sendToWriter(s.httpClient, s.neoWriterAddress, resolveConceptType(concordedConcept.Type), concordedConcept.PrefUUID, concordedConcept, transactionID)
 	if err != nil {
 		return err
+	} else if len(updatedConcepts.UpdatedIds) < 1 {
+		msg := "Concept rw neo4j did not return any updated uuids!"
+		log.WithFields(log.Fields{"UUID": UUID, "transaction_id": transactionID}).Error(msg)
+		return errors.New(msg)
 	}
 
 	// Write to Elasticsearch
-	log.WithFields(log.Fields{
-		"UUID":          concordedConcept.PrefUUID,
-		"transaction_id": transactionID,
-	}).Info("Writing concept to Elasticsearch")
-	err = sendToWriter(s.httpClient, s.elasticsearchWriterAddress, resolveConceptType(concordedConcept.Type), concordedConcept.PrefUUID, concordedConcept, transactionID)
+	log.WithFields(log.Fields{"UUID": concordedConcept.PrefUUID, "transaction_id": transactionID,}).Debug("Writing concept to Elasticsearch")
+	_, err = sendToWriter(s.httpClient, s.elasticsearchWriterAddress, resolveConceptType(concordedConcept.Type), concordedConcept.PrefUUID, concordedConcept, transactionID)
 	if err != nil {
 		return err
 	}
 
-	//Add to stream
-	log.WithFields(log.Fields{
-		"UUID":          concordedConcept.PrefUUID,
-		"transaction_id": transactionID,
-	}).Info("Writing concept to Elasticsearch")
-	err = s.kinesis.AddRecordToStream(concordedConcept.PrefUUID, concordedConcept.Type)
-	if err != nil {
-		log.WithError(err).WithFields(log.Fields{"UUID": UUID, "transaction_id": transactionID}).Error("Failed to add record to stream")
-		return err
+	//Send notification to stream
+	log.WithFields(log.Fields{"UUID": concordedConcept.PrefUUID, "transaction_id": transactionID,}).Debug("Writing concept to Elasticsearch")
+	for _, updatedId := range updatedConcepts.UpdatedIds {
+		err = s.kinesis.AddRecordToStream(updatedId, concordedConcept.Type)
+		if err != nil {
+			log.WithError(err).WithFields(log.Fields{"UUID": UUID, "transaction_id": transactionID}).Error("Failed to add record to stream")
+			return err
+		}
+		log.WithFields(log.Fields{"UUID": UUID, "transaction_id": transactionID}).Debug("Sending notification of update to " + updatedId)
 	}
 
-	log.WithFields(log.Fields{
-		"UUID":          concordedConcept.PrefUUID,
-		"transaction_id": transactionID,
-	}).Info("Finished processing update")
+	log.WithFields(log.Fields{"UUID": concordedConcept.PrefUUID, "transaction_id": transactionID,}).Info("Finished processing update")
 
 	return nil
 }
@@ -181,6 +176,7 @@ func (s *AggregateService) Healthchecks() []fthealth.Check {
 		s.sqs.Healthcheck(),
 		s.RWElasticsearchHealthCheck(),
 		s.RWNeo4JHealthCheck(),
+		s.kinesis.Healthcheck(),
 	}
 }
 
@@ -217,18 +213,18 @@ func mergeCanonicalInformation(c ConcordedConcept, s s3.Concept) ConcordedConcep
 	return c
 }
 
-func sendToWriter(client httpClient, baseUrl string, urlParam string, conceptUUID string, concept ConcordedConcept, tid string) error {
-
+func sendToWriter(client httpClient, baseUrl string, urlParam string, conceptUUID string, concept ConcordedConcept, tid string) (UpdatedConcepts, error) {
+	updatedConcepts := UpdatedConcepts{}
 	body, err := json.Marshal(concept)
 	if err != nil {
-		return err
+		return updatedConcepts, err
 	}
 
 	request, reqUrl, err := createWriteRequest(baseUrl, urlParam, strings.NewReader(string(body)), conceptUUID)
 	if err != nil {
 		err := errors.New("Failed to create request to " + reqUrl + " with body " + string(body))
 		log.WithFields(log.Fields{"UUID": conceptUUID, "transaction_id": tid}).Error(err)
-		return err
+		return updatedConcepts, err
 	}
 	request.ContentLength = -1
 	request.Header.Set("X-Request-Id", tid)
@@ -236,16 +232,24 @@ func sendToWriter(client httpClient, baseUrl string, urlParam string, conceptUUI
 	resp, reqErr := client.Do(request)
 	defer resp.Body.Close()
 
+	if strings.Contains(baseUrl, "neo4j") {
+		dec := json.NewDecoder(resp.Body)
+		err = dec.Decode(&updatedConcepts)
+		if err != nil {
+			return updatedConcepts, err
+		}
+	}
+
 	if resp.StatusCode == 404 && strings.Contains(baseUrl, "elastic") {
 		log.WithFields(log.Fields{"UUID": conceptUUID, "transaction_id": tid}).Debugf("Elastic search rw cannot handle concept: %s, because it has an unsupported type %s; skipping record", conceptUUID, concept.Type)
-		return nil
+		return updatedConcepts, nil
 	} else if reqErr != nil || resp.StatusCode != 200 {
 		err := errors.New("Request to " + reqUrl + " returned status: " + strconv.Itoa(resp.StatusCode) + "; skipping " + conceptUUID)
 		log.WithFields(log.Fields{"UUID": conceptUUID, "transaction_id": tid}).Error(err)
-		return err
+		return updatedConcepts, err
 	}
 
-	return nil
+	return updatedConcepts, nil
 }
 
 func createWriteRequest(baseUrl string, urlParam string, msgBody io.Reader, uuid string) (*http.Request, string, error) {

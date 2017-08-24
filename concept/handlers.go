@@ -90,7 +90,7 @@ func (h *AggregateConceptHandler) RegisterHandlers(router *mux.Router) {
 	router.Handle("/concept/{uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}}/send", sh)
 }
 
-func (h *AggregateConceptHandler) RegisterAdminHandlers(router *mux.Router, healthService *HealthService) http.Handler {
+func (h *AggregateConceptHandler) RegisterAdminHandlers(router *mux.Router, healthService *HealthService, requestLoggingEnabled bool) http.Handler {
 	log.Info("Registering admin handlers")
 
 	hc := fthealth.HealthCheck{SystemCode: healthService.config.appSystemCode, Name: healthService.config.appName, Description: healthService.config.description, Checks: healthService.Checks}
@@ -99,7 +99,9 @@ func (h *AggregateConceptHandler) RegisterAdminHandlers(router *mux.Router, heal
 	router.HandleFunc(status.BuildInfoPath, status.BuildInfoHandler)
 
 	var monitoringRouter http.Handler = router
-	monitoringRouter = httphandlers.TransactionAwareRequestLoggingHandler(log.StandardLogger(), monitoringRouter)
+	if requestLoggingEnabled {
+		monitoringRouter = httphandlers.TransactionAwareRequestLoggingHandler(log.StandardLogger(), monitoringRouter)
+	}
 	monitoringRouter = httphandlers.HTTPMetricsHandler(metrics.DefaultRegistry, monitoringRouter)
 	return monitoringRouter
 }

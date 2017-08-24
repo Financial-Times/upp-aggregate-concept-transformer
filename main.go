@@ -29,108 +29,98 @@ func main() {
 		Desc:   "System Code of the application",
 		EnvVar: "APP_SYSTEM_CODE",
 	})
-
 	appName := app.String(cli.StringOpt{
 		Name:   "app-name",
 		Value:  "Aggregate Concept Transformer",
 		Desc:   "Application name",
 		EnvVar: "APP_NAME",
 	})
-
 	port := app.String(cli.StringOpt{
 		Name:   "port",
 		Value:  "8080",
 		Desc:   "Port to listen on",
 		EnvVar: "APP_PORT",
 	})
-
 	bucketRegion := app.String(cli.StringOpt{
 		Name:   "bucketRegion",
 		Desc:   "AWS Region in which the S3 bucket is located",
 		Value:  "eu-west-1",
 		EnvVar: "BUCKET_REGION",
 	})
-
 	sqsRegion := app.String(cli.StringOpt{
 		Name:   "sqsRegion",
 		Desc:   "AWS Region in which the SQS queue is located",
 		EnvVar: "SQS_REGION",
 	})
-
 	bucketName := app.String(cli.StringOpt{
 		Name:   "bucketName",
 		Desc:   "Bucket to read concepts from.",
 		EnvVar: "BUCKET_NAME",
 	})
-
 	queueURL := app.String(cli.StringOpt{
 		Name:   "queueUrl",
 		Desc:   "Url of AWS sqs queue to listen to",
 		EnvVar: "QUEUE_URL",
 	})
-
 	messagesToProcess := app.Int(cli.IntOpt{
 		Name:   "messagesToProcess",
 		Value:  10,
 		Desc:   "Maximum number or messages to concurrently read off of queue and process",
 		EnvVar: "MAX_MESSAGES",
 	})
-
 	visibilityTimeout := app.Int(cli.IntOpt{
 		Name:   "visibilityTimeout",
 		Value:  30,
 		Desc:   "Duration(seconds) that messages will be ignored by subsequent requests after initial response",
 		EnvVar: "VISIBILITY_TIMEOUT",
 	})
-
 	waitTime := app.Int(cli.IntOpt{
 		Name:   "waitTime",
 		Value:  20,
 		Desc:   "Duration(seconds) to wait on queue for messages until returning. Will be shorter if messages arrive",
 		EnvVar: "WAIT_TIME",
 	})
-
 	neoWriterAddress := app.String(cli.StringOpt{
 		Name:   "neo4jWriterAddress",
 		Value:  "http://localhost:8080/",
 		Desc:   "Address for the Neo4J Concept Writer",
 		EnvVar: "NEO_WRITER_ADDRESS",
 	})
-
 	elasticsearchWriterAddress := app.String(cli.StringOpt{
 		Name:   "elasticsearchWriterAddress",
 		Value:  "http://localhost:8080/",
 		Desc:   "Address for the Elasticsearch Concept Writer",
 		EnvVar: "ES_WRITER_ADDRESS",
 	})
-
 	dynamoDBTable := app.String(cli.StringOpt{
 		Name:   "dynamoDBTable",
 		Value:  "concordances",
 		Desc:   "DynamoDB table to read concordances from",
 		EnvVar: "DYNAMODB_TABLE",
 	})
-
 	dynamoDBRegion := app.String(cli.StringOpt{
 		Name:   "dynamoDBTable",
 		Value:  "eu-west-1",
 		Desc:   "AWS region the DynamoDB table is in",
 		EnvVar: "DYNAMODB_REGION",
 	})
-
 	kinesisStreamName := app.String(cli.StringOpt{
 		Name:   "kinesisStreamName",
 		Desc:   "DynamoDB table to read concordances from",
 		EnvVar: "KINESIS_STREAM_NAME",
 	})
-
 	kinesisRegion := app.String(cli.StringOpt{
 		Name:   "kinesisRegion",
 		Value:  "eu-west-1",
 		Desc:   "AWS region the kinesis stream is located",
 		EnvVar: "KINESIS_REGION",
 	})
-
+	requestLoggingOn := app.Bool(cli.BoolOpt{
+		Name:   "requestLoggingOn",
+		Value:  true,
+		Desc:   "Whether to log http requests or not",
+		EnvVar: "REQUEST_LOGGING_ON",
+	})
 	logLevel := app.String(cli.StringOpt{
 		Name:   "logLevel",
 		Value:  "info",
@@ -207,7 +197,7 @@ func main() {
 
 		router := mux.NewRouter()
 		handler.RegisterHandlers(router)
-		r := handler.RegisterAdminHandlers(router, hs)
+		r := handler.RegisterAdminHandlers(router, hs, *requestLoggingOn)
 
 		go svc.ListenForNotifications()
 
