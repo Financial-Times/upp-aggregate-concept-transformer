@@ -139,15 +139,15 @@ func main() {
 		log.SetLevel(lvl)
 
 		log.WithFields(log.Fields{
-			"DYNAMODB_TABLE":     *dynamoDBTable,
-			"ES_WRITER_ADDRESS":  *elasticsearchWriterAddress,
-			"NEO_WRITER_ADDRESS": *neoWriterAddress,
-			"BUCKET_REGION":      *bucketRegion,
-			"BUCKET_NAME":        *bucketName,
-			"SQS_REGION":         *sqsRegion,
-			"QUEUE_URL":          *queueURL,
-			"LOG_LEVEL":          *logLevel,
-			"KINESIS_REGION":     *kinesisStreamName,
+			"DYNAMODB_TABLE":      *dynamoDBTable,
+			"ES_WRITER_ADDRESS":   *elasticsearchWriterAddress,
+			"NEO_WRITER_ADDRESS":  *neoWriterAddress,
+			"BUCKET_REGION":       *bucketRegion,
+			"BUCKET_NAME":         *bucketName,
+			"SQS_REGION":          *sqsRegion,
+			"QUEUE_URL":           *queueURL,
+			"LOG_LEVEL":           *logLevel,
+			"KINESIS_STREAM_NAME": *kinesisStreamName,
 		}).Info("Starting app with arguments")
 
 		if *bucketName == "" {

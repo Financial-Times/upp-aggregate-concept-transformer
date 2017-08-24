@@ -93,7 +93,11 @@ func (k *mockKinesisStreamClient) AddRecordToStream(record string, conceptType s
 	return nil
 }
 func (d *mockKinesisStreamClient) Healthcheck() fthealth.Check {
-	return fthealth.Check{}
+	return fthealth.Check{
+		Checker: func() (string, error) {
+			return "", nil
+		},
+	}
 }
 
 type mockS3Client struct {
@@ -228,16 +232,16 @@ func TestAggregateService_ProcessMessage_NotFound(t *testing.T) {
 	assert.Equal(t, "Canonical concept not found: 090905b8-e0d5-41e6-b9e4-21171ab73dc1", err.Error())
 }
 
-//func TestAggregateService_Healthchecks(t *testing.T) {
-//	svc, _, _, _, _ := setupTestService(200)
-//	healthchecks := svc.Healthchecks()
-//
-//	for _, v := range healthchecks {
-//		s, e := v.Checker()
-//		assert.NoError(t, e)
-//		assert.Equal(t, "", s)
-//	}
-//}
+func TestAggregateService_Healthchecks(t *testing.T) {
+	svc, _, _, _, _ := setupTestService(200)
+	healthchecks := svc.Healthchecks()
+
+	for _, v := range healthchecks {
+		s, e := v.Checker()
+		assert.NoError(t, e)
+		assert.Equal(t, "", s)
+	}
+}
 
 func TestResolveConceptType(t *testing.T) {
 	person := resolveConceptType("Person")
@@ -306,8 +310,6 @@ func setupTestService(httpError int) (Service, *mockS3Client, *mockSQSClient, *m
 	}
 
 	kinesis := &mockKinesisStreamClient{}
-
-
 
 	return NewService(s3, sqs, dynamo, kinesis,
 		"neo4jAddress",

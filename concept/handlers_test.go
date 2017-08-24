@@ -64,7 +64,7 @@ func TestHandlers(t *testing.T) {
 			"/concept/f7fd05ea-9999-47c0-9be9-c99dd84d0097/send",
 			"",
 			200,
-			"Concept f7fd05ea-9999-47c0-9be9-c99dd84d0097 sent successfully.",
+			"{\"message\":\"Concept f7fd05ea-9999-47c0-9be9-c99dd84d0097 updated successfully.\"}",
 			nil,
 			map[string]ConcordedConcept{
 				"f7fd05ea-9999-47c0-9be9-c99dd84d0097": {
@@ -81,7 +81,7 @@ func TestHandlers(t *testing.T) {
 			"/concept/f7fd05ea-9999-47c0-9be9-c99dd84d0097/send",
 			"",
 			500,
-			"Could not process the concept",
+			"{\"message\":\"Could not process the concept.\"}",
 			nil,
 			map[string]ConcordedConcept{},
 			[]sqs.Notification{},

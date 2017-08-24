@@ -11,10 +11,10 @@ import (
 	"sync"
 
 	"github.com/Financial-Times/aggregate-concept-transformer/dynamodb"
+	"github.com/Financial-Times/aggregate-concept-transformer/kinesis"
 	"github.com/Financial-Times/aggregate-concept-transformer/s3"
 	"github.com/Financial-Times/aggregate-concept-transformer/sqs"
 	fthealth "github.com/Financial-Times/go-fthealth/v1_1"
-	"github.com/Financial-Times/aggregate-concept-transformer/kinesis"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -29,7 +29,7 @@ type AggregateService struct {
 	s3                         s3.Client
 	db                         dynamodb.Client
 	sqs                        sqs.Client
-	kinesis			   kinesis.Client
+	kinesis                    kinesis.Client
 	neoWriterAddress           string
 	elasticsearchWriterAddress string
 	httpClient                 httpClient
@@ -40,7 +40,7 @@ func NewService(S3Client s3.Client, SQSClient sqs.Client, dynamoClient dynamodb.
 		s3:                         S3Client,
 		db:                         dynamoClient,
 		sqs:                        SQSClient,
-		kinesis:		    kinesisClient,
+		kinesis:                    kinesisClient,
 		neoWriterAddress:           neoAddress,
 		elasticsearchWriterAddress: elasticsearchAddress,
 		httpClient:                 httpClient,
@@ -88,7 +88,7 @@ func (s *AggregateService) ProcessMessage(UUID string) error {
 	}
 
 	// Write to Neo4j
-	log.WithFields(log.Fields{"UUID": concordedConcept.PrefUUID, "transaction_id": transactionID,}).Debug("Writing concept to Neo4j")
+	log.WithFields(log.Fields{"UUID": concordedConcept.PrefUUID, "transaction_id": transactionID}).Debug("Writing concept to Neo4j")
 	updatedConcepts, err := sendToWriter(s.httpClient, s.neoWriterAddress, resolveConceptType(concordedConcept.Type), concordedConcept.PrefUUID, concordedConcept, transactionID)
 	if err != nil {
 		return err
@@ -99,14 +99,14 @@ func (s *AggregateService) ProcessMessage(UUID string) error {
 	}
 
 	// Write to Elasticsearch
-	log.WithFields(log.Fields{"UUID": concordedConcept.PrefUUID, "transaction_id": transactionID,}).Debug("Writing concept to Elasticsearch")
+	log.WithFields(log.Fields{"UUID": concordedConcept.PrefUUID, "transaction_id": transactionID}).Debug("Writing concept to Elasticsearch")
 	_, err = sendToWriter(s.httpClient, s.elasticsearchWriterAddress, resolveConceptType(concordedConcept.Type), concordedConcept.PrefUUID, concordedConcept, transactionID)
 	if err != nil {
 		return err
 	}
 
 	//Send notification to stream
-	log.WithFields(log.Fields{"UUID": concordedConcept.PrefUUID, "transaction_id": transactionID,}).Debug("Writing concept to Elasticsearch")
+	log.WithFields(log.Fields{"UUID": concordedConcept.PrefUUID, "transaction_id": transactionID}).Debug("Writing concept to Elasticsearch")
 	for _, updatedId := range updatedConcepts.UpdatedIds {
 		err = s.kinesis.AddRecordToStream(updatedId, concordedConcept.Type)
 		if err != nil {
@@ -116,7 +116,7 @@ func (s *AggregateService) ProcessMessage(UUID string) error {
 		log.WithFields(log.Fields{"UUID": UUID, "transaction_id": transactionID}).Debug("Sending notification of update to " + updatedId)
 	}
 
-	log.WithFields(log.Fields{"UUID": concordedConcept.PrefUUID, "transaction_id": transactionID,}).Info("Finished processing update")
+	log.WithFields(log.Fields{"UUID": concordedConcept.PrefUUID, "transaction_id": transactionID}).Info("Finished processing update")
 
 	return nil
 }

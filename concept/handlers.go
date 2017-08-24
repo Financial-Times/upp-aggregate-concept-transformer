@@ -53,11 +53,11 @@ func (h *AggregateConceptHandler) SendHandler(w http.ResponseWriter, r *http.Req
 
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte("Could not process the concept"))
+		w.Write([]byte("{\"message\":\"Could not process the concept.\"}"))
 		return
 	}
 
-	w.Write([]byte(fmt.Sprintf("Concept %s sent successfully.", UUID)))
+	w.Write([]byte(fmt.Sprintf("{\"message\":\"Concept %s updated successfully.\"}", UUID)))
 }
 
 func writeResponse(rw http.ResponseWriter, updateStatus httpStatus, logMsg string) {
