@@ -21,7 +21,7 @@ import (
 type Service interface {
 	ListenForNotifications()
 	ProcessMessage(UUID string) error
-	GetConcordedConcept(UUID string) (ConcordedConcept, string, error, string, httpStatus)
+	GetConcordedConcept(UUID string) (ConcordedConcept, string, error, string, status)
 	Healthchecks() []fthealth.Check
 }
 
@@ -47,10 +47,10 @@ func NewService(S3Client s3.Client, SQSClient sqs.Client, dynamoClient dynamodb.
 	}
 }
 
-type httpStatus int
+type status int
 
 const (
-	NOT_FOUND httpStatus = iota
+	NOT_FOUND status = iota
 	DOWNSTREAM_ERROR
 	SUCCESS
 )
@@ -121,7 +121,7 @@ func (s *AggregateService) ProcessMessage(UUID string) error {
 	return nil
 }
 
-func (s *AggregateService) GetConcordedConcept(UUID string) (ConcordedConcept, string, error, string, httpStatus) {
+func (s *AggregateService) GetConcordedConcept(UUID string) (ConcordedConcept, string, error, string, status) {
 	concordedConcept := ConcordedConcept{}
 	// Get concordance UUIDs.
 	concordances, err := s.db.GetConcordance(UUID)

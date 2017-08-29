@@ -146,10 +146,10 @@ func TestNewService(t *testing.T) {
 }
 
 func TestAggregateService_ListenForNotifications(t *testing.T) {
-	svc, _, sqs, _, _ := setupTestService(200)
+	svc, _, mockSqsClient, _, _ := setupTestService(200)
 	go svc.ListenForNotifications()
 	time.Sleep(1 * time.Second)
-	assert.Equal(t, 0, len(sqs.Queue()))
+	assert.Equal(t, 0, len(mockSqsClient.Queue()))
 }
 
 func TestAggregateService_GetConcordedConcept_NoConcordance(t *testing.T) {
@@ -169,8 +169,11 @@ func TestAggregateService_GetConcordedConcept_TMEConcordance(t *testing.T) {
 		PrefLabel:     "Root Concept",
 		Type:          "Person",
 		Aliases:       []string{"TME Concept", "Root Concept"},
+		EmailAddress:  "person123@ft.com",
 		FacebookPage:  "facebook/smartlogicPerson",
 		TwitterHandle: "@FtSmartlogicPerson",
+		ScopeNote:     "This note is in scope",
+		ShortLabel:    "Concept",
 		SourceRepresentations: []s3.Concept{
 			{
 				UUID:         "34a571fb-d779-4610-a7ba-2e127676db4d",
@@ -178,7 +181,6 @@ func TestAggregateService_GetConcordedConcept_TMEConcordance(t *testing.T) {
 				Authority:    "TME",
 				AuthValue:    "TME-123",
 				Type:         "Person",
-				EmailAddress: "person123@ft.com",
 			},
 			{
 				UUID:          "28090964-9997-4bc2-9638-7a11135aaff9",
@@ -188,6 +190,9 @@ func TestAggregateService_GetConcordedConcept_TMEConcordance(t *testing.T) {
 				Type:          "Person",
 				FacebookPage:  "facebook/smartlogicPerson",
 				TwitterHandle: "@FtSmartlogicPerson",
+				ScopeNote:     "This note is in scope",
+				EmailAddress: "person123@ft.com",
+				ShortLabel:    "Concept",
 			},
 		},
 	}
@@ -215,21 +220,51 @@ func TestAggregateService_ProcessMessage_NeoFail(t *testing.T) {
 	assert.Equal(t, "Request to neo4jAddress/people/28090964-9997-4bc2-9638-7a11135aaff9 returned status: 503; skipping 28090964-9997-4bc2-9638-7a11135aaff9", err.Error())
 }
 
+func TestAggregateService_ProcessMessage_DynamoFail(t *testing.T) {
+	svc, _, _, mockDynamoClient, _ := setupTestService(200)
+	mockDynamoClient.err = errors.New("Could not get concordance record from DynamoDB")
+	err := svc.ProcessMessage("28090964-9997-4bc2-9638-7a11135aaff9")
+	assert.Error(t, err)
+	assert.Equal(t, "Could not get concordance record from DynamoDB", err.Error())
+}
+
+func TestAggregateService_ProcessMessage_S3Fail(t *testing.T) {
+	svc, mockS3Client, _, _, _ := setupTestService(200)
+	mockS3Client.err = errors.New("Error retrieving concept from S3")
+	err := svc.ProcessMessage("28090964-9997-4bc2-9638-7a11135aaff9")
+	assert.Error(t, err)
+	assert.Equal(t, "Error retrieving concept from S3", err.Error())
+}
+
+func TestAggregateService_ProcessMessage_S3SourceError(t *testing.T) {
+	svc, mockS3Client, _, _, _ := setupTestService(200)
+	mockS3Client.err = errors.New("Error retrieving concept from S3")
+	err := svc.ProcessMessage("4a4aaca0-b059-426c-bf4f-f00c6ef940ae")
+	assert.Error(t, err)
+	assert.Equal(t, "Error retrieving concept from S3", err.Error())
+}
+
+func TestAggregateService_ProcessMessage_S3SourceNotFound(t *testing.T) {
+	svc, _, _, _, _ := setupTestService(200)
+	err := svc.ProcessMessage("4a4aaca0-b059-426c-bf4f-f00c6ef940ae")
+	assert.Error(t, err)
+	assert.Equal(t, "Source concept not found: 3a3da730-0f4c-4a20-85a6-3ebd5776bd49", err.Error())
+}
+
+func TestAggregateService_ProcessMessage_S3CanonicalNotFound(t *testing.T) {
+	svc, _, _, _, _ := setupTestService(200)
+	err := svc.ProcessMessage("45f278ef-91b2-45f7-9545-fbc79c1b4004")
+	assert.Error(t, err)
+	assert.Equal(t, "Canonical concept not found: 45f278ef-91b2-45f7-9545-fbc79c1b4004", err.Error())
+}
+
 func TestAggregateService_ProcessMessage_KinesisFail(t *testing.T) {
-	svc, _, _, _, k := setupTestService(200)
-	k.err = errors.New("Failed to add record to stream")
+	svc, _, _, _, mockKinesisClient := setupTestService(200)
+	mockKinesisClient.err = errors.New("Failed to add record to stream")
 
 	err := svc.ProcessMessage("28090964-9997-4bc2-9638-7a11135aaff9")
 	assert.Error(t, err)
 	assert.Equal(t, "Failed to add record to stream", err.Error())
-}
-
-func TestAggregateService_ProcessMessage_NotFound(t *testing.T) {
-	svc, _, _, _, _ := setupTestService(200)
-
-	err := svc.ProcessMessage("090905b8-e0d5-41e6-b9e4-21171ab73dc1")
-	assert.Error(t, err)
-	assert.Equal(t, "Canonical concept not found: 090905b8-e0d5-41e6-b9e4-21171ab73dc1", err.Error())
 }
 
 func TestAggregateService_Healthchecks(t *testing.T) {
@@ -283,6 +318,9 @@ func setupTestService(httpError int) (Service, *mockS3Client, *mockSQSClient, *m
 					Type:          "Person",
 					FacebookPage:  "facebook/smartlogicPerson",
 					TwitterHandle: "@FtSmartlogicPerson",
+					ScopeNote:     "This note is in scope",
+					EmailAddress: "person123@ft.com",
+					ShortLabel:    "Concept",
 				},
 			},
 			"34a571fb-d779-4610-a7ba-2e127676db4d": {
@@ -293,7 +331,6 @@ func setupTestService(httpError int) (Service, *mockS3Client, *mockSQSClient, *m
 					Authority:    "TME",
 					AuthValue:    "TME-123",
 					Type:         "Person",
-					EmailAddress: "person123@ft.com",
 				},
 			},
 		},
@@ -306,6 +343,7 @@ func setupTestService(httpError int) (Service, *mockS3Client, *mockSQSClient, *m
 	dynamo := &mockDynamoDBClient{
 		concordances: map[string][]string{
 			"28090964-9997-4bc2-9638-7a11135aaff9": {"34a571fb-d779-4610-a7ba-2e127676db4d"},
+			"4a4aaca0-b059-426c-bf4f-f00c6ef940ae": {"3a3da730-0f4c-4a20-85a6-3ebd5776bd49"},
 		},
 	}
 

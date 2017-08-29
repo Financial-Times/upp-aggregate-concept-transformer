@@ -9,7 +9,7 @@ import (
 
 	fthealth "github.com/Financial-Times/go-fthealth/v1_1"
 	"github.com/Financial-Times/http-handlers-go/httphandlers"
-	status "github.com/Financial-Times/service-status-go/httphandlers"
+	ftstatus "github.com/Financial-Times/service-status-go/httphandlers"
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
 	"github.com/rcrowley/go-metrics"
@@ -60,7 +60,7 @@ func (h *AggregateConceptHandler) SendHandler(w http.ResponseWriter, r *http.Req
 	w.Write([]byte(fmt.Sprintf("{\"message\":\"Concept %s updated successfully.\"}", UUID)))
 }
 
-func writeResponse(rw http.ResponseWriter, updateStatus httpStatus, logMsg string) {
+func writeResponse(rw http.ResponseWriter, updateStatus status, logMsg string) {
 	rw.Header().Set("Content-Type", "application/json")
 	switch updateStatus {
 	case NOT_FOUND:
@@ -95,8 +95,8 @@ func (h *AggregateConceptHandler) RegisterAdminHandlers(router *mux.Router, heal
 
 	hc := fthealth.HealthCheck{SystemCode: healthService.config.appSystemCode, Name: healthService.config.appName, Description: healthService.config.description, Checks: healthService.Checks}
 	router.HandleFunc("/__health", fthealth.Handler(hc))
-	router.HandleFunc(status.GTGPath, status.NewGoodToGoHandler(healthService.GtgCheck))
-	router.HandleFunc(status.BuildInfoPath, status.BuildInfoHandler)
+	router.HandleFunc(ftstatus.GTGPath, ftstatus.NewGoodToGoHandler(healthService.GtgCheck))
+	router.HandleFunc(ftstatus.BuildInfoPath, ftstatus.BuildInfoHandler)
 
 	var monitoringRouter http.Handler = router
 	if requestLoggingEnabled {

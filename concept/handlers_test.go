@@ -173,7 +173,7 @@ func (s *MockService) ProcessMessage(UUID string) error {
 	return nil
 }
 
-func (s *MockService) GetConcordedConcept(UUID string) (ConcordedConcept, string, error, string, httpStatus) {
+func (s *MockService) GetConcordedConcept(UUID string) (ConcordedConcept, string, error, string, status) {
 	//s.m.Lock()
 	//defer s.m.Unlock()
 	if c, ok := s.concepts[UUID]; ok {
