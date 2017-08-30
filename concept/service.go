@@ -99,14 +99,10 @@ func (s *AggregateService) ProcessMessage(UUID string) error {
 	}
 
 	// Write to Elasticsearch
-	if concordedConcept.Type != "special-reports" || concordedConcept.Type != "alphaville-series" {
-		log.WithFields(log.Fields{"UUID": concordedConcept.PrefUUID, "transaction_id": transactionID}).Debug("Writing concept to Elasticsearch")
-		_, err = sendToWriter(s.httpClient, s.elasticsearchWriterAddress, resolveConceptType(concordedConcept.Type), concordedConcept.PrefUUID, concordedConcept, transactionID)
-		if err != nil {
-			return err
-		}
-	} else {
-		log.WithFields(log.Fields{"UUID": concordedConcept.PrefUUID, "transaction_id": transactionID}).Debugf("Elastic search rw cannot handle concept: %s, because it has an unsupported type %s; skipping sending record to elastic search", concordedConcept.PrefUUID, concordedConcept.Type)
+	log.WithFields(log.Fields{"UUID": concordedConcept.PrefUUID, "transaction_id": transactionID}).Debug("Writing concept to Elasticsearch")
+	_, err = sendToWriter(s.httpClient, s.elasticsearchWriterAddress, resolveConceptType(concordedConcept.Type), concordedConcept.PrefUUID, concordedConcept, transactionID)
+	if err != nil {
+		return err
 	}
 
 	//Send notification to stream
@@ -244,10 +240,10 @@ func sendToWriter(client httpClient, baseUrl string, urlParam string, conceptUUI
 		}
 	}
 
-	//if resp.StatusCode == 404 && strings.Contains(baseUrl, "elastic") {
-	//	log.WithFields(log.Fields{"UUID": conceptUUID, "transaction_id": tid}).Debugf("Elastic search rw cannot handle concept: %s, because it has an unsupported type %s; skipping record", conceptUUID, concept.Type)
-	//	return updatedConcepts, nil
-	if reqErr != nil || resp.StatusCode != 200 {
+	if resp.StatusCode == 404 && strings.Contains(baseUrl, "elastic") {
+		log.WithFields(log.Fields{"UUID": conceptUUID, "transaction_id": tid}).Debugf("Elastic search rw cannot handle concept: %s, because it has an unsupported type %s; skipping record", conceptUUID, concept.Type)
+		return updatedConcepts, nil
+	} else if reqErr != nil || resp.StatusCode != 200 {
 		err := errors.New("Request to " + reqUrl + " returned status: " + strconv.Itoa(resp.StatusCode) + "; skipping " + conceptUUID)
 		log.WithFields(log.Fields{"UUID": conceptUUID, "transaction_id": tid}).Error(err)
 		return updatedConcepts, err
