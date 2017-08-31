@@ -102,7 +102,7 @@ func (s *AggregateService) ProcessMessage(UUID string) error {
 	for _, updatedId := range updatedConcepts.UpdatedIds {
 		err = s.kinesis.AddRecordToStream(updatedId, concordedConcept.Type)
 		if err != nil {
-			log.WithError(err).WithFields(log.Fields{"UUID": concordedConcept.PrefUUID, "transaction_id": transactionID}).Error("Failed to add update notification of %s record to stream")
+			log.WithError(err).WithFields(log.Fields{"UUID": concordedConcept.PrefUUID, "transaction_id": transactionID}).Errorf("Failed to add update notification of %s record to stream", updatedId)
 			return err
 		}
 		log.WithFields(log.Fields{"UUID": concordedConcept.PrefUUID, "transaction_id": transactionID}).Debug("Sending update notification to kinesis of update to concept: " + updatedId)
