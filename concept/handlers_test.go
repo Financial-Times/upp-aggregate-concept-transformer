@@ -51,9 +51,9 @@ func TestHandlers(t *testing.T) {
 			"GET",
 			"/concept/f7fd05ea-9999-47c0-9be9-c99dd84d0097",
 			"",
-			404,
-			"{\"message\": \"Source concept not found in S3\"}\n",
-			nil,
+			500,
+			"{\"message\": \"Canonical concept not found in S3\"}\n",
+			errors.New("Canonical concept not found in S3"),
 			map[string]ConcordedConcept{},
 			[]sqs.Notification{},
 			nil,
@@ -82,7 +82,7 @@ func TestHandlers(t *testing.T) {
 			"",
 			500,
 			"{\"message\":\"Could not process the concept.\"}",
-			nil,
+			errors.New("Could not process the concept."),
 			map[string]ConcordedConcept{},
 			[]sqs.Notification{},
 			nil,
@@ -121,7 +121,7 @@ func TestHandlers(t *testing.T) {
 
 	for _, d := range testCases {
 		t.Run(d.name, func(t *testing.T) {
-			mockService := NewMockService(d.concepts, d.notifications, d.healthchecks)
+			mockService := NewMockService(d.concepts, d.notifications, d.healthchecks, d.err)
 			handler := NewHandler(mockService)
 			m := mux.NewRouter()
 			handler.RegisterHandlers(m)
@@ -147,13 +147,15 @@ type MockService struct {
 	concepts      map[string]ConcordedConcept
 	m             sync.RWMutex
 	healthchecks  []fthealth.Check
+	err           error
 }
 
-func NewMockService(concepts map[string]ConcordedConcept, notifications []sqs.Notification, healthchecks []fthealth.Check) Service {
+func NewMockService(concepts map[string]ConcordedConcept, notifications []sqs.Notification, healthchecks []fthealth.Check, err error) Service {
 	return &MockService{
 		concepts:      concepts,
 		notifications: notifications,
 		healthchecks:  healthchecks,
+		err:           err,
 	}
 }
 
@@ -167,19 +169,20 @@ func (s *MockService) ProcessMessage(UUID string) error {
 	//s.m.Lock()
 	//defer s.m.Unlock()
 
-	if _, _, err, _, _ := s.GetConcordedConcept(UUID); err != nil {
+	if _, _, err := s.GetConcordedConcept(UUID); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (s *MockService) GetConcordedConcept(UUID string) (ConcordedConcept, string, error, string, status) {
-	//s.m.Lock()
-	//defer s.m.Unlock()
-	if c, ok := s.concepts[UUID]; ok {
-		return c, "tid", nil, "", SUCCESS
+func (s *MockService) GetConcordedConcept(UUID string) (ConcordedConcept, string, error) {
+	if s.err != nil {
+		return ConcordedConcept{}, "", s.err
 	}
-	return ConcordedConcept{}, "", errors.New("Not found"), "Source concept not found in S3", NOT_FOUND
+	if c, ok := s.concepts[UUID]; ok {
+		return c, "tid", nil
+	}
+	return ConcordedConcept{}, "", s.err
 }
 
 func (s *MockService) Healthchecks() []fthealth.Check {

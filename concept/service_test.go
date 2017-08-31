@@ -155,7 +155,7 @@ func TestAggregateService_ListenForNotifications(t *testing.T) {
 func TestAggregateService_GetConcordedConcept_NoConcordance(t *testing.T) {
 	svc, _, _, _, _ := setupTestService(200)
 
-	c, tid, err, _, _ := svc.GetConcordedConcept("99247059-04ec-3abb-8693-a0b8951fdcab")
+	c, tid, err := svc.GetConcordedConcept("99247059-04ec-3abb-8693-a0b8951fdcab")
 	assert.NoError(t, err)
 	assert.Equal(t, "tid_123", tid)
 	assert.Equal(t, "Test Concept", c.PrefLabel)
@@ -197,7 +197,7 @@ func TestAggregateService_GetConcordedConcept_TMEConcordance(t *testing.T) {
 		},
 	}
 
-	c, tid, err, _, _ := svc.GetConcordedConcept("28090964-9997-4bc2-9638-7a11135aaff9")
+	c, tid, err := svc.GetConcordedConcept("28090964-9997-4bc2-9638-7a11135aaff9")
 	sort.Strings(c.Aliases)
 	sort.Strings(expectedConcept.Aliases)
 	assert.NoError(t, err)
@@ -248,14 +248,14 @@ func TestAggregateService_ProcessMessage_S3SourceNotFound(t *testing.T) {
 	svc, _, _, _, _ := setupTestService(200)
 	err := svc.ProcessMessage("4a4aaca0-b059-426c-bf4f-f00c6ef940ae")
 	assert.Error(t, err)
-	assert.Equal(t, "Source concept not found: 3a3da730-0f4c-4a20-85a6-3ebd5776bd49", err.Error())
+	assert.Equal(t, "Source concept 3a3da730-0f4c-4a20-85a6-3ebd5776bd49 not found in S3", err.Error())
 }
 
 func TestAggregateService_ProcessMessage_S3CanonicalNotFound(t *testing.T) {
 	svc, _, _, _, _ := setupTestService(200)
 	err := svc.ProcessMessage("45f278ef-91b2-45f7-9545-fbc79c1b4004")
 	assert.Error(t, err)
-	assert.Equal(t, "Canonical concept not found: 45f278ef-91b2-45f7-9545-fbc79c1b4004", err.Error())
+	assert.Equal(t, "Canonical concept 45f278ef-91b2-45f7-9545-fbc79c1b4004 not found in S3", err.Error())
 }
 
 func TestAggregateService_ProcessMessage_KinesisFail(t *testing.T) {

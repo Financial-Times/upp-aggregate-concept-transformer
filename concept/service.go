@@ -21,7 +21,7 @@ import (
 type Service interface {
 	ListenForNotifications()
 	ProcessMessage(UUID string) error
-	GetConcordedConcept(UUID string) (ConcordedConcept, string, error, string, status)
+	GetConcordedConcept(UUID string) (ConcordedConcept, string, error)
 	Healthchecks() []fthealth.Check
 }
 
@@ -46,14 +46,6 @@ func NewService(S3Client s3.Client, SQSClient sqs.Client, dynamoClient dynamodb.
 		httpClient:                 httpClient,
 	}
 }
-
-type status int
-
-const (
-	NOT_FOUND status = iota
-	DOWNSTREAM_ERROR
-	SUCCESS
-)
 
 func (s *AggregateService) ListenForNotifications() {
 	for {
@@ -82,7 +74,7 @@ func (s *AggregateService) ListenForNotifications() {
 
 func (s *AggregateService) ProcessMessage(UUID string) error {
 	// Get the concorded concept
-	concordedConcept, transactionID, err, _, _ := s.GetConcordedConcept(UUID)
+	concordedConcept, transactionID, err := s.GetConcordedConcept(UUID)
 	if err != nil {
 		return err
 	}
@@ -121,30 +113,29 @@ func (s *AggregateService) ProcessMessage(UUID string) error {
 	return nil
 }
 
-func (s *AggregateService) GetConcordedConcept(UUID string) (ConcordedConcept, string, error, string, status) {
+func (s *AggregateService) GetConcordedConcept(UUID string) (ConcordedConcept, string, error) {
 	concordedConcept := ConcordedConcept{}
-	// Get concordance UUIDs.
+	// Get concordance UUIDs
 	concordances, err := s.db.GetConcordance(UUID)
 	if err != nil {
-		logMsg := "Could not get concordance record from DynamoDB"
-		log.WithError(err).WithField("UUID", UUID).Error(logMsg)
-		return ConcordedConcept{}, "", err, logMsg, DOWNSTREAM_ERROR
+		msg := fmt.Sprintf("Could not retrieve concordance record for %s from DynamoDB", UUID)
+		log.WithError(err).WithField("UUID", UUID).Error(msg)
+		return ConcordedConcept{}, "", err
 	}
 
-	// Get all concepts from S3.
+	// Get all concepts from S3
 	for _, sourceId := range concordances.ConcordedIds {
 		found, s3Concept, _, err := s.s3.GetConceptAndTransactionId(sourceId)
 
 		if err != nil {
-			logMsg := "Error getting source concept from S3"
-			log.WithError(err).WithField("UUID", sourceId).Error(logMsg)
-			return ConcordedConcept{}, "", err, logMsg, DOWNSTREAM_ERROR
+			msg := fmt.Sprintf("Error retrieving source concept %s from S3", sourceId)
+			log.WithError(err).WithField("UUID", UUID).Error(msg)
+			return ConcordedConcept{}, "", err
 		}
 		if !found {
-			logMsg := "Source concept not found in S3"
-			err := fmt.Errorf("Source concept not found: %s", sourceId)
-			log.WithError(err).WithField("UUID", sourceId).Error(logMsg)
-			return ConcordedConcept{}, "", err, logMsg, NOT_FOUND
+			err := fmt.Errorf("Source concept %s not found in S3", sourceId)
+			log.WithError(err).WithField("UUID", UUID).Error(err.Error())
+			return ConcordedConcept{}, "", err
 		}
 
 		concordedConcept = mergeCanonicalInformation(concordedConcept, s3Concept)
@@ -152,22 +143,21 @@ func (s *AggregateService) GetConcordedConcept(UUID string) (ConcordedConcept, s
 
 	found, primaryConcept, transactionID, err := s.s3.GetConceptAndTransactionId(concordances.UUID)
 	if err != nil {
-		logMsg := "Error retrieving canonical concept from S3"
-		log.WithError(err).WithField("UUID", UUID).Error(logMsg)
-		return ConcordedConcept{}, "", err, logMsg, DOWNSTREAM_ERROR
+		msg := fmt.Sprintf("Error retrieving canonical concept %s from S3", concordances.UUID)
+		log.WithError(err).WithField("UUID", UUID).Error(msg)
+		return ConcordedConcept{}, "", err
 	}
 	if !found {
-		logMsg := "Cannonical concept not found in S3"
-		err := fmt.Errorf("Canonical concept not found: %s", UUID)
-		log.WithError(err).WithField("UUID", UUID).Error(logMsg)
-		return ConcordedConcept{}, "", err, logMsg, NOT_FOUND
+		err := fmt.Errorf("Canonical concept %s not found in S3", concordances.UUID)
+		log.WithError(err).WithField("UUID", UUID).Error(err.Error())
+		return ConcordedConcept{}, "", err
 	}
 
 	// Aggregate concepts
 	concordedConcept = mergeCanonicalInformation(concordedConcept, primaryConcept)
 	concordedConcept.Aliases = deduplicateAliases(concordedConcept.Aliases)
 
-	return concordedConcept, transactionID, nil, "", SUCCESS
+	return concordedConcept, transactionID, nil
 }
 
 func (s *AggregateService) Healthchecks() []fthealth.Check {
