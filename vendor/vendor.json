@@ -10,10 +10,12 @@
 			"versionExact": "0.2.0"
 		},
 		{
-			"checksumSHA1": "dqF1g4reeLPNN10qTXgDJj3fHm4=",
+			"checksumSHA1": "zUpINnstJChGK0LAtkt7jBc3RY0=",
 			"path": "github.com/Financial-Times/http-handlers-go/httphandlers",
-			"revision": "229ac16f1d9ec9bca485d2dafb9ec14dc7e9ba24",
-			"revisionTime": "2017-08-09T12:10:07Z"
+			"revision": "bb69c454da9050fe1c4b92fe1345a01583ee70be",
+			"revisionTime": "2016-08-03T10:40:03Z",
+			"version": "=0.1.0",
+			"versionExact": "0.1.0"
 		},
 		{
 			"checksumSHA1": "fqpohN7Qp2qj7TLMbUxh/cK4oH0=",
@@ -46,6 +48,12 @@
 			"revisionTime": "2016-02-12T16:38:35Z",
 			"version": "=0.2.0",
 			"versionExact": "0.2.0"
+		},
+		{
+			"checksumSHA1": "dGXnnR7ZhsrZNnEqFimk6q7YCqs=",
+			"path": "github.com/Sirupsen/logrus",
+			"revision": "61e43dc76f7ee59a82bdf3d71033dc12bea4c77d",
+			"revisionTime": "2017-01-13T01:19:11Z"
 		},
 		{
 			"checksumSHA1": "93SqoimxzanHF2QFWx+rCaLZAh8=",
@@ -316,22 +324,10 @@
 			"revisionTime": "2016-11-28T21:05:44Z"
 		},
 		{
-			"checksumSHA1": "BYvROBsiyAXK4sq6yhDe8RgT4LM=",
-			"path": "github.com/sirupsen/logrus",
-			"revision": "89742aefa4b206dcf400792f3bd35b542998eb3b",
-			"revisionTime": "2017-08-22T13:27:46Z"
-		},
-		{
 			"checksumSHA1": "JXUVA1jky8ZX8w09p2t5KLs97Nc=",
 			"path": "github.com/stretchr/testify/assert",
 			"revision": "2402e8e7a02fc811447d11f881aa9746cdc57983",
 			"revisionTime": "2016-12-17T20:04:45Z"
-		},
-		{
-			"checksumSHA1": "nqWNlnMmVpt628zzvyo6Yv2CX5Q=",
-			"path": "golang.org/x/crypto/ssh/terminal",
-			"revision": "81e90905daefcd6fd217b62423c0908922eadb30",
-			"revisionTime": "2017-08-25T20:24:07Z"
 		},
 		{
 			"checksumSHA1": "9jjO5GjLa0XF/nfWihF02RoH4qc=",
@@ -344,12 +340,6 @@
 			"path": "golang.org/x/sys/unix",
 			"revision": "478fcf54317e52ab69f40bb4c7a1520288d7f7ea",
 			"revisionTime": "2016-12-05T15:46:50Z"
-		},
-		{
-			"checksumSHA1": "gVfCD++7aVcdKF2spv6XkEM/wYw=",
-			"path": "golang.org/x/sys/windows",
-			"revision": "a07a691ac871746ae690ccf3ab217363b2144531",
-			"revisionTime": "2017-08-30T09:57:17Z"
 		}
 	],
 	"rootPath": "github.com/Financial-Times/aggregate-concept-transformer"
