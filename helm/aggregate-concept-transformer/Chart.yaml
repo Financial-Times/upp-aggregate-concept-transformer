@@ -1,0 +1,4 @@
+apiVersion: v1
+description: aggregate-concept-transformer Helm chart for Kubernetes
+name: aggregate-concept-transformer
+version: 0.0.0  # this entry can be left untouched as it is automatically handled by Jenkins pipeline
