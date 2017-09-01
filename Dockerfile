@@ -1,6 +1,6 @@
 FROM golang:1.8-alpine
 
-ENV PROJECT=aggregate-concepts-transformer
+ENV PROJECT=aggregate-concept-transformer
 COPY . /${PROJECT}-sources/
 
 RUN apk --no-cache --virtual .build-dependencies add git \
@@ -28,4 +28,4 @@ RUN apk --no-cache --virtual .build-dependencies add git \
 
 WORKDIR /
 
-CMD [ "/aggregate-concepts-transformer" ]
+CMD [ "/aggregate-concept-transformer" ]
