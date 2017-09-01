@@ -43,7 +43,7 @@ spec:
         - name: QUEUE_URL 
           value: {{ .Values.env.QUEUE_URL }}
         - name: MAX_MESSAGES 
-          value: "{{ .Values.env.BUCMAX_MESSAGESKET_NAME }}"
+          value: "{{ .Values.env.MAX_MESSAGES }}"
         - name: VISIBILITY_TIMEOUT
           value: "{{ .Values.env.VISIBILITY_TIMEOUT }}"
         - name: WAIT_TIME
