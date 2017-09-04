@@ -1,28 +1,32 @@
 FROM golang:1.8-alpine
 
-RUN mkdir -p "$GOPATH/src"
-
-ADD . "$GOPATH/src/github.com/Financial-Times/aggregate-concept-transformer"
-
-WORKDIR "$GOPATH/src/github.com/Financial-Times/aggregate-concept-transformer"
+ENV PROJECT=aggregate-concept-transformer
+COPY . /${PROJECT}-sources/
 
 RUN apk --no-cache --virtual .build-dependencies add git \
-    && apk --no-cache --upgrade add ca-certificates \
-    && update-ca-certificates --fresh \
-    && git config --global http.https://gopkg.in.followRedirects true \
-    && cd $GOPATH/src/github.com/Financial-Times/aggregate-concept-transformer \
-    && BUILDINFO_PACKAGE="github.com/Financial-Times/service-status-go/buildinfo." \
-    && VERSION="version=$(git describe --tag --always 2> /dev/null)" \
-    && DATETIME="dateTime=$(date -u +%Y%m%d%H%M%S)" \
-    && REPOSITORY="repository=$(git config --get remote.origin.url)" \
-    && REVISION="revision=$(git rev-parse HEAD)" \
-    && BUILDER="builder=$(go version)" \
-    && LDFLAGS="-X '"${BUILDINFO_PACKAGE}$VERSION"' -X '"${BUILDINFO_PACKAGE}$DATETIME"' -X '"${BUILDINFO_PACKAGE}$REPOSITORY"' -X '"${BUILDINFO_PACKAGE}$REVISION"' -X '"${BUILDINFO_PACKAGE}$BUILDER"'" \
-    && go-wrapper download \
-    && go-wrapper install -ldflags="${LDFLAGS}" \
-    && apk del .build-dependencies \
-    && rm -rf $GOPATH/src $GOPATH/pkg /usr/local/go
+  && ORG_PATH="github.com/Financial-Times" \
+  && REPO_PATH="${ORG_PATH}/${PROJECT}" \
+  && mkdir -p $GOPATH/src/${ORG_PATH} \
+  # Linking the project sources in the GOPATH folder
+  && ln -s /${PROJECT}-sources $GOPATH/src/${REPO_PATH} \
+  && cd $GOPATH/src/${REPO_PATH} \
+  && BUILDINFO_PACKAGE="${ORG_PATH}/${PROJECT}/vendor/${ORG_PATH}/service-status-go/buildinfo." \
+  && VERSION="version=$(git describe --tag --always 2> /dev/null)" \
+  && DATETIME="dateTime=$(date -u +%Y%m%d%H%M%S)" \
+  && REPOSITORY="repository=$(git config --get remote.origin.url)" \
+  && REVISION="revision=$(git rev-parse HEAD)" \
+  && BUILDER="builder=$(go version)" \
+  && LDFLAGS="-X '"${BUILDINFO_PACKAGE}$VERSION"' -X '"${BUILDINFO_PACKAGE}$DATETIME"' -X '"${BUILDINFO_PACKAGE}$REPOSITORY"' -X '"${BUILDINFO_PACKAGE}$REVISION"' -X '"${BUILDINFO_PACKAGE}$BUILDER"'" \
+  && echo "Build flags: $LDFLAGS" \
+  && echo "Fetching dependencies..." \
+  && go get -u github.com/kardianos/govendor \
+  && $GOPATH/bin/govendor sync \
+  && go get -v \
+  && go build -ldflags="${LDFLAGS}" \
+  && mv ${PROJECT} /${PROJECT} \
+  && apk del .build-dependencies \
+  && rm -rf $GOPATH /var/cache/apk/*
 
-EXPOSE 8080
+WORKDIR /
 
-CMD ["go-wrapper", "run"]
+CMD [ "/aggregate-concept-transformer" ]
