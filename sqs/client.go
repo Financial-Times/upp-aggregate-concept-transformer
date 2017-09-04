@@ -6,10 +6,10 @@ import (
 	"strings"
 
 	fthealth "github.com/Financial-Times/go-fthealth/v1_1"
-	log "github.com/Sirupsen/logrus"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/sqs"
+	log "github.com/sirupsen/logrus"
 )
 
 var keyMatcher = regexp.MustCompile("^[0-9a-f]{8}/[0-9a-f]{4}/[0-9a-f]{4}/[0-9a-f]{4}/[0-9a-f]{12}$")

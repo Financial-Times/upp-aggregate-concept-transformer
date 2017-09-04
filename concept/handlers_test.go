@@ -16,8 +16,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-const ExpectedContentType = "application/json"
-
 func TestHandlers(t *testing.T) {
 	testCases := []struct {
 		name          string
@@ -53,9 +51,9 @@ func TestHandlers(t *testing.T) {
 			"GET",
 			"/concept/f7fd05ea-9999-47c0-9be9-c99dd84d0097",
 			"",
-			404,
-			"Could not load the full concept",
-			nil,
+			500,
+			"{\"message\": \"Canonical concept not found in S3\"}\n",
+			errors.New("Canonical concept not found in S3"),
 			map[string]ConcordedConcept{},
 			[]sqs.Notification{},
 			nil,
@@ -66,7 +64,7 @@ func TestHandlers(t *testing.T) {
 			"/concept/f7fd05ea-9999-47c0-9be9-c99dd84d0097/send",
 			"",
 			200,
-			"Concept f7fd05ea-9999-47c0-9be9-c99dd84d0097 sent successfully.",
+			"{\"message\":\"Concept f7fd05ea-9999-47c0-9be9-c99dd84d0097 updated successfully.\"}",
 			nil,
 			map[string]ConcordedConcept{
 				"f7fd05ea-9999-47c0-9be9-c99dd84d0097": {
@@ -83,8 +81,8 @@ func TestHandlers(t *testing.T) {
 			"/concept/f7fd05ea-9999-47c0-9be9-c99dd84d0097/send",
 			"",
 			500,
-			"Could not process the concept",
-			nil,
+			"{\"message\":\"Could not process the concept.\"}",
+			errors.New("Could not process the concept."),
 			map[string]ConcordedConcept{},
 			[]sqs.Notification{},
 			nil,
@@ -123,11 +121,11 @@ func TestHandlers(t *testing.T) {
 
 	for _, d := range testCases {
 		t.Run(d.name, func(t *testing.T) {
-			mockService := NewMockService(d.concepts, d.notifications, d.healthchecks)
+			mockService := NewMockService(d.concepts, d.notifications, d.healthchecks, d.err)
 			handler := NewHandler(mockService)
 			m := mux.NewRouter()
 			handler.RegisterHandlers(m)
-			handler.RegisterAdminHandlers(m, NewHealthService(mockService, "system-code", "app-name", "8080", "description"))
+			handler.RegisterAdminHandlers(m, NewHealthService(mockService, "system-code", "app-name", "8080", "description"), true)
 
 			req, _ := http.NewRequest(d.method, d.url, bytes.NewBufferString(d.requestBody))
 			rr := httptest.NewRecorder()
@@ -149,13 +147,15 @@ type MockService struct {
 	concepts      map[string]ConcordedConcept
 	m             sync.RWMutex
 	healthchecks  []fthealth.Check
+	err           error
 }
 
-func NewMockService(concepts map[string]ConcordedConcept, notifications []sqs.Notification, healthchecks []fthealth.Check) Service {
+func NewMockService(concepts map[string]ConcordedConcept, notifications []sqs.Notification, healthchecks []fthealth.Check, err error) Service {
 	return &MockService{
 		concepts:      concepts,
 		notifications: notifications,
 		healthchecks:  healthchecks,
+		err:           err,
 	}
 }
 
@@ -176,12 +176,13 @@ func (s *MockService) ProcessMessage(UUID string) error {
 }
 
 func (s *MockService) GetConcordedConcept(UUID string) (ConcordedConcept, string, error) {
-	//s.m.Lock()
-	//defer s.m.Unlock()
+	if s.err != nil {
+		return ConcordedConcept{}, "", s.err
+	}
 	if c, ok := s.concepts[UUID]; ok {
 		return c, "tid", nil
 	}
-	return ConcordedConcept{}, "", errors.New("Not found")
+	return ConcordedConcept{}, "", s.err
 }
 
 func (s *MockService) Healthchecks() []fthealth.Check {

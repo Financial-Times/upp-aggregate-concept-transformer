@@ -10,6 +10,17 @@ type ConcordedConcept struct {
 	Strapline             string       `json:"strapline,omitempty"`
 	DescriptionXML        string       `json:"descriptionXML,omitempty"`
 	ImageURL              string       `json:"_imageUrl,omitempty"`
+	EmailAddress          string       `json:"emailAddress,omitempty"`
+	FacebookPage          string       `json:"facebookPage,omitempty"`
+	TwitterHandle         string       `json:"twitterHandle,omitempty"`
+	ScopeNote             string       `json:"scopeNote,omitempty"`
+	ShortLabel            string       `json:"shortLabel,omitempty"`
 	ParentUUIDs           []string     `json:"parentUUIDs,omitempty"`
+	BroaderUUIDs          []string     `json:"broaderUUIDs,omitempty"`
+	RelatedUUIDs          []string     `json:"relatedUUIDs,omitempty"`
 	SourceRepresentations []s3.Concept `json:"sourceRepresentations,omitempty"`
+}
+
+type UpdatedConcepts struct {
+	UpdatedIds []string `json: "updatedIds"`
 }
