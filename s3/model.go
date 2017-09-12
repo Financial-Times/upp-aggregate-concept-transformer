@@ -18,4 +18,5 @@ type Concept struct {
 	TwitterHandle  string   `json:"twitterHandle,omitempty"`
 	ScopeNote      string   `json:"scopeNote,omitempty"`
 	ShortLabel     string   `json:"shortLabel,omitempty"`
+	IsAuthor       bool     `json:"isAuthor,omitempty"`
 }
