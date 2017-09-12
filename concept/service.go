@@ -218,11 +218,11 @@ func sendToWriter(client httpClient, baseUrl string, urlParam string, conceptUUI
 	}
 	request.ContentLength = -1
 	request.Header.Set("X-Request-Id", tid)
-
 	resp, reqErr := client.Do(request)
+
 	defer resp.Body.Close()
 
-	if strings.Contains(baseUrl, "neo4j") {
+	if strings.Contains(baseUrl, "neo4j") && int(resp.StatusCode/100) == 2 {
 		dec := json.NewDecoder(resp.Body)
 		err = dec.Decode(&updatedConcepts)
 		if err != nil {
