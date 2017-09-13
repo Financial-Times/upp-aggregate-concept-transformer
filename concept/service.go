@@ -196,7 +196,9 @@ func mergeCanonicalInformation(c ConcordedConcept, s s3.Concept) ConcordedConcep
 	c.TwitterHandle = s.TwitterHandle
 	c.ScopeNote = s.ScopeNote
 	c.ShortLabel = s.ShortLabel
-	c.IsAuthor = s.IsAuthor
+	if s.IsAuthor {
+		c.IsAuthor = s.IsAuthor
+	}
 	c.ParentUUIDs = s.ParentUUIDs
 	c.BroaderUUIDs = s.BroaderUUIDs
 	c.RelatedUUIDs = s.RelatedUUIDs
