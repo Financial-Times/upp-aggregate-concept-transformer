@@ -18,6 +18,7 @@ type ConcordedConcept struct {
 	ParentUUIDs           []string     `json:"parentUUIDs,omitempty"`
 	BroaderUUIDs          []string     `json:"broaderUUIDs,omitempty"`
 	RelatedUUIDs          []string     `json:"relatedUUIDs,omitempty"`
+	IsAuthor              bool         `json:"isAuthor,omitempty"`
 	SourceRepresentations []s3.Concept `json:"sourceRepresentations,omitempty"`
 }
 
