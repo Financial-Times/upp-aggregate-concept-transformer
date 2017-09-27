@@ -52,17 +52,17 @@ spec:
           valueFrom:
             secretKeyRef:
               name: global-secrets
-              key: concepts.bucket_name
+              key: concepts.s3_bucket
         - name: QUEUE_URL
           valueFrom:
             secretKeyRef:
               name: global-secrets
-              key: concepts.queue_url
+              key: concepts.sqs_url
         - name: DYNAMODB_TABLE
           valueFrom:
             secretKeyRef:
               name: global-secrets
-              key: concepts.concordance_table
+              key: concepts.dynamodb_table
         - name: KINESIS_STREAM_NAME
           valueFrom:
             secretKeyRef:
