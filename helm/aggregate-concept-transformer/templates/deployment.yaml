@@ -22,32 +22,22 @@ spec:
       - name: {{ .Values.service.name }} 
         image: "{{ .Values.image.repository }}:{{ .Chart.Version }}"
         imagePullPolicy: {{ .Values.image.pullPolicy }}
-        env: 
-        - name: APP_PORT 
-          value: "{{ .Values.env.APP_PORT }}"
+        env:
         - name: SQS_REGION 
           valueFrom:
             configMapKeyRef:
               name: global-config
               key: aws.region
-        - name: BUCKET_REGION 
-          value: {{ .Values.env.BUCKET_REGION }}
-        - name: BUCKET_NAME 
-          value: {{ .Values.env.BUCKET_NAME }}
         - name: NEO_WRITER_ADDRESS 
-          value: {{ .Values.env.NEO_WRITER_ADDRESS }}
+          value: "http://concepts-rw-neo4j:8080"
         - name: ES_WRITER_ADDRESS 
-          value: {{ .Values.env.ES_WRITER_ADDRESS }}
-        - name: DYNAMODB_TABLE 
-          value: {{ .Values.env.DYNAMODB_TABLE }}
-        - name: QUEUE_URL 
-          value: {{ .Values.env.QUEUE_URL }}
+          value: "http://concept-rw-elasticsearch:8080"
         - name: MAX_MESSAGES 
-          value: "{{ .Values.env.MAX_MESSAGES }}"
+          value: 10
         - name: VISIBILITY_TIMEOUT
-          value: "{{ .Values.env.VISIBILITY_TIMEOUT }}"
+          value: 30
         - name: WAIT_TIME
-          value: "{{ .Values.env.WAIT_TIME }}"
+          value: 20
         - name: AWS_ACCESS_KEY_ID
           valueFrom:
             secretKeyRef:
@@ -58,16 +48,36 @@ spec:
             secretKeyRef:
               name: global-secrets
               key: aws.secret_access_key
+        - name: BUCKET_NAME
+          valueFrom:
+            secretKeyRef:
+              name: global-secrets
+              key: concepts.bucket_name
+        - name: QUEUE_URL
+          valueFrom:
+            secretKeyRef:
+              name: global-secrets
+              key: concepts.queue_url
+        - name: DYNAMODB_TABLE
+          valueFrom:
+            secretKeyRef:
+              name: global-secrets
+              key: concepts.concordance_table
+        - name: KINESIS_STREAM_NAME
+          valueFrom:
+            secretKeyRef:
+              name: global-secrets
+              key: concepts.kinesis_stream
         ports: 
-        - containerPort: {{ .Values.env.APP_PORT }} 
+        - containerPort: 8080
         livenessProbe: 
           tcpSocket: 
-            port: {{ .Values.env.APP_PORT }} 
+            port: 8080
           initialDelaySeconds: 10 
         readinessProbe: 
           httpGet: 
             path: "/__gtg" 
-            port: {{ .Values.env.APP_PORT }} 
+            port: 8080
           initialDelaySeconds: 15 
           periodSeconds: 30 
         resources: 
