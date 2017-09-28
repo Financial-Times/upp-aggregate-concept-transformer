@@ -4,10 +4,13 @@
 service:
   name: "" # The name of the service, should be defined in the specific app-configs folder.
   hasHealthcheck: "true"
-replicaCount: 1
+replicaCount: 2
 image:
   repository: coco/aggregate-concept-transformer
   pullPolicy: IfNotPresent
+env:
+  app:
+    port: "8080"
 resources:
   limits:
     memory: 512Mi

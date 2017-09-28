@@ -1,15 +1,10 @@
 # Values used for the deployed application.
-replicaCount: 1
+replicaCount: 2
 service:
   name: aggregate-concept-transformer
 env:
-  APP_PORT: 8080
-  BUCKET_REGION: eu-west-1
-  BUCKET_NAME: upp-concept-normalised-store-k8s-eu
-  NEO_WRITER_ADDRESS: http://concepts-rw-neo4j:8080
-  ES_WRITER_ADDRESS: http://concept-rw-elasticsearch:8080
-  DYNAMODB_TABLE: upp-concordance-store-k8s-eu
-  QUEUE_URL: https://sqs.eu-west-1.amazonaws.com/027104099916/upp-concept-publish-notifications-k8s-eu-1
-  MAX_MESSAGES: 10
-  VISIBILITY_TIMEOUT: 30
-  WAIT_TIME: 20
+  LOG_LEVEL: info
+  REQUEST_LOGGING_ON: true
+  DYNAMODB_REGION: "eu-west-1"
+  BUCKET_REGION: "eu-west-1"
+  KINESIS_REGION: "eu-west-1"
