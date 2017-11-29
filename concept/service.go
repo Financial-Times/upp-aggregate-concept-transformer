@@ -10,6 +10,8 @@ import (
 	"strings"
 	"sync"
 
+	"time"
+
 	"github.com/Financial-Times/aggregate-concept-transformer/dynamodb"
 	"github.com/Financial-Times/aggregate-concept-transformer/kinesis"
 	"github.com/Financial-Times/aggregate-concept-transformer/s3"
@@ -287,6 +289,7 @@ func (s *AggregateService) RWNeo4JHealthCheck() fthealth.Check {
 		Severity:         2,
 		TechnicalSummary: `Cannot connect to concept writer neo4j. If this check fails, check health of concepts-rw-neo4j service`,
 		Checker: func() (string, error) {
+			time.Sleep(10 * time.Second) //TODO remove this, hack to test timeout
 			urlToCheck := strings.TrimRight(s.neoWriterAddress, "/") + "/__gtg"
 			req, err := http.NewRequest("GET", urlToCheck, nil)
 			if err != nil {

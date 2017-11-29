@@ -7,6 +7,8 @@ import (
 
 	"fmt"
 
+	"time"
+
 	fthealth "github.com/Financial-Times/go-fthealth/v1_1"
 	"github.com/Financial-Times/http-handlers-go/httphandlers"
 	status "github.com/Financial-Times/service-status-go/httphandlers"
@@ -77,8 +79,8 @@ func (h *AggregateConceptHandler) RegisterAdminHandlers(router *mux.Router, heal
 	log.Info("Registering admin handlers")
 
 	hc := fthealth.HealthCheck{SystemCode: healthService.config.appSystemCode, Name: healthService.config.appName, Description: healthService.config.description, Checks: healthService.Checks}
-	router.HandleFunc("/__health", fthealth.Handler(hc))
-	router.HandleFunc(status.GTGPath, status.NewGoodToGoHandler(healthService.GtgCheck))
+	router.HandleFunc("/__health", fthealth.Handler(fthealth.TimedHealthCheck{HealthCheck: hc, Timeout: 10 * time.Second}))
+	router.HandleFunc(status.GTGPath, status.NewGoodToGoHandler(healthService.GTG))
 	router.HandleFunc(status.BuildInfoPath, status.BuildInfoHandler)
 
 	var monitoringRouter http.Handler = router

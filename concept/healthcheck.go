@@ -32,11 +32,19 @@ func NewHealthService(svc Service, appSystemCode string, appName string, port st
 	return service
 }
 
-func (svc *HealthService) GtgCheck() gtg.Status {
+func (svc *HealthService) GTG() gtg.Status {
+	var checks []gtg.StatusChecker
 	for _, check := range svc.Checks {
-		if _, err := check.Checker(); err != nil {
-			return gtg.Status{GoodToGo: false, Message: err.Error()}
-		}
+		checks = append(checks, func() gtg.Status {
+			return svc.gtgCheck(check)
+		})
+	}
+	return gtg.FailFastParallelCheck(checks)()
+}
+
+func (svc *HealthService) gtgCheck(check fthealth.Check) gtg.Status {
+	if _, err := check.Checker(); err != nil {
+		return gtg.Status{GoodToGo: false, Message: err.Error()}
 	}
 	return gtg.Status{GoodToGo: true}
 }
