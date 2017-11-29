@@ -109,7 +109,6 @@ func (c *ConceptClient) Healthcheck() fthealth.Check {
 		Severity:         2,
 		TechnicalSummary: `Cannot connect to S3 bucket. If this check fails, check that Amazon S3 is available`,
 		Checker: func() (string, error) {
-			time.Sleep(11 * time.Second) //TODO remove this, hack to test timeout
 			params := &s3.HeadBucketInput{
 				Bucket: aws.String(c.bucketName), // Required
 			}
