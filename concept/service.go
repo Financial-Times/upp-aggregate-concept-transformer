@@ -10,8 +10,6 @@ import (
 	"strings"
 	"sync"
 
-	"time"
-
 	"github.com/Financial-Times/aggregate-concept-transformer/dynamodb"
 	"github.com/Financial-Times/aggregate-concept-transformer/kinesis"
 	"github.com/Financial-Times/aggregate-concept-transformer/s3"
