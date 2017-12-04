@@ -12,5 +12,7 @@ env:
   app:
     port: "8080"
 resources:
+  requests:
+    memory: 40Mi
   limits:
     memory: 512Mi
