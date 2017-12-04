@@ -5,8 +5,10 @@
 		{
 			"checksumSHA1": "UEJ0kpHhS/euvdF9nN2LIjZ7wS8=",
 			"path": "github.com/Financial-Times/go-fthealth/v1_1",
-			"revision": "addf5c85943f6fdc8f7f5234aabdaa4494442417",
-			"revisionTime": "2017-11-28T15:55:42Z"
+			"revision": "1b007e2b37b7936dfb6671fa17e5a29fd35a08ea",
+			"revisionTime": "2017-12-04T12:48:31Z",
+			"version": "0.4",
+			"versionExact": "0.4.0"
 		},
 		{
 			"checksumSHA1": "/xshkhtKNzMRlV2Ud9P0QgH+B4g=",
