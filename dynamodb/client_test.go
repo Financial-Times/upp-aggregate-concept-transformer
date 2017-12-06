@@ -3,12 +3,12 @@ package dynamodb
 import (
 	"testing"
 
+	"github.com/Financial-Times/go-logger"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
-	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -21,6 +21,7 @@ const (
 
 var db *dynamodb.DynamoDB
 var DescribeTableParams = &dynamodb.DescribeTableInput{TableName: aws.String(DDB_TABLE)}
+var test_trans_id = "test_tid"
 
 func init() {
 	db = connectToLocalDB()
@@ -30,7 +31,7 @@ func init() {
 
 func TestDynamoClient_GetConcordance(t *testing.T) {
 	c := newTestClient()
-	concordance, err := c.GetConcordance(UUID)
+	concordance, err := c.GetConcordance(UUID, test_trans_id)
 	assert.NoError(t, err)
 	assert.Equal(t, UUID, concordance.UUID)
 	assert.Equal(t, []string{"6a30400b-6906-41f2-9b1f-93e4cfc60515", "942cefc6-eab1-439a-82e8-59b5c62204e6"}, concordance.ConcordedIds)
@@ -38,7 +39,7 @@ func TestDynamoClient_GetConcordance(t *testing.T) {
 
 func TestDynamoClient_GetConcordance_NoRecords(t *testing.T) {
 	c := newTestClient()
-	concordance, err := c.GetConcordance("729a4bf5-4612-4d81-8bc5-707a0c4d1251")
+	concordance, err := c.GetConcordance("729a4bf5-4612-4d81-8bc5-707a0c4d1251", test_trans_id)
 	assert.NoError(t, err)
 	assert.Equal(t, "729a4bf5-4612-4d81-8bc5-707a0c4d1251", concordance.UUID)
 	assert.Equal(t, []string{}, concordance.ConcordedIds)
@@ -46,7 +47,7 @@ func TestDynamoClient_GetConcordance_NoRecords(t *testing.T) {
 
 func TestDynamoClient_GetConcordance_TooManyRecords(t *testing.T) {
 	c := newTestClient()
-	_, err := c.GetConcordance("205e8dc8-a10a-45d8-9218-97f361311486")
+	_, err := c.GetConcordance("205e8dc8-a10a-45d8-9218-97f361311486", test_trans_id)
 	assert.Error(t, err)
 	assert.Equal(t, "More than one concordance found.", err.Error())
 }
@@ -73,7 +74,7 @@ func connectToLocalDB() *dynamodb.DynamoDB {
 		Credentials: credentials.NewStaticCredentials("id", "secret", "token"),
 	})
 	if err != nil {
-		log.WithError(err).Fatal("Failed to connect to DynamoDB.")
+		logger.WithError(err).Fatal("Failed to connect to DynamoDB.")
 	}
 	ddb := dynamodb.New(sess)
 	return ddb
@@ -105,11 +106,11 @@ func createTableIfNotExists() error {
 					TableName: aws.String(DDB_TABLE),
 				}
 				if _, err := db.CreateTable(params); err != nil {
-					log.WithError(err).Fatal("Failed to create table.")
+					logger.WithError(err).Fatal("Failed to create table.")
 				}
 			}
 		} else {
-			log.WithError(err).Fatal("Failed to connect to local DynamoDB.")
+			logger.WithError(err).Fatal("Failed to connect to local DynamoDB.")
 			return err
 		}
 
@@ -161,7 +162,7 @@ func addRecordToTable() {
 		},
 	}
 	if _, err := db.BatchWriteItem(input); err != nil {
-		log.WithError(err).Fatal("Can't write data to database.")
+		logger.WithError(err).Fatal("Can't write data to database.")
 	}
 
 }

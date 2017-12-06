@@ -15,7 +15,7 @@ import (
 	"github.com/Financial-Times/aggregate-concept-transformer/s3"
 	"github.com/Financial-Times/aggregate-concept-transformer/sqs"
 	fthealth "github.com/Financial-Times/go-fthealth/v1_1"
-	log "github.com/sirupsen/logrus"
+	"github.com/Financial-Times/go-logger"
 )
 
 type Service interface {
@@ -58,12 +58,12 @@ func (s *AggregateService) ListenForNotifications() {
 					defer wg.Done()
 					err := s.ProcessMessage(n.UUID)
 					if err != nil {
-						log.WithError(err).WithField("UUID", n.UUID).Error("Error processing message.")
+						logger.WithError(err).WithUUID(n.UUID).Error("Error processing message.")
 						return
 					}
 					err = s.sqs.RemoveMessageFromQueue(n.ReceiptHandle)
 					if err != nil {
-						log.WithError(err).WithField("UUID", n.UUID).Error("Error removing message from SQS.")
+						logger.WithError(err).WithUUID(n.UUID).Error("Error removing message from SQS.")
 					}
 				}(n)
 			}
@@ -78,37 +78,38 @@ func (s *AggregateService) ProcessMessage(UUID string) error {
 	if err != nil {
 		return err
 	}
+	if concordedConcept.PrefUUID != UUID {
+		logger.WithTransactionID(transactionID).WithUUID(UUID).Infof("Requested concept %s is source node for canoncial concept %s", UUID, concordedConcept.PrefUUID)
+	}
 
 	// Write to Neo4j
-	log.WithFields(log.Fields{"UUID": concordedConcept.PrefUUID, "transaction_id": transactionID}).Debug("Writing concept to Neo4j")
+	logger.WithTransactionID(transactionID).WithUUID(concordedConcept.PrefUUID).Debug("Writing concept to Neo4j")
 	updatedConcepts, err := sendToWriter(s.httpClient, s.neoWriterAddress, resolveConceptType(concordedConcept.Type), concordedConcept.PrefUUID, concordedConcept, transactionID)
 	if err != nil {
 		return err
 	} else if len(updatedConcepts.UpdatedIds) < 1 {
-		msg := "Concept rw neo4j did not return any updated uuids!"
-		log.WithFields(log.Fields{"UUID": UUID, "transaction_id": transactionID}).Error(msg)
-		return errors.New(msg)
+		logger.WithTransactionID(transactionID).WithUUID(concordedConcept.PrefUUID).Info("Concept was unchanged since last update, skipping!")
+		return nil
 	}
 
 	// Write to Elasticsearch
-	log.WithFields(log.Fields{"UUID": concordedConcept.PrefUUID, "transaction_id": transactionID}).Debug("Writing concept to Elasticsearch")
-	_, err = sendToWriter(s.httpClient, s.elasticsearchWriterAddress, resolveConceptType(concordedConcept.Type), concordedConcept.PrefUUID, concordedConcept, transactionID)
-	if err != nil {
+	logger.WithTransactionID(transactionID).WithUUID(concordedConcept.PrefUUID).Debug("Writing concept to elastic search")
+	if _, err = sendToWriter(s.httpClient, s.elasticsearchWriterAddress, resolveConceptType(concordedConcept.Type), concordedConcept.PrefUUID, concordedConcept, transactionID); err != nil {
 		return err
 	}
 
-	//Send notification to stream
-	log.WithFields(log.Fields{"UUID": concordedConcept.PrefUUID, "transaction_id": transactionID}).Debug("Writing concept to Elasticsearch")
-	for _, updatedId := range updatedConcepts.UpdatedIds {
-		err = s.kinesis.AddRecordToStream(updatedId, concordedConcept.Type)
-		if err != nil {
-			log.WithError(err).WithFields(log.Fields{"UUID": concordedConcept.PrefUUID, "transaction_id": transactionID}).Errorf("Failed to add update notification of %s record to stream", updatedId)
-			return err
-		}
-		log.WithFields(log.Fields{"UUID": concordedConcept.PrefUUID, "transaction_id": transactionID}).Debug("Sending update notification to kinesis of update to concept: " + updatedId)
+	conceptAsBytes, err := json.Marshal(updatedConcepts)
+	if err != nil {
+		logger.WithError(err).WithTransactionID(transactionID).WithUUID(concordedConcept.PrefUUID).Errorf("Failed to marshall updatedIDs record: %v", updatedConcepts)
+		return err
 	}
-
-	log.WithFields(log.Fields{"UUID": concordedConcept.PrefUUID, "transaction_id": transactionID}).Info("Finished processing update")
+	//Send notification to stream
+	logger.WithTransactionID(transactionID).WithUUID(concordedConcept.PrefUUID).Debugf("Sending notification of updated concepts to kinesis queue: %v", updatedConcepts)
+	if err = s.kinesis.AddRecordToStream(conceptAsBytes, concordedConcept.Type); err != nil {
+		logger.WithError(err).WithTransactionID(transactionID).WithUUID(concordedConcept.PrefUUID).Errorf("Failed to update stream with notification record %v", updatedConcepts)
+		return err
+	}
+	logger.WithTransactionID(transactionID).WithUUID(concordedConcept.PrefUUID).Infof("Finished processing update of %s", UUID)
 
 	return nil
 }
@@ -118,39 +119,31 @@ func (s *AggregateService) GetConcordedConcept(UUID string) (ConcordedConcept, s
 	// Get concordance UUIDs
 	concordances, err := s.db.GetConcordance(UUID)
 	if err != nil {
-		msg := fmt.Sprintf("Could not retrieve concordance record for %s from DynamoDB", UUID)
-		log.WithError(err).WithField("UUID", UUID).Error(msg)
+		return ConcordedConcept{}, "", err
+	}
+	logger.WithField("UUID", UUID).Debug("Returned concordance record: %v", concordances)
+
+	found, primaryConcept, transactionID, err := s.s3.GetConceptAndTransactionId(concordances.UUID)
+	if err != nil {
+		return ConcordedConcept{}, "", err
+	} else if !found {
+		err := fmt.Errorf("Canonical concept %s not found in S3", concordances.UUID)
+		logger.WithField("UUID", UUID).Error(err.Error())
 		return ConcordedConcept{}, "", err
 	}
 
 	// Get all concepts from S3
 	for _, sourceId := range concordances.ConcordedIds {
-		found, s3Concept, _, err := s.s3.GetConceptAndTransactionId(sourceId)
-
+		found, sourceConcept, _, err := s.s3.GetConceptAndTransactionId(sourceId)
 		if err != nil {
-			msg := fmt.Sprintf("Error retrieving source concept %s from S3", sourceId)
-			log.WithError(err).WithField("UUID", UUID).Error(msg)
 			return ConcordedConcept{}, "", err
-		}
-		if !found {
+		} else if !found {
 			err := fmt.Errorf("Source concept %s not found in S3", sourceId)
-			log.WithError(err).WithField("UUID", UUID).Error(err.Error())
+			logger.WithField("UUID", UUID).Error(err.Error())
 			return ConcordedConcept{}, "", err
 		}
 
-		concordedConcept = mergeCanonicalInformation(concordedConcept, s3Concept)
-	}
-
-	found, primaryConcept, transactionID, err := s.s3.GetConceptAndTransactionId(concordances.UUID)
-	if err != nil {
-		msg := fmt.Sprintf("Error retrieving canonical concept %s from S3", concordances.UUID)
-		log.WithError(err).WithField("UUID", UUID).Error(msg)
-		return ConcordedConcept{}, "", err
-	}
-	if !found {
-		err := fmt.Errorf("Canonical concept %s not found in S3", concordances.UUID)
-		log.WithError(err).WithField("UUID", UUID).Error(err.Error())
-		return ConcordedConcept{}, "", err
+		concordedConcept = mergeCanonicalInformation(concordedConcept, sourceConcept)
 	}
 
 	// Aggregate concepts
@@ -222,7 +215,7 @@ func sendToWriter(client httpClient, baseUrl string, urlParam string, conceptUUI
 	request, reqUrl, err := createWriteRequest(baseUrl, urlParam, strings.NewReader(string(body)), conceptUUID)
 	if err != nil {
 		err := errors.New("Failed to create request to " + reqUrl + " with body " + string(body))
-		log.WithFields(log.Fields{"UUID": conceptUUID, "transaction_id": tid}).Error(err)
+		logger.WithTransactionID(tid).WithUUID(conceptUUID).Error(err)
 		return updatedConcepts, err
 	}
 	request.ContentLength = -1
@@ -233,18 +226,18 @@ func sendToWriter(client httpClient, baseUrl string, urlParam string, conceptUUI
 
 	if strings.Contains(baseUrl, "neo4j") && int(resp.StatusCode/100) == 2 {
 		dec := json.NewDecoder(resp.Body)
-		err = dec.Decode(&updatedConcepts)
-		if err != nil {
+		if err = dec.Decode(&updatedConcepts); err != nil {
+			logger.WithError(err).WithTransactionID(tid).WithUUID(conceptUUID).Error("Error whilst decoding response from writer")
 			return updatedConcepts, err
 		}
 	}
 
 	if resp.StatusCode == 404 && strings.Contains(baseUrl, "elastic") {
-		log.WithFields(log.Fields{"UUID": conceptUUID, "transaction_id": tid}).Debugf("Elastic search rw cannot handle concept: %s, because it has an unsupported type %s; skipping record", conceptUUID, concept.Type)
+		logger.WithTransactionID(tid).WithUUID(conceptUUID).Debugf("Elastic search rw cannot handle concept: %s, because it has an unsupported type %s; skipping record", conceptUUID, concept.Type)
 		return updatedConcepts, nil
 	} else if reqErr != nil || resp.StatusCode != 200 {
 		err := errors.New("Request to " + reqUrl + " returned status: " + strconv.Itoa(resp.StatusCode) + "; skipping " + conceptUUID)
-		log.WithFields(log.Fields{"UUID": conceptUUID, "transaction_id": tid}).Error(err)
+		logger.WithError(reqErr).WithTransactionID(tid).WithUUID(conceptUUID).Errorf("Request to %s returned status: %d", reqUrl, resp.StatusCode)
 		return updatedConcepts, err
 	}
 
