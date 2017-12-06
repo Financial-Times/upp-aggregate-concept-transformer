@@ -1,7 +1,6 @@
 package kinesis
 
 import (
-	"encoding/json"
 	fthealth "github.com/Financial-Times/go-fthealth/v1_1"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
