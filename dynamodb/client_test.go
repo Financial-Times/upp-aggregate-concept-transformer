@@ -31,7 +31,7 @@ func init() {
 
 func TestDynamoClient_GetConcordance(t *testing.T) {
 	c := newTestClient()
-	concordance, err := c.GetConcordance(UUID, test_trans_id)
+	concordance, err := c.GetConcordance(UUID)
 	assert.NoError(t, err)
 	assert.Equal(t, UUID, concordance.UUID)
 	assert.Equal(t, []string{"6a30400b-6906-41f2-9b1f-93e4cfc60515", "942cefc6-eab1-439a-82e8-59b5c62204e6"}, concordance.ConcordedIds)
@@ -39,7 +39,7 @@ func TestDynamoClient_GetConcordance(t *testing.T) {
 
 func TestDynamoClient_GetConcordance_NoRecords(t *testing.T) {
 	c := newTestClient()
-	concordance, err := c.GetConcordance("729a4bf5-4612-4d81-8bc5-707a0c4d1251", test_trans_id)
+	concordance, err := c.GetConcordance("729a4bf5-4612-4d81-8bc5-707a0c4d1251")
 	assert.NoError(t, err)
 	assert.Equal(t, "729a4bf5-4612-4d81-8bc5-707a0c4d1251", concordance.UUID)
 	assert.Equal(t, []string{}, concordance.ConcordedIds)
@@ -47,7 +47,7 @@ func TestDynamoClient_GetConcordance_NoRecords(t *testing.T) {
 
 func TestDynamoClient_GetConcordance_TooManyRecords(t *testing.T) {
 	c := newTestClient()
-	_, err := c.GetConcordance("205e8dc8-a10a-45d8-9218-97f361311486", test_trans_id)
+	_, err := c.GetConcordance("205e8dc8-a10a-45d8-9218-97f361311486")
 	assert.Error(t, err)
 	assert.Equal(t, "More than one concordance found.", err.Error())
 }

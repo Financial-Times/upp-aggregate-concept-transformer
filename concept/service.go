@@ -121,7 +121,7 @@ func (s *AggregateService) GetConcordedConcept(UUID string) (ConcordedConcept, s
 	if err != nil {
 		return ConcordedConcept{}, "", err
 	}
-	logger.WithField("UUID", UUID).Debug("Returned concordance record: %v", concordances)
+	logger.WithField("UUID", UUID).Debugf("Returned concordance record: %v", concordances)
 
 	found, primaryConcept, transactionID, err := s.s3.GetConceptAndTransactionId(concordances.UUID)
 	if err != nil {
