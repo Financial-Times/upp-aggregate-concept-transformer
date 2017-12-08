@@ -83,7 +83,7 @@ func (s *AggregateService) ProcessMessage(UUID string) error {
 	}
 
 	// Write to Neo4j
-	logger.WithTransactionID(transactionID).WithUUID(concordedConcept.PrefUUID).Debug("Writing concept to Neo4j")
+	logger.WithTransactionID(transactionID).WithUUID(concordedConcept.PrefUUID).Debug("Sending concept to Neo4j")
 	updatedConcepts, err := sendToWriter(s.httpClient, s.neoWriterAddress, resolveConceptType(concordedConcept.Type), concordedConcept.PrefUUID, concordedConcept, transactionID)
 	if err != nil {
 		return err
@@ -91,6 +91,7 @@ func (s *AggregateService) ProcessMessage(UUID string) error {
 		logger.WithTransactionID(transactionID).WithUUID(concordedConcept.PrefUUID).Info("Concept was unchanged since last update, skipping!")
 		return nil
 	}
+	logger.WithTransactionID(transactionID).WithUUID(concordedConcept.PrefUUID).Debug("Concept successfully updated in neo4j")
 
 	// Write to Elasticsearch
 	logger.WithTransactionID(transactionID).WithUUID(concordedConcept.PrefUUID).Debug("Writing concept to elastic search")
