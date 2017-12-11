@@ -4,11 +4,11 @@ import (
 	"errors"
 
 	fthealth "github.com/Financial-Times/go-fthealth/v1_1"
+	"github.com/Financial-Times/go-logger"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
-	log "github.com/sirupsen/logrus"
 )
 
 type Client interface {
@@ -36,7 +36,6 @@ func NewClient(region, table string) (Client, error) {
 }
 
 func (c *DynamoClient) GetConcordance(uuid string) (ConceptConcordance, error) {
-
 	scanInput := &dynamodb.ScanInput{
 		TableName:        aws.String(c.table),
 		FilterExpression: aws.String("#conceptId = :x or contains(#concordedIds, :y)"),
@@ -52,25 +51,24 @@ func (c *DynamoClient) GetConcordance(uuid string) (ConceptConcordance, error) {
 
 	result, err := c.svc.Scan(scanInput)
 	if err != nil {
-		log.WithError(err).WithField("UUID", uuid).Error("Error scanning DynamoDB for concordance record")
+		logger.WithError(err).WithField("UUID", uuid).Error("Error scanning DynamoDB for concordance record")
 		return ConceptConcordance{}, err
 	}
 
 	if int(*result.Count) == 0 {
 		// No concordance found, so we'll create a fake record to return the solo concept.
+		logger.WithError(err).WithField("UUID", uuid).Debug("No matching record in db")
 		return ConceptConcordance{UUID: uuid, ConcordedIds: []string{}}, nil
 	}
 	if int(*result.Count) > 1 {
-		log.WithFields(log.Fields{
-			"UUID": uuid,
-		}).Error("More than one concordance found.")
+		logger.WithField("UUID", uuid).Errorf("More than one concordance record found")
 		return ConceptConcordance{}, errors.New("More than one concordance found.")
 	}
 
 	var concordance ConceptConcordance
 	if err = dynamodbattribute.UnmarshalMap(result.Items[0], &concordance); err != nil {
-		log.WithError(err).WithField("UUID", uuid).Error("Unable to unmarshal concordance object")
-		return ConceptConcordance{}, errors.New("Unable to unmarshal concordance object")
+		logger.WithError(err).WithUUID(uuid).Error("Unable to unmarshal concordance object")
+		return ConceptConcordance{}, err
 	}
 	return concordance, nil
 }

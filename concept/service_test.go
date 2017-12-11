@@ -15,6 +15,7 @@ import (
 	"github.com/Financial-Times/aggregate-concept-transformer/s3"
 	"github.com/Financial-Times/aggregate-concept-transformer/sqs"
 	fthealth "github.com/Financial-Times/go-fthealth/v1_1"
+	"github.com/Financial-Times/go-logger"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -102,7 +103,7 @@ type mockKinesisStreamClient struct {
 	err error
 }
 
-func (k *mockKinesisStreamClient) AddRecordToStream(record string, conceptType string) error {
+func (k *mockKinesisStreamClient) AddRecordToStream(concept []byte, conceptType string) error {
 	if k.err != nil {
 		return k.err
 	}
@@ -142,6 +143,10 @@ type mockHTTPClient struct {
 	resp       string
 	statusCode int
 	err        error
+}
+
+func init() {
+	logger.InitLogger("test-aggregate-concept-transformer", "debug")
 }
 
 func (c mockHTTPClient) Do(req *http.Request) (resp *http.Response, err error) {
@@ -280,7 +285,7 @@ func TestAggregateService_ProcessMessage_GenericKinesisError(t *testing.T) {
 
 func TestAggregateService_ProcessMessage_S3SourceNotFound(t *testing.T) {
 	svc, _, _, _, _ := setupTestService(200, payload)
-	err := svc.ProcessMessage("4a4aaca0-b059-426c-bf4f-f00c6ef940ae")
+	err := svc.ProcessMessage("c9d3a92a-da84-11e7-a121-0401beb96201")
 	assert.Error(t, err)
 	assert.Equal(t, "Source concept 3a3da730-0f4c-4a20-85a6-3ebd5776bd49 not found in S3", err.Error())
 }
@@ -296,8 +301,7 @@ func TestAggregateService_ProcessMessage_WriterReturnsNoUuids(t *testing.T) {
 	svc, _, _, _, _ := setupTestService(200, emptyPayload)
 
 	err := svc.ProcessMessage("28090964-9997-4bc2-9638-7a11135aaff9")
-	assert.Error(t, err)
-	assert.Equal(t, "Concept rw neo4j did not return any updated uuids!", err.Error())
+	assert.NoError(t, err)
 }
 
 func TestAggregateService_Healthchecks(t *testing.T) {
@@ -366,6 +370,16 @@ func setupTestService(httpError int, writerResponse string) (Service, *mockS3Cli
 					Type:      "Person",
 				},
 			},
+			"c9d3a92a-da84-11e7-a121-0401beb96201": {
+				transactionID: "tid_629",
+				concept: s3.Concept{
+					UUID:      "c9d3a92a-da84-11e7-a121-0401beb96201",
+					PrefLabel: "TME Concept",
+					Authority: "TME",
+					AuthValue: "TME-a2f",
+					Type:      "Person",
+				},
+			},
 		},
 	}
 	sqs := &mockSQSClient{
@@ -376,6 +390,7 @@ func setupTestService(httpError int, writerResponse string) (Service, *mockS3Cli
 	dynamo := &mockDynamoDBClient{
 		concordances: map[string][]string{
 			"28090964-9997-4bc2-9638-7a11135aaff9": {"34a571fb-d779-4610-a7ba-2e127676db4d"},
+			"c9d3a92a-da84-11e7-a121-0401beb96201": {"3a3da730-0f4c-4a20-85a6-3ebd5776bd49"},
 			"4a4aaca0-b059-426c-bf4f-f00c6ef940ae": {"3a3da730-0f4c-4a20-85a6-3ebd5776bd49"},
 		},
 	}
