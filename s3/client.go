@@ -9,11 +9,11 @@ import (
 	"encoding/json"
 
 	fthealth "github.com/Financial-Times/go-fthealth/v1_1"
+	"github.com/Financial-Times/go-logger"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
-	log "github.com/sirupsen/logrus"
 )
 
 type Client interface {
@@ -48,7 +48,7 @@ func NewClient(bucketName string, awsRegion string) (Client, error) {
 			HTTPClient: &hc,
 		})
 	if err != nil {
-		log.WithError(err).Error("Unable to create an S3 client")
+		logger.WithError(err).Error("Unable to create an S3 client")
 		return &ConceptClient{}, err
 	}
 	client := s3.New(sess)
@@ -72,9 +72,7 @@ func (c *ConceptClient) GetConceptAndTransactionId(UUID string) (bool, Concept, 
 			// NotFound rather than error, so no logging needed.
 			return false, Concept{}, "", nil
 		}
-		log.WithError(err).WithFields(log.Fields{
-			"UUID": UUID,
-		}).Error("Error retrieving concept from S3")
+		logger.WithError(err).WithUUID(UUID).Error("Error retrieving concept from S3")
 		return false, Concept{}, "", err
 	}
 
@@ -84,21 +82,17 @@ func (c *ConceptClient) GetConceptAndTransactionId(UUID string) (bool, Concept, 
 	}
 	ho, err := c.s3.HeadObject(getHeadersParams)
 	if err != nil {
-		log.WithError(err).WithFields(log.Fields{
-			"UUID": UUID,
-		}).Error("Cannot access S3 object")
+		logger.WithError(err).WithUUID(UUID).Error("Cannot access S3 head object")
 		return false, Concept{}, "", err
 	}
 	tid := ho.Metadata["Transaction_id"]
 
 	var concept Concept
 	if err = json.NewDecoder(resp.Body).Decode(&concept); err != nil {
-		log.WithError(err).WithFields(log.Fields{
-			"UUID": UUID,
-		}).Error("Cannot unmarshal object into a concept")
+		logger.WithError(err).WithUUID(UUID).Error("Cannot unmarshal object into a concept")
+		return true, Concept{}, "", err
 	}
-
-	return true, concept, *tid, err
+	return true, concept, *tid, nil
 }
 
 func (c *ConceptClient) Healthcheck() fthealth.Check {
@@ -114,7 +108,7 @@ func (c *ConceptClient) Healthcheck() fthealth.Check {
 			}
 			_, err := c.s3.HeadBucket(params)
 			if err != nil {
-				log.WithError(err).Error("Got error running S3 health check")
+				logger.WithError(err).Error("Got error running S3 health check")
 				return "", err
 			}
 			return "", err

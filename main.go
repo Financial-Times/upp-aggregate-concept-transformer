@@ -12,6 +12,7 @@ import (
 	"github.com/Financial-Times/aggregate-concept-transformer/kinesis"
 	"github.com/Financial-Times/aggregate-concept-transformer/s3"
 	"github.com/Financial-Times/aggregate-concept-transformer/sqs"
+	"github.com/Financial-Times/go-logger"
 	"github.com/gorilla/mux"
 	"github.com/jawher/mow.cli"
 	_ "github.com/joho/godotenv/autoload"
@@ -130,15 +131,9 @@ func main() {
 
 	app.Action = func() {
 
-		log.SetFormatter(&log.JSONFormatter{})
-		lvl, err := log.ParseLevel(*logLevel)
-		if err != nil {
-			log.WithField("LOG_LEVEL", *logLevel).Warn("Cannot parse log level, setting it to INFO.")
-			lvl = log.InfoLevel
-		}
-		log.SetLevel(lvl)
+		logger.InitLogger(*appSystemCode, *logLevel)
 
-		log.WithFields(log.Fields{
+		logger.WithFields(log.Fields{
 			"DYNAMODB_TABLE":      *dynamoDBTable,
 			"ES_WRITER_ADDRESS":   *elasticsearchWriterAddress,
 			"NEO_WRITER_ADDRESS":  *neoWriterAddress,
@@ -151,44 +146,44 @@ func main() {
 		}).Info("Starting app with arguments")
 
 		if *bucketName == "" {
-			log.Fatal("S3 bucket name not set")
+			logger.Fatal("S3 bucket name not set")
 			return
 		}
 		if *queueURL == "" {
-			log.Fatal("SQS queue url not set")
+			logger.Fatal("SQS queue url not set")
 			return
 		}
 
 		if *bucketRegion == "" {
-			log.Fatal("AWS bucket region not set")
+			logger.Fatal("AWS bucket region not set")
 		}
 
 		if *sqsRegion == "" {
-			log.Fatal("AWS SQS region not set")
+			logger.Fatal("AWS SQS region not set")
 		}
 
 		if *kinesisStreamName == "" {
-			log.Fatal("Kinesis stream name not set")
+			logger.Fatal("Kinesis stream name not set")
 		}
 
 		s3Client, err := s3.NewClient(*bucketName, *bucketRegion)
 		if err != nil {
-			log.WithError(err).Fatal("Error creating S3 client")
+			logger.WithError(err).Fatal("Error creating S3 client")
 		}
 
 		sqsClient, err := sqs.NewClient(*sqsRegion, *queueURL, *messagesToProcess, *visibilityTimeout, *waitTime)
 		if err != nil {
-			log.WithError(err).Fatal("Error creating SQS client")
+			logger.WithError(err).Fatal("Error creating SQS client")
 		}
 
 		dynamoClient, err := dynamodb.NewClient(*dynamoDBRegion, *dynamoDBTable)
 		if err != nil {
-			log.WithError(err).Fatal("Error creating DynamoDB client")
+			logger.WithError(err).Fatal("Error creating DynamoDB client")
 		}
 
 		kinesisClient, err := kinesis.NewClient(*kinesisStreamName, *kinesisRegion)
 		if err != nil {
-			log.WithError(err).Fatal("Error creating Kinesis client")
+			logger.WithError(err).Fatal("Error creating Kinesis client")
 		}
 
 		svc := concept.NewService(s3Client, sqsClient, dynamoClient, kinesisClient, *neoWriterAddress, *elasticsearchWriterAddress, defaultHTTPClient())
@@ -201,9 +196,9 @@ func main() {
 
 		go svc.ListenForNotifications()
 
-		log.Infof("Listening on port %v", *port)
+		logger.Infof("Listening on port %v", *port)
 		if err := http.ListenAndServe(":"+*port, r); err != nil {
-			log.Fatalf("Unable to start server: %v", err)
+			logger.Fatalf("Unable to start server: %v", err)
 		}
 	}
 	app.Run(os.Args)

@@ -3,12 +3,12 @@ package dynamodb
 import (
 	"testing"
 
+	"github.com/Financial-Times/go-logger"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
-	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -21,6 +21,7 @@ const (
 
 var db *dynamodb.DynamoDB
 var DescribeTableParams = &dynamodb.DescribeTableInput{TableName: aws.String(DDB_TABLE)}
+var test_trans_id = "test_tid"
 
 func init() {
 	db = connectToLocalDB()
@@ -73,7 +74,7 @@ func connectToLocalDB() *dynamodb.DynamoDB {
 		Credentials: credentials.NewStaticCredentials("id", "secret", "token"),
 	})
 	if err != nil {
-		log.WithError(err).Fatal("Failed to connect to DynamoDB.")
+		logger.WithError(err).Fatal("Failed to connect to DynamoDB.")
 	}
 	ddb := dynamodb.New(sess)
 	return ddb
@@ -105,11 +106,11 @@ func createTableIfNotExists() error {
 					TableName: aws.String(DDB_TABLE),
 				}
 				if _, err := db.CreateTable(params); err != nil {
-					log.WithError(err).Fatal("Failed to create table.")
+					logger.WithError(err).Fatal("Failed to create table.")
 				}
 			}
 		} else {
-			log.WithError(err).Fatal("Failed to connect to local DynamoDB.")
+			logger.WithError(err).Fatal("Failed to connect to local DynamoDB.")
 			return err
 		}
 
@@ -161,7 +162,7 @@ func addRecordToTable() {
 		},
 	}
 	if _, err := db.BatchWriteItem(input); err != nil {
-		log.WithError(err).Fatal("Can't write data to database.")
+		logger.WithError(err).Fatal("Can't write data to database.")
 	}
 
 }

@@ -6,10 +6,10 @@ import (
 	"strings"
 
 	fthealth "github.com/Financial-Times/go-fthealth/v1_1"
+	"github.com/Financial-Times/go-logger"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/sqs"
-	log "github.com/sirupsen/logrus"
 )
 
 var keyMatcher = regexp.MustCompile("^[0-9a-f]{8}/[0-9a-f]{4}/[0-9a-f]{4}/[0-9a-f]{4}/[0-9a-f]{12}$")
@@ -39,7 +39,7 @@ func NewClient(awsRegion string, queueUrl string, messagesToProcess int, visibil
 		MaxRetries: aws.Int(3),
 	})
 	if err != nil {
-		log.WithError(err).Error("Unable to create an SQS client")
+		logger.WithError(err).Error("Unable to create an SQS client")
 		return &NotificationClient{}, err
 	}
 	client := sqs.New(sess)
@@ -53,7 +53,7 @@ func NewClient(awsRegion string, queueUrl string, messagesToProcess int, visibil
 func (c *NotificationClient) ListenAndServeQueue() []Notification {
 	messages, err := c.sqs.ReceiveMessage(&c.listenParams)
 	if err != nil {
-		log.WithError(err).Error("Error whilst listening for messages")
+		logger.WithError(err).Error("Error whilst listening for messages")
 	}
 	return getNotificationsFromMessages(messages.Messages)
 }
@@ -64,7 +64,7 @@ func (c *NotificationClient) RemoveMessageFromQueue(receiptHandle *string) error
 		ReceiptHandle: receiptHandle,
 	}
 	if _, err := c.sqs.DeleteMessage(&deleteParams); err != nil {
-		log.WithError(err).Error("Error deleting message from SQS")
+		logger.WithError(err).Error("Error deleting message from SQS")
 		return err
 	}
 	return nil
@@ -75,29 +75,27 @@ func getNotificationsFromMessages(messages []*sqs.Message) []Notification {
 	notifications := []Notification{}
 
 	for _, message := range messages {
+		var err error
 		receiptHandle := message.ReceiptHandle
 		messageBody := Body{}
-		err := json.Unmarshal([]byte(*message.Body), &messageBody)
-
-		if err != nil {
-			log.WithError(err).Warn("Failed to unmarshal SQS message - skipping")
+		if err = json.Unmarshal([]byte(*message.Body), &messageBody); err != nil {
+			logger.WithError(err).Error("Failed to unmarshal SQS message")
 			continue
 		}
 
 		msgRecord := Message{}
-		err = json.Unmarshal([]byte(messageBody.Message), &msgRecord)
-		if err != nil {
-			log.WithError(err).Warn("Failed to unmarshal S3 notification - skipping")
+		if err = json.Unmarshal([]byte(messageBody.Message), &msgRecord); err != nil {
+			logger.WithError(err).Error("Failed to unmarshal S3 notification")
 			continue
 		}
 
 		if msgRecord.Records == nil {
-			log.Warn("Cannot map message to expected JSON format - skipping")
+			logger.Error("Cannot map message to expected JSON format - skipping")
 			continue
 		}
 		key := msgRecord.Records[0].S3.Object.Key
 		if keyMatcher.MatchString(key) != true {
-			log.WithField("key", key).Warn("Key in message is not a valid UUID")
+			logger.WithField("key", key).Error("Key in message is not a valid UUID")
 			continue
 		}
 
@@ -122,13 +120,11 @@ func (c *NotificationClient) Healthcheck() fthealth.Check {
 				QueueUrl:       aws.String(c.queueUrl),
 				AttributeNames: []*string{aws.String("ApproximateNumberOfMessages")},
 			}
-			_, err := c.sqs.GetQueueAttributes(params)
-
-			if err != nil {
-				log.Errorf("Got error running SQS health check, %v", err.Error())
+			if _, err := c.sqs.GetQueueAttributes(params); err != nil {
+				logger.WithError(err).Error("Got error running SQS health check")
 				return "", err
 			}
-			return "", err
+			return "", nil
 		},
 	}
 }

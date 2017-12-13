@@ -8,7 +8,7 @@ import (
 )
 
 type Client interface {
-	AddRecordToStream(record string, conceptType string) error
+	AddRecordToStream(updatedConcept []byte, conceptType string) error
 	Healthcheck() fthealth.Check
 }
 
@@ -29,15 +29,14 @@ func NewClient(streamName string, region string) (Client, error) {
 	}, nil
 }
 
-func (c *KinesisClient) AddRecordToStream(record string, conceptType string) error {
+func (c *KinesisClient) AddRecordToStream(updatedConcept []byte, conceptType string) error {
 	putRecordInput := &kinesis.PutRecordInput{
-		Data:         []byte(record),
+		Data:         updatedConcept,
 		StreamName:   aws.String(c.streamName),
 		PartitionKey: aws.String(conceptType),
 	}
 
-	_, err := c.svc.PutRecord(putRecordInput)
-	if err != nil {
+	if _, err := c.svc.PutRecord(putRecordInput); err != nil {
 		return err
 	}
 	return nil

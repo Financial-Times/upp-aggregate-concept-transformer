@@ -10,6 +10,7 @@ import (
 	"time"
 
 	fthealth "github.com/Financial-Times/go-fthealth/v1_1"
+	"github.com/Financial-Times/go-logger"
 	"github.com/Financial-Times/http-handlers-go/httphandlers"
 	status "github.com/Financial-Times/service-status-go/httphandlers"
 	"github.com/gorilla/handlers"
@@ -64,7 +65,7 @@ func (h *AggregateConceptHandler) SendHandler(w http.ResponseWriter, r *http.Req
 }
 
 func (h *AggregateConceptHandler) RegisterHandlers(router *mux.Router) {
-	log.Info("Registering handlers")
+	logger.Info("Registering handlers")
 	mh := handlers.MethodHandler{
 		"GET": http.HandlerFunc(h.GetHandler),
 	}
@@ -76,7 +77,7 @@ func (h *AggregateConceptHandler) RegisterHandlers(router *mux.Router) {
 }
 
 func (h *AggregateConceptHandler) RegisterAdminHandlers(router *mux.Router, healthService *HealthService, requestLoggingEnabled bool) http.Handler {
-	log.Info("Registering admin handlers")
+	logger.Info("Registering admin handlers")
 
 	hc := fthealth.HealthCheck{SystemCode: healthService.config.appSystemCode, Name: healthService.config.appName, Description: healthService.config.description, Checks: healthService.Checks}
 	router.HandleFunc("/__health", fthealth.Handler(fthealth.TimedHealthCheck{HealthCheck: hc, Timeout: 10 * time.Second}))
