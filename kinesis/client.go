@@ -22,34 +22,15 @@ type KinesisClient struct {
 }
 
 func NewClient(streamName string, region string, arn string, environment string) (Client, error) {
-	fmt.Println("Creating assume role provider")
-	fmt.Printf("ARN is %s", arn)
-	csess := session.Must(session.NewSession())
-	creds := stscreds.NewCredentials(csess, arn, func(p *stscreds.AssumeRoleProvider){})
-
-	c, err := creds.Get()
-	if err != nil {
-		logger.WithError(err).Error("Error assuming role provider")
-		return &KinesisClient{}, err
-	} else if c.SessionToken == "" {
-		logger.WithError(err).Error("Error reading session token")
-		return &KinesisClient{}, errors.New("Session token was null")
-	} else if c.AccessKeyID == "" {
-		logger.WithError(err).Error("Error reading access key")
-		return &KinesisClient{}, errors.New("access key was null")
-	} else if c.SecretAccessKey == "" {
-		logger.WithError(err).Error("Error reading secret key")
-		return &KinesisClient{}, errors.New("Secret key was null")
-	}
 	sess := session.Must(session.NewSession())
 	fmt.Println("Passing assume role provider to kinesis client")
 	svc := kinesis.New(sess, &aws.Config{
 		Region: aws.String(region),
-		Credentials: creds,
+		Credentials: stscreds.NewCredentials(sess, arn, func(p *stscreds.AssumeRoleProvider){}),
 	})
 	fmt.Println("Successfully created kinesis client")
 
-	_, err = svc.DescribeStream(&kinesis.DescribeStreamInput{
+	_, err := svc.DescribeStream(&kinesis.DescribeStreamInput{
 		StreamName: aws.String(streamName),
 	})
 	if err != nil {
