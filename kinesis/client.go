@@ -5,7 +5,6 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/kinesis"
-	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/credentials/stscreds"
 	"fmt"
 	"github.com/Financial-Times/go-logger"
@@ -24,12 +23,11 @@ type KinesisClient struct {
 
 func NewClient(streamName string, region string, arn string, environment string) (Client, error) {
 	fmt.Println("Creating assume role provider")
-	arp := &stscreds.AssumeRoleProvider{
-		RoleARN: arn,
-		RoleSessionName: fmt.Sprintf("UPP-aggregate-concept-transformer-%s", environment),
-	}
+	fmt.Printf("ARN is %s", arn)
+	csess := session.Must(session.NewSession())
+	creds := stscreds.NewCredentials(csess, arn, func(p *stscreds.AssumeRoleProvider){})
 
-	c, err := arp.Retrieve()
+	c, err := creds.Get()
 	if err != nil {
 		logger.WithError(err).Error("Error assuming role provider")
 		return &KinesisClient{}, err
@@ -47,7 +45,7 @@ func NewClient(streamName string, region string, arn string, environment string)
 	fmt.Println("Passing assume role provider to kinesis client")
 	svc := kinesis.New(sess, &aws.Config{
 		Region: aws.String(region),
-		Credentials: credentials.NewCredentials(arp),
+		Credentials: creds,
 	})
 	fmt.Println("Successfully created kinesis client")
 
