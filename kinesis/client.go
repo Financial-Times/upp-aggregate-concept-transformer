@@ -8,6 +8,8 @@ import (
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/credentials/stscreds"
 	"fmt"
+	"github.com/Financial-Times/go-logger"
+	"github.com/pkg/errors"
 )
 
 type Client interface {
@@ -26,6 +28,21 @@ func NewClient(streamName string, region string, arn string, environment string)
 		RoleARN: arn,
 		RoleSessionName: fmt.Sprintf("UPP-aggregate-concept-transformer-%s", environment),
 	}
+
+	c, err := arp.Retrieve()
+	if err != nil {
+		logger.WithError(err).Error("Error assuming role provider")
+		return &KinesisClient{}, err
+	} else if c.SessionToken == "" {
+		logger.WithError(err).Error("Error reading session token")
+		return &KinesisClient{}, errors.New("Session token was null")
+	} else if c.AccessKeyID == "" {
+		logger.WithError(err).Error("Error reading access key")
+		return &KinesisClient{}, errors.New("access key was null")
+	} else if c.SecretAccessKey == "" {
+		logger.WithError(err).Error("Error reading secret key")
+		return &KinesisClient{}, errors.New("Secret key was null")
+	}
 	sess := session.Must(session.NewSession())
 	fmt.Println("Passing assume role provider to kinesis client")
 	svc := kinesis.New(sess, &aws.Config{
@@ -33,6 +50,14 @@ func NewClient(streamName string, region string, arn string, environment string)
 		Credentials: credentials.NewCredentials(arp),
 	})
 	fmt.Println("Successfully created kinesis client")
+
+	_, err = svc.DescribeStream(&kinesis.DescribeStreamInput{
+		StreamName: aws.String(streamName),
+	})
+	if err != nil {
+		logger.WithError(err).Error("Cannot connect to Kinesis stream")
+		return &KinesisClient{}, err
+	}
 
 	return &KinesisClient{
 		streamName: streamName,
