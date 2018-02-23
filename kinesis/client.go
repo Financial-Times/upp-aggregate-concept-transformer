@@ -5,6 +5,9 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/kinesis"
+	"github.com/aws/aws-sdk-go/aws/credentials"
+	"github.com/aws/aws-sdk-go/aws/credentials/stscreds"
+	"fmt"
 )
 
 type Client interface {
@@ -17,11 +20,19 @@ type KinesisClient struct {
 	svc        *kinesis.Kinesis
 }
 
-func NewClient(streamName string, region string) (Client, error) {
+func NewClient(streamName string, region string, arn string, environment string) (Client, error) {
+	fmt.Println("Creating assume role provider")
+	arp := &stscreds.AssumeRoleProvider{
+		RoleARN: arn,
+		RoleSessionName: fmt.Sprintf("UPP-aggregate-concept-transformer-%s", environment),
+	}
 	sess := session.Must(session.NewSession())
+	fmt.Println("Passing assume role provider to kinesis client")
 	svc := kinesis.New(sess, &aws.Config{
 		Region: aws.String(region),
+		Credentials: credentials.NewCredentials(arp),
 	})
+	fmt.Println("Successfully created kinesis client")
 
 	return &KinesisClient{
 		streamName: streamName,
