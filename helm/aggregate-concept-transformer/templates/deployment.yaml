@@ -78,6 +78,11 @@ spec:
             secretKeyRef:
               name: global-secrets
               key: concepts.kinesis_stream
+        - name: CROSS_ACCOUNT_ARN
+          valueFrom:
+            secretKeyRef:
+              name: global-secrets
+              key: iam.cross_account_arn
         ports: 
         - containerPort: 8080
         livenessProbe: 

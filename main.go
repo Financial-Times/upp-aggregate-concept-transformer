@@ -109,7 +109,7 @@ func main() {
 		Name: "crossAccountRoleARN",
 		HideValue: true,
 		Desc: "ARN for cross account role",
-		EnvVar: "CROSS_ROLE_ARN",
+		EnvVar: "CROSS_ACCOUNT_ARN",
 	})
 	environment := app.String(cli.StringOpt{
 		Name: "environment",

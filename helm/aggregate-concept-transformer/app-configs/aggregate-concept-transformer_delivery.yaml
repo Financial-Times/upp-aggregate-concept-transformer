@@ -8,3 +8,4 @@ env:
   DYNAMODB_REGION: "eu-west-1"
   BUCKET_REGION: "eu-west-1"
   KINESIS_REGION: "eu-west-1"
+  ENVIRONMENT: "dev"
