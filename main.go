@@ -111,11 +111,6 @@ func main() {
 		Desc: "ARN for cross account role",
 		EnvVar: "CROSS_ACCOUNT_ARN",
 	})
-	environment := app.String(cli.StringOpt{
-		Name: "environment",
-		Desc: "Environment app is running in",
-		EnvVar: "ENVIRONMENT",
-	})
 	kinesisStreamName := app.String(cli.StringOpt{
 		Name:   "kinesisStreamName",
 		Desc:   "DynamoDB table to read concordances from",
@@ -192,7 +187,7 @@ func main() {
 			logger.WithError(err).Fatal("Error creating DynamoDB client")
 		}
 
-		kinesisClient, err := kinesis.NewClient(*kinesisStreamName, *kinesisRegion, *crossAccountRoleARN, *environment)
+		kinesisClient, err := kinesis.NewClient(*kinesisStreamName, *kinesisRegion, *crossAccountRoleARN)
 		if err != nil {
 			logger.WithError(err).Fatal("Error creating Kinesis client")
 		}
