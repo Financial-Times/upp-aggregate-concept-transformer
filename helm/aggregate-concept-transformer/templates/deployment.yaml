@@ -78,6 +78,11 @@ spec:
             secretKeyRef:
               name: global-secrets
               key: concepts.kinesis_stream
+        - name: KINESIS_REGION
+          valueFrom:
+            secretKeyRef:
+              name: global-secrets
+              key: concepts.kinesis_region
         - name: CROSS_ACCOUNT_ARN
           valueFrom:
             secretKeyRef:
