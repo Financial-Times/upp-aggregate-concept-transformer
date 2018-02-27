@@ -113,7 +113,7 @@ func (c *NotificationClient) Healthcheck() fthealth.Check {
 		BusinessImpact:   "Editorial updates of concepts will not be written into UPP",
 		Name:             "Check connectivity to SQS queue",
 		PanicGuide:       "https://dewey.ft.com/aggregate-concept-transformer.html",
-		Severity:         2,
+		Severity:         3,
 		TechnicalSummary: `Cannot connect to SQS queue. If this check fails, check that Amazon SQS is available`,
 		Checker: func() (string, error) {
 			params := &sqs.GetQueueAttributesInput{

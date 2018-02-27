@@ -78,7 +78,7 @@ func (c *DynamoClient) Healthcheck() fthealth.Check {
 		BusinessImpact:   "Editorial updates of concepts will not be written into UPP",
 		Name:             "Check connectivity to DynamoDB",
 		PanicGuide:       "https://dewey.ft.com/aggregate-concept-transformer.html",
-		Severity:         2,
+		Severity:         3,
 		TechnicalSummary: `Cannot connect to DynamoDB. If this check fails, check that Amazon DynamoDB is available`,
 		Checker: func() (string, error) {
 			_, err := c.svc.DescribeTable(&dynamodb.DescribeTableInput{

@@ -5,6 +5,8 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/kinesis"
+	"github.com/aws/aws-sdk-go/aws/credentials/stscreds"
+	"github.com/Financial-Times/go-logger"
 )
 
 type Client interface {
@@ -17,11 +19,20 @@ type KinesisClient struct {
 	svc        *kinesis.Kinesis
 }
 
-func NewClient(streamName string, region string) (Client, error) {
+func NewClient(streamName string, region string, arn string) (Client, error) {
 	sess := session.Must(session.NewSession())
 	svc := kinesis.New(sess, &aws.Config{
 		Region: aws.String(region),
+		Credentials: stscreds.NewCredentials(sess, arn, func(p *stscreds.AssumeRoleProvider){}),
 	})
+
+	_, err := svc.DescribeStream(&kinesis.DescribeStreamInput{
+		StreamName: aws.String(streamName),
+	})
+	if err != nil {
+		logger.WithError(err).Error("Could not verify connection to Kinesis stream")
+		return &KinesisClient{}, err
+	}
 
 	return &KinesisClient{
 		streamName: streamName,
@@ -47,7 +58,7 @@ func (c *KinesisClient) Healthcheck() fthealth.Check {
 		BusinessImpact:   "Editorial updates of concepts will not be written into UPP",
 		Name:             "Check connectivity to Kinesis stream",
 		PanicGuide:       "https://dewey.ft.com/aggregate-concept-transformer.html",
-		Severity:         2,
+		Severity:         3,
 		TechnicalSummary: `Cannot connect to Kinesis stream. If this check fails, check that Amazon Kinesis is available`,
 		Checker: func() (string, error) {
 			_, err := c.svc.DescribeStream(&kinesis.DescribeStreamInput{
