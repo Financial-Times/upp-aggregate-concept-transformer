@@ -128,7 +128,7 @@ func (s *AggregateService) GetConcordedConcept(UUID string) (ConcordedConcept, s
 	if err != nil {
 		return ConcordedConcept{}, "", err
 	} else if !found {
-		err := fmt.Errorf("Canonical concept %s not found in S3", concordances.UUID)
+		err := fmt.Errorf("canonical concept %s not found in S3", concordances.UUID)
 		logger.WithField("UUID", UUID).Error(err.Error())
 		return ConcordedConcept{}, "", err
 	}
@@ -139,7 +139,7 @@ func (s *AggregateService) GetConcordedConcept(UUID string) (ConcordedConcept, s
 		if err != nil {
 			return ConcordedConcept{}, "", err
 		} else if !found {
-			err := fmt.Errorf("Source concept %s not found in S3", sourceId)
+			err := fmt.Errorf("source concept %s not found in S3", sourceId)
 			logger.WithField("UUID", UUID).Error(err.Error())
 			return ConcordedConcept{}, "", err
 		}
@@ -166,7 +166,7 @@ func (s *AggregateService) Healthchecks() []fthealth.Check {
 
 func deduplicateAliases(aliases []string) []string {
 	aMap := map[string]bool{}
-	outAliases := []string{}
+	var outAliases []string
 	for _, v := range aliases {
 		aMap[v] = true
 	}
@@ -251,7 +251,7 @@ func createWriteRequest(baseUrl string, urlParam string, msgBody io.Reader, uuid
 
 	request, err := http.NewRequest("PUT", reqURL, msgBody)
 	if err != nil {
-		return nil, reqURL, fmt.Errorf("Failed to create request to %s with body %s", reqURL, msgBody)
+		return nil, reqURL, fmt.Errorf("failed to create request to %s with body %s", reqURL, msgBody)
 	}
 	return request, reqURL, err
 }
@@ -288,11 +288,11 @@ func (s *AggregateService) RWNeo4JHealthCheck() fthealth.Check {
 			}
 			resp, err := s.httpClient.Do(req)
 			if err != nil {
-				return "", fmt.Errorf("Error calling writer at %s : %v", urlToCheck, err)
+				return "", fmt.Errorf("error calling writer at %s : %v", urlToCheck, err)
 			}
 			resp.Body.Close()
 			if resp != nil && resp.StatusCode != http.StatusOK {
-				return "", fmt.Errorf("Writer %v returned status %d", urlToCheck, resp.StatusCode)
+				return "", fmt.Errorf("writer %v returned status %d", urlToCheck, resp.StatusCode)
 			}
 			return "", nil
 		},
@@ -314,11 +314,11 @@ func (s *AggregateService) RWElasticsearchHealthCheck() fthealth.Check {
 			}
 			resp, err := s.httpClient.Do(req)
 			if err != nil {
-				return "", fmt.Errorf("Error calling writer at %s : %v", urlToCheck, err)
+				return "", fmt.Errorf("error calling writer at %s : %v", urlToCheck, err)
 			}
 			resp.Body.Close()
 			if resp != nil && resp.StatusCode != http.StatusOK {
-				return "", fmt.Errorf("Writer %v returned status %d", urlToCheck, resp.StatusCode)
+				return "", fmt.Errorf("writer %v returned status %d", urlToCheck, resp.StatusCode)
 			}
 			return "", nil
 		},
