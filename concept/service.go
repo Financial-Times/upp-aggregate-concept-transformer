@@ -10,13 +10,15 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/Financial-Times/aggregate-concept-transformer/dynamodb"
 	"github.com/Financial-Times/aggregate-concept-transformer/kinesis"
+	"github.com/Financial-Times/aggregate-concept-transformer/neo4j"
 	"github.com/Financial-Times/aggregate-concept-transformer/s3"
 	"github.com/Financial-Times/aggregate-concept-transformer/sqs"
 	fthealth "github.com/Financial-Times/go-fthealth/v1_1"
 	"github.com/Financial-Times/go-logger"
 )
+
+const smartlogicAuthority = "SmartLogic"
 
 type Service interface {
 	ListenForNotifications()
@@ -27,7 +29,7 @@ type Service interface {
 
 type AggregateService struct {
 	s3                         s3.Client
-	db                         dynamodb.Client
+	db                         neo4j.Client
 	sqs                        sqs.Client
 	kinesis                    kinesis.Client
 	neoWriterAddress           string
@@ -35,10 +37,10 @@ type AggregateService struct {
 	httpClient                 httpClient
 }
 
-func NewService(S3Client s3.Client, SQSClient sqs.Client, dynamoClient dynamodb.Client, kinesisClient kinesis.Client, neoAddress string, elasticsearchAddress string, httpClient httpClient) Service {
+func NewService(S3Client s3.Client, SQSClient sqs.Client, neo4jClient neo4j.Client, kinesisClient kinesis.Client, neoAddress string, elasticsearchAddress string, httpClient httpClient) Service {
 	return &AggregateService{
 		s3:                         S3Client,
-		db:                         dynamoClient,
+		db:                         neo4jClient,
 		sqs:                        SQSClient,
 		kinesis:                    kinesisClient,
 		neoWriterAddress:           neoAddress,
@@ -115,6 +117,27 @@ func (s *AggregateService) ProcessMessage(UUID string) error {
 	return nil
 }
 
+
+func bucketConcordances(concordances []neo4j.ConcordanceRecord) (map[string][]string, string, error){
+
+	bucketedConcordances := map[string][]string{}
+	for _, v := range concordances{
+		bucketedConcordances[v.Authority] = append(bucketedConcordances[v.Authority], v.UUID)
+	}
+
+	// We hardcode primary authority to Smartlogic at the moment because that's the only source of
+	// concordances.  This should change when we have multiple sources.  If there isn't one
+	// (or there's more than one), we've gone horribly wrong.
+
+	var err error
+
+	if len(bucketedConcordances[smartlogicAuthority]) != 1 {
+		err = fmt.Errorf("only 1 primary authority allowed, found %d", len(bucketedConcordances[smartlogicAuthority]))
+		logger.WithError(err).Error("Error grouping concordance records")
+	}
+	return bucketedConcordances, smartlogicAuthority, err
+}
+
 func (s *AggregateService) GetConcordedConcept(UUID string) (ConcordedConcept, string, error) {
 	concordedConcept := ConcordedConcept{}
 	// Get concordance UUIDs
@@ -124,31 +147,42 @@ func (s *AggregateService) GetConcordedConcept(UUID string) (ConcordedConcept, s
 	}
 	logger.WithField("UUID", UUID).Debugf("Returned concordance record: %v", concordances)
 
-	found, primaryConcept, transactionID, err := s.s3.GetConceptAndTransactionId(concordances.UUID)
-	if err != nil {
-		return ConcordedConcept{}, "", err
-	} else if !found {
-		err := fmt.Errorf("canonical concept %s not found in S3", concordances.UUID)
-		logger.WithField("UUID", UUID).Error(err.Error())
-		return ConcordedConcept{}, "", err
-	}
+
+	bucketedConcordances, primaryAuthority, err := bucketConcordances(concordances)
 
 	// Get all concepts from S3
-	for _, sourceId := range concordances.ConcordedIds {
-		found, sourceConcept, _, err := s.s3.GetConceptAndTransactionId(sourceId)
+	for authority, authorityUUIDs := range bucketedConcordances{
+
+		if authority == primaryAuthority {
+			continue
+		}
+
+		for _, sourceId := range authorityUUIDs {
+			found, sourceConcept, _, err := s.s3.GetConceptAndTransactionId(sourceId)
+			if err != nil {
+				return ConcordedConcept{}, "", err
+			} else if !found {
+				err := fmt.Errorf("source concept %s not found in S3", sourceId)
+				logger.WithField("UUID", UUID).Error(err.Error())
+				return ConcordedConcept{}, "", err
+			}
+
+			concordedConcept = mergeCanonicalInformation(concordedConcept, sourceConcept)
+		}
+	}
+
+	canonicalConceptID := bucketedConcordances[primaryAuthority][0]
+
+		found, primaryConcept, transactionID, err := s.s3.GetConceptAndTransactionId(canonicalConceptID)
 		if err != nil {
 			return ConcordedConcept{}, "", err
 		} else if !found {
-			err := fmt.Errorf("source concept %s not found in S3", sourceId)
+			err := fmt.Errorf("canonical concept %s not found in S3", canonicalConceptID)
 			logger.WithField("UUID", UUID).Error(err.Error())
 			return ConcordedConcept{}, "", err
 		}
 
-		concordedConcept = mergeCanonicalInformation(concordedConcept, sourceConcept)
-	}
-
-	// Aggregate concepts
-	concordedConcept = mergeCanonicalInformation(concordedConcept, primaryConcept)
+		concordedConcept = mergeCanonicalInformation(concordedConcept, primaryConcept)
 	concordedConcept.Aliases = deduplicateAliases(concordedConcept.Aliases)
 
 	return concordedConcept, transactionID, nil
