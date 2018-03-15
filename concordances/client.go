@@ -30,8 +30,10 @@ func NewClient(address string) (Client, error) {
 		return nil, err
 	}
 	return &RWClient{
-		address:    url,
-		httpClient: http.DefaultClient,
+		address: url,
+		httpClient: &http.Client{
+			Timeout: time.Second * 5,
+		},
 	}, nil
 }
 
@@ -74,7 +76,7 @@ func (c *RWClient) Healthcheck() fthealth.Check {
 		ID:             "concordance-store-rw-check",
 		Severity:       3,
 		PanicGuide:     "https://dewey.in.ft.com/view/system/aggregate-concept-transformer",
-		TechnicalSummary: "The concordance-rw-neo4j service is inaccessible.  Check that the address is correct and " +
+		TechnicalSummary: "The concordances-rw-neo4j service is inaccessible.  Check that the address is correct and " +
 			"the service is up.",
 		Timeout: 10 * time.Second,
 		Checker: func() (string, error) {
