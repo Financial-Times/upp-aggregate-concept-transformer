@@ -65,9 +65,16 @@ func (suite *RWTestSuite) TestGetConcordance_ErrorOn404() {
 		httpmock.NewStringResponder(404, `{}`),
 	)
 
+	retCon := []ConcordanceRecord{
+		ConcordanceRecord{
+			UUID:      "a",
+			Authority: "SmartLogic",
+		},
+	}
+
 	cs, err := suite.client.GetConcordance("a")
-	suite.Nil(cs)
-	suite.Equal(ErrNotFound, err)
+	suite.Equal(retCon, cs)
+	suite.Nil(err)
 }
 
 func (suite *RWTestSuite) TestGetConcordance_FailsOnClientError() {

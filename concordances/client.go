@@ -14,10 +14,6 @@ import (
 	logger "github.com/Financial-Times/go-logger"
 )
 
-var (
-	ErrNotFound = errors.New("concordances not found")
-)
-
 type Client interface {
 	GetConcordance(uuid string) ([]ConcordanceRecord, error)
 	Healthcheck() fthealth.Check
@@ -69,7 +65,6 @@ func (c *RWClient) GetConcordance(uuid string) ([]ConcordanceRecord, error) {
 	}
 
 	return cons, nil
-
 }
 
 func (c *RWClient) Healthcheck() fthealth.Check {
