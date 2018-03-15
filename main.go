@@ -91,7 +91,7 @@ func main() {
 		Name:   "concordancesReaderAddress",
 		Value:  "http://localhost:8080/",
 		Desc:   "Address for the Neo4J Concept Writer",
-		EnvVar: "CONCORDANCES_READER_ADDRESS",
+		EnvVar: "CONCORDANCES_RW_ADDRESS",
 	})
 	elasticsearchWriterAddress := app.String(cli.StringOpt{
 		Name:   "elasticsearchWriterAddress",
@@ -134,15 +134,15 @@ func main() {
 		logger.InitLogger(*appSystemCode, *logLevel)
 
 		logger.WithFields(log.Fields{
-			"ES_WRITER_ADDRESS":           *elasticsearchWriterAddress,
-			"CONCORDANCES_READER_ADDRESS": *concordancesReaderAddress,
-			"NEO_WRITER_ADDRESS":          *neoWriterAddress,
-			"BUCKET_REGION":               *bucketRegion,
-			"BUCKET_NAME":                 *bucketName,
-			"SQS_REGION":                  *sqsRegion,
-			"QUEUE_URL":                   *queueURL,
-			"LOG_LEVEL":                   *logLevel,
-			"KINESIS_STREAM_NAME":         *kinesisStreamName,
+			"ES_WRITER_ADDRESS":       *elasticsearchWriterAddress,
+			"CONCORDANCES_RW_ADDRESS": *concordancesReaderAddress,
+			"NEO_WRITER_ADDRESS":      *neoWriterAddress,
+			"BUCKET_REGION":           *bucketRegion,
+			"BUCKET_NAME":             *bucketName,
+			"SQS_REGION":              *sqsRegion,
+			"QUEUE_URL":               *queueURL,
+			"LOG_LEVEL":               *logLevel,
+			"KINESIS_STREAM_NAME":     *kinesisStreamName,
 		}).Info("Starting app with arguments")
 
 		if *bucketName == "" {

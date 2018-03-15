@@ -291,14 +291,14 @@ func TestAggregateService_ProcessMessage_S3SourceNotFound(t *testing.T) {
 	svc, _, _, _, _ := setupTestService(200, payload)
 	err := svc.ProcessMessage("c9d3a92a-da84-11e7-a121-0401beb96201")
 	assert.Error(t, err)
-	assert.Equal(t, "source concept 3a3da730-0f4c-4a20-85a6-3ebd5776bd49 not found in S3", err.Error())
+	assert.Equal(t, "Source concept 3a3da730-0f4c-4a20-85a6-3ebd5776bd49 not found in S3", err.Error())
 }
 
 func TestAggregateService_ProcessMessage_S3CanonicalNotFound(t *testing.T) {
 	svc, _, _, _, _ := setupTestService(200, payload)
 	err := svc.ProcessMessage("45f278ef-91b2-45f7-9545-fbc79c1b4004")
 	assert.Error(t, err)
-	assert.Equal(t, "canonical concept 45f278ef-91b2-45f7-9545-fbc79c1b4004 not found in S3", err.Error())
+	assert.Equal(t, "Canonical concept 45f278ef-91b2-45f7-9545-fbc79c1b4004 not found in S3", err.Error())
 }
 
 func TestAggregateService_ProcessMessage_WriterReturnsNoUuids(t *testing.T) {

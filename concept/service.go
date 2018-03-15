@@ -168,7 +168,7 @@ func (s *AggregateService) GetConcordedConcept(UUID string) (ConcordedConcept, s
 			}
 
 			if !found {
-				err := fmt.Errorf("source concept %s not found in S3", sourceId)
+				err := fmt.Errorf("Source concept %s not found in S3", sourceId)
 				logger.WithField("UUID", UUID).Error(err.Error())
 				return ConcordedConcept{}, "", err
 			}
@@ -183,7 +183,7 @@ func (s *AggregateService) GetConcordedConcept(UUID string) (ConcordedConcept, s
 	if err != nil {
 		return ConcordedConcept{}, "", err
 	} else if !found {
-		err := fmt.Errorf("canonical concept %s not found in S3", canonicalConceptID)
+		err := fmt.Errorf("Canonical concept %s not found in S3", canonicalConceptID)
 		logger.WithField("UUID", UUID).Error(err.Error())
 		return ConcordedConcept{}, "", err
 	}
