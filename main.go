@@ -107,7 +107,7 @@ func main() {
 	})
 	kinesisStreamName := app.String(cli.StringOpt{
 		Name:   "kinesisStreamName",
-		Desc:   "DynamoDB table to read concordances from",
+		Desc:   "AWS Kinesis stream name",
 		EnvVar: "KINESIS_STREAM_NAME",
 	})
 	kinesisRegion := app.String(cli.StringOpt{
