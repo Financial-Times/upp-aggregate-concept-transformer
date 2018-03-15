@@ -1,6 +1,6 @@
-package neo4j
+package concordances
 
 type ConcordanceRecord struct {
-	Authority string `json:"authority"`
 	UUID      string `json:"uuid"`
+	Authority string `json:"authority"`
 }

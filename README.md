@@ -62,9 +62,6 @@ AWS_SECRET_ACCESS_KEY=MY-SECRET-KEY
 
 ## Build and deployment
 
-Tests require a running local instance of DynamoDB.  The easiest way is with Docker:
-`docker run -d -p 8000:8000 dwmkerr/dynamodb`
-
 * Built by Docker Hub when merged to master: [coco/aggregate-concept-transformer](https://hub.docker.com/r/coco/aggregate-concept-transformer/)
 * CI provided by CircleCI: [aggregate-concept-transformer](https://circleci.com/gh/Financial-Times/aggregate-concept-transformer)
 * Code test coverage provided by Coveralls: [aggregate-concept-transformer](https://coveralls.io/github/Financial-Times/aggregate-concept-transformer)

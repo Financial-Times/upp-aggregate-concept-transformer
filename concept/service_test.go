@@ -5,13 +5,12 @@ import (
 	"errors"
 	"io/ioutil"
 	"net/http"
+	"sort"
 	"sync"
 	"testing"
 	"time"
 
-	"sort"
-
-	"github.com/Financial-Times/aggregate-concept-transformer/dynamodb"
+	"github.com/Financial-Times/aggregate-concept-transformer/concordances"
 	"github.com/Financial-Times/aggregate-concept-transformer/s3"
 	"github.com/Financial-Times/aggregate-concept-transformer/sqs"
 	fthealth "github.com/Financial-Times/go-fthealth/v1_1"
@@ -78,25 +77,29 @@ func (c *mockSQSClient) Healthcheck() fthealth.Check {
 	}
 }
 
-type mockDynamoDBClient struct {
-	concordances map[string][]string
+type mockConcordancesClient struct {
+	concordances map[string][]concordances.ConcordanceRecord
 	err          error
 }
 
-func (d *mockDynamoDBClient) GetConcordance(uuid string) (dynamodb.ConceptConcordance, error) {
-	if corcordedIDs, ok := d.concordances[uuid]; ok {
-		return dynamodb.ConceptConcordance{
-			UUID:         uuid,
-			ConcordedIds: corcordedIDs,
-		}, d.err
+func (d *mockConcordancesClient) GetConcordance(uuid string) ([]concordances.ConcordanceRecord, error) {
+	if cons, ok := d.concordances[uuid]; ok {
+		return cons, d.err
 	}
-	return dynamodb.ConceptConcordance{
-		UUID:         uuid,
-		ConcordedIds: []string{},
+	return []concordances.ConcordanceRecord{
+		concordances.ConcordanceRecord{
+			UUID:      uuid,
+			Authority: "SmartLogic",
+		},
 	}, d.err
 }
-func (d *mockDynamoDBClient) Healthcheck() fthealth.Check {
-	return fthealth.Check{}
+
+func (d *mockConcordancesClient) Healthcheck() fthealth.Check {
+	return fthealth.Check{
+		Checker: func() (string, error) {
+			return "", nil
+		},
+	}
 }
 
 type mockKinesisStreamClient struct {
@@ -109,6 +112,7 @@ func (k *mockKinesisStreamClient) AddRecordToStream(concept []byte, conceptType 
 	}
 	return nil
 }
+
 func (d *mockKinesisStreamClient) Healthcheck() fthealth.Check {
 	return fthealth.Check{
 		Checker: func() (string, error) {
@@ -156,7 +160,7 @@ func (c mockHTTPClient) Do(req *http.Request) (resp *http.Response, err error) {
 
 func TestNewService(t *testing.T) {
 	svc, _, _, _, _ := setupTestService(200, payload)
-	assert.Equal(t, 5, len(svc.Healthchecks()))
+	assert.Equal(t, 6, len(svc.Healthchecks()))
 }
 
 func TestAggregateService_ListenForNotifications(t *testing.T) {
@@ -287,14 +291,14 @@ func TestAggregateService_ProcessMessage_S3SourceNotFound(t *testing.T) {
 	svc, _, _, _, _ := setupTestService(200, payload)
 	err := svc.ProcessMessage("c9d3a92a-da84-11e7-a121-0401beb96201")
 	assert.Error(t, err)
-	assert.Equal(t, "Source concept 3a3da730-0f4c-4a20-85a6-3ebd5776bd49 not found in S3", err.Error())
+	assert.Equal(t, "source concept 3a3da730-0f4c-4a20-85a6-3ebd5776bd49 not found in S3", err.Error())
 }
 
 func TestAggregateService_ProcessMessage_S3CanonicalNotFound(t *testing.T) {
 	svc, _, _, _, _ := setupTestService(200, payload)
 	err := svc.ProcessMessage("45f278ef-91b2-45f7-9545-fbc79c1b4004")
 	assert.Error(t, err)
-	assert.Equal(t, "Canonical concept 45f278ef-91b2-45f7-9545-fbc79c1b4004 not found in S3", err.Error())
+	assert.Equal(t, "canonical concept 45f278ef-91b2-45f7-9545-fbc79c1b4004 not found in S3", err.Error())
 }
 
 func TestAggregateService_ProcessMessage_WriterReturnsNoUuids(t *testing.T) {
@@ -329,7 +333,7 @@ func TestResolveConceptType(t *testing.T) {
 	assert.Equal(t, "topics", topic)
 }
 
-func setupTestService(httpError int, writerResponse string) (Service, *mockS3Client, *mockSQSClient, *mockDynamoDBClient, *mockKinesisStreamClient) {
+func setupTestService(httpError int, writerResponse string) (Service, *mockS3Client, *mockSQSClient, *mockConcordancesClient, *mockKinesisStreamClient) {
 	s3 := &mockS3Client{
 		concepts: map[string]struct {
 			transactionID string
@@ -387,17 +391,44 @@ func setupTestService(httpError int, writerResponse string) (Service, *mockS3Cli
 			"1": "99247059-04ec-3abb-8693-a0b8951fdcab",
 		},
 	}
-	dynamo := &mockDynamoDBClient{
-		concordances: map[string][]string{
-			"28090964-9997-4bc2-9638-7a11135aaff9": {"34a571fb-d779-4610-a7ba-2e127676db4d"},
-			"c9d3a92a-da84-11e7-a121-0401beb96201": {"3a3da730-0f4c-4a20-85a6-3ebd5776bd49"},
-			"4a4aaca0-b059-426c-bf4f-f00c6ef940ae": {"3a3da730-0f4c-4a20-85a6-3ebd5776bd49"},
+	concordClient := &mockConcordancesClient{
+		concordances: map[string][]concordances.ConcordanceRecord{
+			"28090964-9997-4bc2-9638-7a11135aaff9": []concordances.ConcordanceRecord{
+				concordances.ConcordanceRecord{
+					UUID:      "28090964-9997-4bc2-9638-7a11135aaff9",
+					Authority: "SmartLogic",
+				},
+				concordances.ConcordanceRecord{
+					UUID:      "34a571fb-d779-4610-a7ba-2e127676db4d",
+					Authority: "FT-TME",
+				},
+			},
+			"c9d3a92a-da84-11e7-a121-0401beb96201": []concordances.ConcordanceRecord{
+				concordances.ConcordanceRecord{
+					UUID:      "c9d3a92a-da84-11e7-a121-0401beb96201",
+					Authority: "SmartLogic",
+				},
+				concordances.ConcordanceRecord{
+					UUID:      "3a3da730-0f4c-4a20-85a6-3ebd5776bd49",
+					Authority: "FT-TME",
+				},
+			},
+			"4a4aaca0-b059-426c-bf4f-f00c6ef940ae": []concordances.ConcordanceRecord{
+				concordances.ConcordanceRecord{
+					UUID:      "4a4aaca0-b059-426c-bf4f-f00c6ef940ae",
+					Authority: "SmartLogic",
+				},
+				concordances.ConcordanceRecord{
+					UUID:      "3a3da730-0f4c-4a20-85a6-3ebd5776bd49",
+					Authority: "FT-TME",
+				},
+			},
 		},
 	}
 
 	kinesis := &mockKinesisStreamClient{}
 
-	return NewService(s3, sqs, dynamo, kinesis,
+	return NewService(s3, sqs, concordClient, kinesis,
 		neo4jUrl,
 		esUrl,
 		&mockHTTPClient{
@@ -405,5 +436,5 @@ func setupTestService(httpError int, writerResponse string) (Service, *mockS3Cli
 			statusCode: httpError,
 			err:        nil,
 		},
-	), s3, sqs, dynamo, kinesis
+	), s3, sqs, concordClient, kinesis
 }

@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/Financial-Times/aggregate-concept-transformer/concept"
-	"github.com/Financial-Times/aggregate-concept-transformer/dynamodb"
+	"github.com/Financial-Times/aggregate-concept-transformer/concordances"
 	"github.com/Financial-Times/aggregate-concept-transformer/kinesis"
 	"github.com/Financial-Times/aggregate-concept-transformer/s3"
 	"github.com/Financial-Times/aggregate-concept-transformer/sqs"
@@ -87,29 +87,23 @@ func main() {
 		Desc:   "Address for the Neo4J Concept Writer",
 		EnvVar: "NEO_WRITER_ADDRESS",
 	})
+	concordancesReaderAddress := app.String(cli.StringOpt{
+		Name:   "concordancesReaderAddress",
+		Value:  "http://localhost:8080/",
+		Desc:   "Address for the Neo4J Concept Writer",
+		EnvVar: "CONCORDANCES_READER_ADDRESS",
+	})
 	elasticsearchWriterAddress := app.String(cli.StringOpt{
 		Name:   "elasticsearchWriterAddress",
 		Value:  "http://localhost:8080/",
 		Desc:   "Address for the Elasticsearch Concept Writer",
 		EnvVar: "ES_WRITER_ADDRESS",
 	})
-	dynamoDBTable := app.String(cli.StringOpt{
-		Name:   "dynamoDBTable",
-		Value:  "concordances",
-		Desc:   "DynamoDB table to read concordances from",
-		EnvVar: "DYNAMODB_TABLE",
-	})
-	dynamoDBRegion := app.String(cli.StringOpt{
-		Name:   "dynamoDBTable",
-		Value:  "eu-west-1",
-		Desc:   "AWS region the DynamoDB table is in",
-		EnvVar: "DYNAMODB_REGION",
-	})
 	crossAccountRoleARN := app.String(cli.StringOpt{
-		Name: "crossAccountRoleARN",
+		Name:      "crossAccountRoleARN",
 		HideValue: true,
-		Desc: "ARN for cross account role",
-		EnvVar: "CROSS_ACCOUNT_ARN",
+		Desc:      "ARN for cross account role",
+		EnvVar:    "CROSS_ACCOUNT_ARN",
 	})
 	kinesisStreamName := app.String(cli.StringOpt{
 		Name:   "kinesisStreamName",
@@ -140,24 +134,23 @@ func main() {
 		logger.InitLogger(*appSystemCode, *logLevel)
 
 		logger.WithFields(log.Fields{
-			"DYNAMODB_TABLE":      *dynamoDBTable,
-			"ES_WRITER_ADDRESS":   *elasticsearchWriterAddress,
-			"NEO_WRITER_ADDRESS":  *neoWriterAddress,
-			"BUCKET_REGION":       *bucketRegion,
-			"BUCKET_NAME":         *bucketName,
-			"SQS_REGION":          *sqsRegion,
-			"QUEUE_URL":           *queueURL,
-			"LOG_LEVEL":           *logLevel,
-			"KINESIS_STREAM_NAME": *kinesisStreamName,
+			"ES_WRITER_ADDRESS":           *elasticsearchWriterAddress,
+			"CONCORDANCES_READER_ADDRESS": *concordancesReaderAddress,
+			"NEO_WRITER_ADDRESS":          *neoWriterAddress,
+			"BUCKET_REGION":               *bucketRegion,
+			"BUCKET_NAME":                 *bucketName,
+			"SQS_REGION":                  *sqsRegion,
+			"QUEUE_URL":                   *queueURL,
+			"LOG_LEVEL":                   *logLevel,
+			"KINESIS_STREAM_NAME":         *kinesisStreamName,
 		}).Info("Starting app with arguments")
 
 		if *bucketName == "" {
 			logger.Fatal("S3 bucket name not set")
-			return
 		}
+
 		if *queueURL == "" {
 			logger.Fatal("SQS queue url not set")
-			return
 		}
 
 		if *bucketRegion == "" {
@@ -172,6 +165,10 @@ func main() {
 			logger.Fatal("Kinesis stream name not set")
 		}
 
+		if *concordancesReaderAddress == "" {
+			logger.Fatal("Concordances reader address not set")
+		}
+
 		s3Client, err := s3.NewClient(*bucketName, *bucketRegion)
 		if err != nil {
 			logger.WithError(err).Fatal("Error creating S3 client")
@@ -182,9 +179,9 @@ func main() {
 			logger.WithError(err).Fatal("Error creating SQS client")
 		}
 
-		dynamoClient, err := dynamodb.NewClient(*dynamoDBRegion, *dynamoDBTable)
+		concordancesClient, err := concordances.NewClient(*concordancesReaderAddress)
 		if err != nil {
-			logger.WithError(err).Fatal("Error creating DynamoDB client")
+			logger.WithError(err).Fatal("Error creating Concordances client")
 		}
 
 		kinesisClient, err := kinesis.NewClient(*kinesisStreamName, *kinesisRegion, *crossAccountRoleARN)
@@ -192,7 +189,7 @@ func main() {
 			logger.WithError(err).Fatal("Error creating Kinesis client")
 		}
 
-		svc := concept.NewService(s3Client, sqsClient, dynamoClient, kinesisClient, *neoWriterAddress, *elasticsearchWriterAddress, defaultHTTPClient())
+		svc := concept.NewService(s3Client, sqsClient, concordancesClient, kinesisClient, *neoWriterAddress, *elasticsearchWriterAddress, defaultHTTPClient())
 		handler := concept.NewHandler(svc)
 		hs := concept.NewHealthService(svc, *appSystemCode, *appName, *port, appDescription)
 
