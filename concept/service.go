@@ -134,8 +134,11 @@ func bucketConcordances(concordances []concordances.ConcordanceRecord) (map[stri
 	}
 
 	if bucketedConcordances[smartlogicAuthority] != nil && len(bucketedConcordances[smartlogicAuthority]) != 1 {
-		err := fmt.Errorf("only 1 primary authority allowed, found")
-		logger.WithError(err).Error("Error grouping concordance records")
+		err := fmt.Errorf("only 1 primary authority allowed")
+		logger.WithError(err).
+			WithField("alert_tag", "AggregateConceptTransformerMultiplePrimaryAuthorities").
+			WithField("primary_authorities", bucketedConcordances[smartlogicAuthority]).
+			Error("Error grouping concordance records")
 		return nil, "", err
 	}
 
