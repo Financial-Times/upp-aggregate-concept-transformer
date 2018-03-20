@@ -58,7 +58,7 @@ func (suite *RWTestSuite) TestGetConcordance_FailOnInvalidJSON() {
 	suite.NotNil(err)
 }
 
-func (suite *RWTestSuite) TestGetConcordance_ErrorOn404() {
+func (suite *RWTestSuite) TestGetConcordance_MissingConcordanceReturns404() {
 	httpmock.RegisterResponder(
 		"GET",
 		"http://localhost/concordances/a",
