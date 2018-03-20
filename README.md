@@ -35,13 +35,13 @@ Options:
   --visibilityTimeout=30                                  Duration(seconds) that messages will be ignored by subsequent requests after initial response ($VISIBILITY_TIMEOUT)
   --waitTime=20                                           Duration(seconds) to wait on queue for messages until returning. Will be shorter if messages arrive ($WAIT_TIME)
   --neo4jWriterAddress="http://localhost:8080/"           Address for the Neo4J Concept Writer ($NEO_WRITER_ADDRESS)
+  --concordancesReaderAddress="http://localhost:8080/"    Address for the Neo4J Concept Writer ($CONCORDANCES_RW_ADDRESS)
   --elasticsearchWriterAddress="http://localhost:8080/"   Address for the Elasticsearch Concept Writer ($ES_WRITER_ADDRESS)
-  --dynamoDBTable="concordances"                          DynamoDB table to read concordances from ($DYNAMODB_TABLE)
-  --dynamoDBTable="eu-west-1"                             AWS region the DynamoDB table is in ($DYNAMODB_REGION)
-  --kinesisStreamName="upp-stream-name"                   Kinesis stream name to send notifications of updated uuids to ($KINESIS_STREAM_NAME)
-  --kinesisRegion="eu-west-1"                             AWS region the Kinesis stream is in ($KINESIS_REGION)
+  --crossAccountRoleARN                                   ARN for cross account role ($CROSS_ACCOUNT_ARN)
+  --kinesisStreamName=""                                  AWS Kinesis stream name ($KINESIS_STREAM_NAME)
+  --kinesisRegion="eu-west-1"                             AWS region the kinesis stream is located ($KINESIS_REGION)
+  --requestLoggingOn=true                                 Whether to log http requests or not ($REQUEST_LOGGING_ON)
   --logLevel="info"                                       App log level ($LOG_LEVEL)
-  --requestLoggingOn="true"                               Whether to log http requests/responses ($REQUEST_LOGGING_ON)
 ```
 
 
@@ -61,9 +61,6 @@ AWS_SECRET_ACCESS_KEY=MY-SECRET-KEY
 ```
 
 ## Build and deployment
-
-Tests require a running local instance of DynamoDB.  The easiest way is with Docker:
-`docker run -d -p 8000:8000 dwmkerr/dynamodb`
 
 * Built by Docker Hub when merged to master: [coco/aggregate-concept-transformer](https://hub.docker.com/r/coco/aggregate-concept-transformer/)
 * CI provided by CircleCI: [aggregate-concept-transformer](https://circleci.com/gh/Financial-Times/aggregate-concept-transformer)

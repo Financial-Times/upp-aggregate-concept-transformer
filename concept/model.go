@@ -29,5 +29,5 @@ type ConcordedConcept struct {
 }
 
 type UpdatedConcepts struct {
-	UpdatedIds []string `json: "updatedIDs"`
+	UpdatedIds []string `json:"UpdatedIds"`
 }

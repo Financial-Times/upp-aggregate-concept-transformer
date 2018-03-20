@@ -2,8 +2,9 @@
 replicaCount: 2
 service:
   name: aggregate-concept-transformer
+concordances:
+  address: "http://concordances-rw-neo4j:8080"
 env:
   LOG_LEVEL: info
   REQUEST_LOGGING_ON: true
-  DYNAMODB_REGION: "eu-west-1"
   BUCKET_REGION: "eu-west-1"
