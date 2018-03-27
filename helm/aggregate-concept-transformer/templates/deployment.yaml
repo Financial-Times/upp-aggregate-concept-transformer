@@ -33,7 +33,12 @@ spec:
         image: "{{ .Values.image.repository }}:{{ .Chart.Version }}"
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         env:
-        - name: SQS_REGION 
+        - name: NOTIFICATION_SLEEP_DURATION
+          valueFrom:
+            configMapKeyRef:
+              name: global-config
+              key: kinesis.sleep.duration
+        - name: SQS_REGION
           valueFrom:
             configMapKeyRef:
               name: global-config

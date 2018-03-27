@@ -122,6 +122,12 @@ func main() {
 		Desc:   "Whether to log http requests or not",
 		EnvVar: "REQUEST_LOGGING_ON",
 	})
+	notificationSleepDuration := app.Int(cli.IntOpt{
+		Name:   "notificationSleepDuration",
+		Value:  1,
+		Desc:   "How long to sleep before sending concept update notifications to kinesis",
+		EnvVar: "NOTIFICATION_SLEEP_DURATION",
+	})
 	logLevel := app.String(cli.StringOpt{
 		Name:   "logLevel",
 		Value:  "info",
@@ -189,7 +195,7 @@ func main() {
 			logger.WithError(err).Fatal("Error creating Kinesis client")
 		}
 
-		svc := concept.NewService(s3Client, sqsClient, concordancesClient, kinesisClient, *neoWriterAddress, *elasticsearchWriterAddress, defaultHTTPClient())
+		svc := concept.NewService(s3Client, sqsClient, concordancesClient, kinesisClient, *neoWriterAddress, *elasticsearchWriterAddress, defaultHTTPClient(), *notificationSleepDuration)
 		handler := concept.NewHandler(svc)
 		hs := concept.NewHealthService(svc, *appSystemCode, *appName, *port, appDescription)
 
