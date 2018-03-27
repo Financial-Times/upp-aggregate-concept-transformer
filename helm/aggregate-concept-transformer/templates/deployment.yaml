@@ -37,7 +37,7 @@ spec:
           valueFrom:
             configMapKeyRef:
               name: global-config
-              key: kinesis.sleepDuration
+              key: kinesis.sleep.duration
         - name: SQS_REGION
           valueFrom:
             configMapKeyRef:
