@@ -16,6 +16,7 @@ import (
 	"github.com/Financial-Times/aggregate-concept-transformer/sqs"
 	fthealth "github.com/Financial-Times/go-fthealth/v1_1"
 	"github.com/Financial-Times/go-logger"
+	"time"
 )
 
 const smartlogicAuthority = "SmartLogic"
@@ -35,9 +36,10 @@ type AggregateService struct {
 	neoWriterAddress           string
 	elasticsearchWriterAddress string
 	httpClient                 httpClient
+	notificationSleepDuration  int
 }
 
-func NewService(S3Client s3.Client, SQSClient sqs.Client, concordancesClient concordances.Client, kinesisClient kinesis.Client, neoAddress string, elasticsearchAddress string, httpClient httpClient) Service {
+func NewService(S3Client s3.Client, SQSClient sqs.Client, concordancesClient concordances.Client, kinesisClient kinesis.Client, neoAddress string, elasticsearchAddress string, httpClient httpClient, notificationSleepDuration int) Service {
 	return &AggregateService{
 		s3:                         S3Client,
 		concordances:               concordancesClient,
@@ -46,6 +48,7 @@ func NewService(S3Client s3.Client, SQSClient sqs.Client, concordancesClient con
 		neoWriterAddress:           neoAddress,
 		elasticsearchWriterAddress: elasticsearchAddress,
 		httpClient:                 httpClient,
+		notificationSleepDuration:  notificationSleepDuration,
 	}
 }
 
@@ -106,6 +109,9 @@ func (s *AggregateService) ProcessMessage(UUID string) error {
 		logger.WithError(err).WithTransactionID(transactionID).WithUUID(concordedConcept.PrefUUID).Errorf("Failed to marshall updatedIDs record: %v", updatedConcepts)
 		return err
 	}
+	//Sleep to get around the concept updates hitting the cache
+	//TODO remove this when caching is properly fixed
+	time.Sleep(time.Second * time.Duration(s.notificationSleepDuration))
 	//Send notification to stream
 	logger.WithTransactionID(transactionID).WithUUID(concordedConcept.PrefUUID).Debugf("Sending notification of updated concepts to kinesis queue: %v", updatedConcepts)
 	if err = s.kinesis.AddRecordToStream(conceptAsBytes, concordedConcept.Type); err != nil {

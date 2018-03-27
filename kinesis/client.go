@@ -2,11 +2,11 @@ package kinesis
 
 import (
 	fthealth "github.com/Financial-Times/go-fthealth/v1_1"
+	"github.com/Financial-Times/go-logger"
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/credentials/stscreds"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/kinesis"
-	"github.com/aws/aws-sdk-go/aws/credentials/stscreds"
-	"github.com/Financial-Times/go-logger"
 )
 
 type Client interface {
@@ -22,8 +22,8 @@ type KinesisClient struct {
 func NewClient(streamName string, region string, arn string) (Client, error) {
 	sess := session.Must(session.NewSession())
 	svc := kinesis.New(sess, &aws.Config{
-		Region: aws.String(region),
-		Credentials: stscreds.NewCredentials(sess, arn, func(p *stscreds.AssumeRoleProvider){}),
+		Region:      aws.String(region),
+		Credentials: stscreds.NewCredentials(sess, arn, func(p *stscreds.AssumeRoleProvider) {}),
 	})
 
 	_, err := svc.DescribeStream(&kinesis.DescribeStreamInput{

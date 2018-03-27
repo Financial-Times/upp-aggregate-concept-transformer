@@ -166,7 +166,7 @@ func TestNewService(t *testing.T) {
 func TestAggregateService_ListenForNotifications(t *testing.T) {
 	svc, _, mockSqsClient, _, _ := setupTestService(200, payload)
 	go svc.ListenForNotifications()
-	time.Sleep(1 * time.Second)
+	time.Sleep(2 * time.Second)
 	assert.Equal(t, 0, len(mockSqsClient.Queue()))
 }
 
@@ -435,6 +435,6 @@ func setupTestService(httpError int, writerResponse string) (Service, *mockS3Cli
 			resp:       writerResponse,
 			statusCode: httpError,
 			err:        nil,
-		},
+		}, 1,
 	), s3, sqs, concordClient, kinesis
 }
