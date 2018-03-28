@@ -205,17 +205,32 @@ func TestAggregateService_GetConcordedConcept_NoConcordance(t *testing.T) {
 
 func TestAggregateService_GetConcordedConcept_TMEConcordance(t *testing.T) {
 	svc, _, _, _, _ := setupTestService(200, payload)
-
+	incTime := time.Date(2009, 11, 17, 20, 34, 58, 651387237, time.UTC)
+	termTime := time.Date(2009, 12, 17, 20, 34, 58, 651387237, time.UTC)
 	expectedConcept := ConcordedConcept{
-		PrefUUID:      "28090964-9997-4bc2-9638-7a11135aaff9",
-		PrefLabel:     "Root Concept",
-		Type:          "Person",
-		Aliases:       []string{"TME Concept", "Root Concept"},
-		EmailAddress:  "person123@ft.com",
-		FacebookPage:  "facebook/smartlogicPerson",
-		TwitterHandle: "@FtSmartlogicPerson",
-		ScopeNote:     "This note is in scope",
-		ShortLabel:    "Concept",
+		PrefUUID:        "28090964-9997-4bc2-9638-7a11135aaff9",
+		PrefLabel:       "Root Concept",
+		Type:            "Person",
+		Aliases:         []string{"TME Concept", "Root Concept"},
+		EmailAddress:    "person123@ft.com",
+		FacebookPage:    "facebook/smartlogicPerson",
+		TwitterHandle:   "@FtSmartlogicPerson",
+		ScopeNote:       "This note is in scope",
+		ShortLabel:      "Concept",
+		InceptionDate:   &incTime,
+		TerminationDate: &termTime,
+		FigiCode:        "BBG000Y1HJT8",
+		IssuedBy:        "613b1f72-cc74-4d8f-9406-28fc91b82a2a",
+		MembershipRoles: []MembershipRole{
+			{
+				RoleUUID:        "ccdff192-4d6c-4539-bbe8-7e24e81ed49e",
+				InceptionDate:   &incTime,
+				TerminationDate: &termTime,
+			},
+		},
+		OrganisationUUID: "a4528fc9-0615-4bfa-bc99-596ea1ddec28",
+		PersonUUID:       "973509c1-5238-4c83-9a7d-89009e839ff8",
+		RoleUUID:         "5c83d81b-6d94-415b-bf95-6dc4cc1afa48",
 		SourceRepresentations: []s3.Concept{
 			{
 				UUID:      "34a571fb-d779-4610-a7ba-2e127676db4d",
@@ -225,16 +240,30 @@ func TestAggregateService_GetConcordedConcept_TMEConcordance(t *testing.T) {
 				Type:      "Person",
 			},
 			{
-				UUID:          "28090964-9997-4bc2-9638-7a11135aaff9",
-				PrefLabel:     "Root Concept",
-				Authority:     "Smartlogic",
-				AuthValue:     "28090964-9997-4bc2-9638-7a11135aaff9",
-				Type:          "Person",
-				FacebookPage:  "facebook/smartlogicPerson",
-				TwitterHandle: "@FtSmartlogicPerson",
-				ScopeNote:     "This note is in scope",
-				EmailAddress:  "person123@ft.com",
-				ShortLabel:    "Concept",
+				UUID:            "28090964-9997-4bc2-9638-7a11135aaff9",
+				PrefLabel:       "Root Concept",
+				Authority:       "Smartlogic",
+				AuthValue:       "28090964-9997-4bc2-9638-7a11135aaff9",
+				Type:            "Person",
+				FacebookPage:    "facebook/smartlogicPerson",
+				TwitterHandle:   "@FtSmartlogicPerson",
+				ScopeNote:       "This note is in scope",
+				EmailAddress:    "person123@ft.com",
+				ShortLabel:      "Concept",
+				InceptionDate:   &incTime,
+				TerminationDate: &termTime,
+				FigiCode:        "BBG000Y1HJT8",
+				IssuedBy:        "613b1f72-cc74-4d8f-9406-28fc91b82a2a",
+				MembershipRoles: []s3.MembershipRole{
+					{
+						RoleUUID:        "ccdff192-4d6c-4539-bbe8-7e24e81ed49e",
+						InceptionDate:   &incTime,
+						TerminationDate: &termTime,
+					},
+				},
+				OrganisationUUID: "a4528fc9-0615-4bfa-bc99-596ea1ddec28",
+				PersonUUID:       "973509c1-5238-4c83-9a7d-89009e839ff8",
+				RoleUUID:         "5c83d81b-6d94-415b-bf95-6dc4cc1afa48",
 			},
 		},
 	}
@@ -334,6 +363,8 @@ func TestResolveConceptType(t *testing.T) {
 }
 
 func setupTestService(httpError int, writerResponse string) (Service, *mockS3Client, *mockSQSClient, *mockConcordancesClient, *mockKinesisStreamClient) {
+	incTime := time.Date(2009, 11, 17, 20, 34, 58, 651387237, time.UTC)
+	termTime := time.Date(2009, 12, 17, 20, 34, 58, 651387237, time.UTC)
 	s3 := &mockS3Client{
 		concepts: map[string]struct {
 			transactionID string
@@ -362,6 +393,20 @@ func setupTestService(httpError int, writerResponse string) (Service, *mockS3Cli
 					ScopeNote:     "This note is in scope",
 					EmailAddress:  "person123@ft.com",
 					ShortLabel:    "Concept",
+					MembershipRoles: []s3.MembershipRole{
+						{
+							RoleUUID:        "ccdff192-4d6c-4539-bbe8-7e24e81ed49e",
+							InceptionDate:   &incTime,
+							TerminationDate: &termTime,
+						},
+					},
+					OrganisationUUID: "a4528fc9-0615-4bfa-bc99-596ea1ddec28",
+					PersonUUID:       "973509c1-5238-4c83-9a7d-89009e839ff8",
+					RoleUUID:         "5c83d81b-6d94-415b-bf95-6dc4cc1afa48",
+					InceptionDate:    &incTime,
+					TerminationDate:  &termTime,
+					FigiCode:         "BBG000Y1HJT8",
+					IssuedBy:         "613b1f72-cc74-4d8f-9406-28fc91b82a2a",
 				},
 			},
 			"34a571fb-d779-4610-a7ba-2e127676db4d": {
