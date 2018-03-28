@@ -10,16 +10,23 @@ import (
 	"strings"
 	"sync"
 
+	"time"
+
 	"github.com/Financial-Times/aggregate-concept-transformer/concordances"
 	"github.com/Financial-Times/aggregate-concept-transformer/kinesis"
 	"github.com/Financial-Times/aggregate-concept-transformer/s3"
 	"github.com/Financial-Times/aggregate-concept-transformer/sqs"
 	fthealth "github.com/Financial-Times/go-fthealth/v1_1"
 	"github.com/Financial-Times/go-logger"
-	"time"
 )
 
 const smartlogicAuthority = "SmartLogic"
+
+var conceptTypesNotAllowedInElastic = [...]string{
+	"Role",
+	"Membership",
+	"FinancialInstrument",
+}
 
 type Service interface {
 	ListenForNotifications()
@@ -99,9 +106,11 @@ func (s *AggregateService) ProcessMessage(UUID string) error {
 	logger.WithTransactionID(transactionID).WithUUID(concordedConcept.PrefUUID).Debug("Concept successfully updated in neo4j")
 
 	// Write to Elasticsearch
-	logger.WithTransactionID(transactionID).WithUUID(concordedConcept.PrefUUID).Debug("Writing concept to elastic search")
-	if _, err = sendToWriter(s.httpClient, s.elasticsearchWriterAddress, resolveConceptType(concordedConcept.Type), concordedConcept.PrefUUID, concordedConcept, transactionID); err != nil {
-		return err
+	if isTypeAllowedInElastic(resolveConceptType(concordedConcept.Type)) {
+		logger.WithTransactionID(transactionID).WithUUID(concordedConcept.PrefUUID).Debug("Writing concept to elastic search")
+		if _, err = sendToWriter(s.httpClient, s.elasticsearchWriterAddress, resolveConceptType(concordedConcept.Type), concordedConcept.PrefUUID, concordedConcept, transactionID); err != nil {
+			return err
+		}
 	}
 
 	conceptAsBytes, err := json.Marshal(updatedConcepts)
@@ -249,9 +258,22 @@ func mergeCanonicalInformation(c ConcordedConcept, s s3.Concept) ConcordedConcep
 		c.IsAuthor = s.IsAuthor
 	}
 
-	c.MembershipRoles = s.MembershipRoles
+	c.MembershipRoles = make([]MembershipRole, len(s.MembershipRoles))
+	for i, mr := range s.MembershipRoles {
+		c.MembershipRoles[i] = MembershipRole{
+			RoleUUID:        mr.RoleUUID,
+			InceptionDate:   mr.InceptionDate,
+			TerminationDate: mr.TerminationDate,
+		}
+	}
 	c.OrganisationUUID = s.OrganisationUUID
 	c.PersonUUID = s.PersonUUID
+	c.RoleUUID = s.RoleUUID
+
+	c.InceptionDate = s.InceptionDate
+	c.TerminationDate = s.TerminationDate
+	c.FigiCode = s.FigiCode
+	c.IssuedBy = s.IssuedBy
 
 	return c
 }
@@ -373,4 +395,14 @@ func (s *AggregateService) RWElasticsearchHealthCheck() fthealth.Check {
 			return "", nil
 		},
 	}
+}
+
+func isTypeAllowedInElastic(conceptType string) bool {
+	for _, ct := range conceptTypesNotAllowedInElastic {
+		if ct == conceptType {
+			return false
+		}
+	}
+
+	return true
 }
