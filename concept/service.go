@@ -258,12 +258,14 @@ func mergeCanonicalInformation(c ConcordedConcept, s s3.Concept) ConcordedConcep
 		c.IsAuthor = s.IsAuthor
 	}
 
-	c.MembershipRoles = make([]MembershipRole, len(s.MembershipRoles))
-	for i, mr := range s.MembershipRoles {
-		c.MembershipRoles[i] = MembershipRole{
-			RoleUUID:        mr.RoleUUID,
-			InceptionDate:   mr.InceptionDate,
-			TerminationDate: mr.TerminationDate,
+	if len(s.MembershipRoles) > 0 {
+		c.MembershipRoles = make([]MembershipRole, len(s.MembershipRoles))
+		for i, mr := range s.MembershipRoles {
+			c.MembershipRoles[i] = MembershipRole{
+				RoleUUID:        mr.RoleUUID,
+				InceptionDate:   mr.InceptionDate,
+				TerminationDate: mr.TerminationDate,
+			}
 		}
 	}
 	c.OrganisationUUID = s.OrganisationUUID
