@@ -37,5 +37,4 @@ type Concept struct {
 	MembershipRoles  []MembershipRole `json:"membershipRoles,omitempty"`
 	OrganisationUUID string           `json:"organisationUUID,omitempty"`
 	PersonUUID       string           `json:"personUUID,omitempty"`
-	RoleUUID         string           `json:"roleUUID,omitempty"`
 }

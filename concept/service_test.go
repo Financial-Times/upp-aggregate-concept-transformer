@@ -230,7 +230,6 @@ func TestAggregateService_GetConcordedConcept_TMEConcordance(t *testing.T) {
 		},
 		OrganisationUUID: "a4528fc9-0615-4bfa-bc99-596ea1ddec28",
 		PersonUUID:       "973509c1-5238-4c83-9a7d-89009e839ff8",
-		RoleUUID:         "5c83d81b-6d94-415b-bf95-6dc4cc1afa48",
 		SourceRepresentations: []s3.Concept{
 			{
 				UUID:      "34a571fb-d779-4610-a7ba-2e127676db4d",
@@ -263,7 +262,6 @@ func TestAggregateService_GetConcordedConcept_TMEConcordance(t *testing.T) {
 				},
 				OrganisationUUID: "a4528fc9-0615-4bfa-bc99-596ea1ddec28",
 				PersonUUID:       "973509c1-5238-4c83-9a7d-89009e839ff8",
-				RoleUUID:         "5c83d81b-6d94-415b-bf95-6dc4cc1afa48",
 			},
 		},
 	}
@@ -402,7 +400,6 @@ func setupTestService(httpError int, writerResponse string) (Service, *mockS3Cli
 					},
 					OrganisationUUID: "a4528fc9-0615-4bfa-bc99-596ea1ddec28",
 					PersonUUID:       "973509c1-5238-4c83-9a7d-89009e839ff8",
-					RoleUUID:         "5c83d81b-6d94-415b-bf95-6dc4cc1afa48",
 					InceptionDate:    &incTime,
 					TerminationDate:  &termTime,
 					FigiCode:         "BBG000Y1HJT8",
