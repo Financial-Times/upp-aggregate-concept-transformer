@@ -39,7 +39,6 @@ type ConcordedConcept struct {
 	MembershipRoles  []MembershipRole `json:"membershipRoles,omitempty"`
 	OrganisationUUID string           `json:"organisationUUID,omitempty"`
 	PersonUUID       string           `json:"personUUID,omitempty"`
-	RoleUUID         string           `json:"roleUUID,omitempty"`
 
 	SourceRepresentations []s3.Concept `json:"sourceRepresentations,omitempty"`
 }

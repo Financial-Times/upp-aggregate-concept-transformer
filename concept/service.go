@@ -270,7 +270,6 @@ func mergeCanonicalInformation(c ConcordedConcept, s s3.Concept) ConcordedConcep
 	}
 	c.OrganisationUUID = s.OrganisationUUID
 	c.PersonUUID = s.PersonUUID
-	c.RoleUUID = s.RoleUUID
 
 	c.InceptionDate = s.InceptionDate
 	c.TerminationDate = s.TerminationDate
