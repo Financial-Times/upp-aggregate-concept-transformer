@@ -337,6 +337,8 @@ func resolveConceptType(conceptType string) string {
 		messageType = "alphaville-series"
 	case "specialreport":
 		messageType = "special-reports"
+	case "financialinstrument":
+		messageType = "financial-instruments"
 	default:
 		messageType = conceptType + "s"
 	}

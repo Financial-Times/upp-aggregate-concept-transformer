@@ -353,6 +353,9 @@ func TestResolveConceptType(t *testing.T) {
 	specialReport := resolveConceptType("SpecialReport")
 	assert.Equal(t, "special-reports", specialReport)
 
+	financialInstrument := resolveConceptType("FinancialInstrument")
+	assert.Equal(t, "financial-instruments", financialInstrument)
+
 	alphavilleSeries := resolveConceptType("AlphavilleSeries")
 	assert.Equal(t, "alphaville-series", alphavilleSeries)
 
