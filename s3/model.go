@@ -1,11 +1,9 @@
 package s3
 
-import "time"
-
 type MembershipRole struct {
-	RoleUUID        string     `json:"roleUUID,omitempty"`
-	InceptionDate   *time.Time `json:"inceptionDate,omitempty"`
-	TerminationDate *time.Time `json:"terminationDate,omitempty"`
+	RoleUUID        string `json:"roleUUID,omitempty"`
+	InceptionDate   string `json:"inceptionDate,omitempty"`
+	TerminationDate string `json:"terminationDate,omitempty"`
 }
 
 type Concept struct {
@@ -27,10 +25,10 @@ type Concept struct {
 	ScopeNote      string   `json:"scopeNote,omitempty"`
 	ShortLabel     string   `json:"shortLabel,omitempty"`
 
-	InceptionDate   *time.Time `json:"inceptionDate,omitempty"`
-	TerminationDate *time.Time `json:"terminationDate,omitempty"`
-	FigiCode        string     `json:"figiCode,omitempty"`
-	IssuedBy        string     `json:"issuedBy,omitempty"`
+	InceptionDate   string `json:"inceptionDate,omitempty"`
+	TerminationDate string `json:"terminationDate,omitempty"`
+	FigiCode        string `json:"figiCode,omitempty"`
+	IssuedBy        string `json:"issuedBy,omitempty"`
 
 	IsAuthor bool `json:"isAuthor,omitempty"`
 

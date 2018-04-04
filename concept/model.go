@@ -1,15 +1,13 @@
 package concept
 
 import (
-	"time"
-
 	"github.com/Financial-Times/aggregate-concept-transformer/s3"
 )
 
 type MembershipRole struct {
-	RoleUUID        string     `json:"roleUUID,omitempty"`
-	InceptionDate   *time.Time `json:"inceptionDate,omitempty"`
-	TerminationDate *time.Time `json:"terminationDate,omitempty"`
+	RoleUUID        string `json:"roleUUID,omitempty"`
+	InceptionDate   string `json:"inceptionDate,omitempty"`
+	TerminationDate string `json:"terminationDate,omitempty"`
 }
 
 type ConcordedConcept struct {
@@ -29,10 +27,10 @@ type ConcordedConcept struct {
 	BroaderUUIDs   []string `json:"broaderUUIDs,omitempty"`
 	RelatedUUIDs   []string `json:"relatedUUIDs,omitempty"`
 
-	InceptionDate   *time.Time `json:"inceptionDate,omitempty"`
-	TerminationDate *time.Time `json:"terminationDate,omitempty"`
-	FigiCode        string     `json:"figiCode,omitempty"`
-	IssuedBy        string     `json:"issuedBy,omitempty"`
+	InceptionDate   string `json:"inceptionDate,omitempty"`
+	TerminationDate string `json:"terminationDate,omitempty"`
+	FigiCode        string `json:"figiCode,omitempty"`
+	IssuedBy        string `json:"issuedBy,omitempty"`
 
 	IsAuthor bool `json:"isAuthor,omitempty"`
 

@@ -205,8 +205,6 @@ func TestAggregateService_GetConcordedConcept_NoConcordance(t *testing.T) {
 
 func TestAggregateService_GetConcordedConcept_TMEConcordance(t *testing.T) {
 	svc, _, _, _, _ := setupTestService(200, payload)
-	incTime := time.Date(2009, 11, 17, 20, 34, 58, 651387237, time.UTC)
-	termTime := time.Date(2009, 12, 17, 20, 34, 58, 651387237, time.UTC)
 	expectedConcept := ConcordedConcept{
 		PrefUUID:        "28090964-9997-4bc2-9638-7a11135aaff9",
 		PrefLabel:       "Root Concept",
@@ -217,15 +215,15 @@ func TestAggregateService_GetConcordedConcept_TMEConcordance(t *testing.T) {
 		TwitterHandle:   "@FtSmartlogicPerson",
 		ScopeNote:       "This note is in scope",
 		ShortLabel:      "Concept",
-		InceptionDate:   &incTime,
-		TerminationDate: &termTime,
+		InceptionDate:   "2002-06-01T00:00:00.000Z",
+		TerminationDate: "2011-11-29T00:00:00.000Z",
 		FigiCode:        "BBG000Y1HJT8",
 		IssuedBy:        "613b1f72-cc74-4d8f-9406-28fc91b82a2a",
 		MembershipRoles: []MembershipRole{
 			{
 				RoleUUID:        "ccdff192-4d6c-4539-bbe8-7e24e81ed49e",
-				InceptionDate:   &incTime,
-				TerminationDate: &termTime,
+				InceptionDate:   "2002-06-01T00:00:00.000Z",
+				TerminationDate: "2011-11-29T00:00:00.000Z",
 			},
 		},
 		OrganisationUUID: "a4528fc9-0615-4bfa-bc99-596ea1ddec28",
@@ -249,15 +247,15 @@ func TestAggregateService_GetConcordedConcept_TMEConcordance(t *testing.T) {
 				ScopeNote:       "This note is in scope",
 				EmailAddress:    "person123@ft.com",
 				ShortLabel:      "Concept",
-				InceptionDate:   &incTime,
-				TerminationDate: &termTime,
+				InceptionDate:   "2002-06-01T00:00:00.000Z",
+				TerminationDate: "2011-11-29T00:00:00.000Z",
 				FigiCode:        "BBG000Y1HJT8",
 				IssuedBy:        "613b1f72-cc74-4d8f-9406-28fc91b82a2a",
 				MembershipRoles: []s3.MembershipRole{
 					{
 						RoleUUID:        "ccdff192-4d6c-4539-bbe8-7e24e81ed49e",
-						InceptionDate:   &incTime,
-						TerminationDate: &termTime,
+						InceptionDate:   "2002-06-01T00:00:00.000Z",
+						TerminationDate: "2011-11-29T00:00:00.000Z",
 					},
 				},
 				OrganisationUUID: "a4528fc9-0615-4bfa-bc99-596ea1ddec28",
@@ -271,6 +269,122 @@ func TestAggregateService_GetConcordedConcept_TMEConcordance(t *testing.T) {
 	sort.Strings(expectedConcept.Aliases)
 	assert.NoError(t, err)
 	assert.Equal(t, "tid_456", tid)
+	assert.Equal(t, expectedConcept, c)
+}
+
+func TestAggregateService_GetConcordedConcept_FinancialInstrument(t *testing.T) {
+	svc, _, _, _, _ := setupTestService(200, payload)
+	expectedConcept := ConcordedConcept{
+		PrefUUID:  "6562674e-dbfa-4cb0-85b2-41b0948b7cc2",
+		PrefLabel: "Some random finanial instrument",
+		Type:      "FinancialInstrument",
+		Aliases:   []string{"Some random finanial instrument"},
+		FigiCode:  "BBG000Y1HJT8",
+		IssuedBy:  "4e484678-cf47-4168-b844-6adb47f8eb58",
+		SourceRepresentations: []s3.Concept{
+			{
+				UUID:      "6562674e-dbfa-4cb0-85b2-41b0948b7cc2",
+				PrefLabel: "Some random finanial instrument",
+				Authority: "FACTSET",
+				AuthValue: "B000BB-S",
+				Type:      "FinancialInstrument",
+				FigiCode:  "BBG000Y1HJT8",
+				IssuedBy:  "4e484678-cf47-4168-b844-6adb47f8eb58",
+			},
+		},
+	}
+
+	c, tid, err := svc.GetConcordedConcept("6562674e-dbfa-4cb0-85b2-41b0948b7cc2")
+	sort.Strings(c.Aliases)
+	sort.Strings(expectedConcept.Aliases)
+	assert.NoError(t, err)
+	assert.Equal(t, "tid_630", tid)
+	assert.Equal(t, expectedConcept, c)
+}
+
+func TestAggregateService_GetConcordedConcept_BoardRole(t *testing.T) {
+	svc, _, _, _, _ := setupTestService(200, payload)
+	expectedConcept := ConcordedConcept{
+		PrefUUID:  "344fdb1d-0585-31f7-814f-b478e54dbe1f",
+		PrefLabel: "Director/Board Member",
+		Type:      "BoardRole",
+		Aliases:   []string{"Director/Board Member"},
+		SourceRepresentations: []s3.Concept{
+			{
+				UUID:      "344fdb1d-0585-31f7-814f-b478e54dbe1f",
+				PrefLabel: "Director/Board Member",
+				Authority: "FACTSET",
+				AuthValue: "BRD",
+				Type:      "BoardRole",
+			},
+		},
+	}
+
+	c, tid, err := svc.GetConcordedConcept("344fdb1d-0585-31f7-814f-b478e54dbe1f")
+	sort.Strings(c.Aliases)
+	sort.Strings(expectedConcept.Aliases)
+	assert.NoError(t, err)
+	assert.Equal(t, "tid_631", tid)
+	assert.Equal(t, expectedConcept, c)
+}
+
+func TestAggregateService_GetConcordedConcept_Memberships(t *testing.T) {
+	svc, _, _, _, _ := setupTestService(200, payload)
+	expectedConcept := ConcordedConcept{
+		PrefUUID:         "87cda39a-e354-3dfb-b28a-b9a04887577b",
+		PrefLabel:        "Independent Non-Executive Director",
+		Type:             "Membership",
+		Aliases:          []string{"Independent Non-Executive Director"},
+		PersonUUID:       "d4050b35-45ac-3933-9fad-7720a0dce8df",
+		OrganisationUUID: "064ce159-8835-3426-b456-c86d48de8511",
+		InceptionDate:    "2002-06-01T00:00:00.000Z",
+		TerminationDate:  "2011-11-30T00:00:00.000Z",
+		MembershipRoles: []MembershipRole{
+			{
+
+				RoleUUID:        "344fdb1d-0585-31f7-814f-b478e54dbe1f",
+				InceptionDate:   "2002-06-01T00:00:00.000Z",
+				TerminationDate: "2011-11-29T00:00:00.000Z",
+			},
+			{
+				RoleUUID:        "abacb0e1-3f7e-334a-96b9-ed5da35f3251",
+				InceptionDate:   "2011-07-26T00:00:00.000Z",
+				TerminationDate: "2011-11-29T00:00:00.000Z",
+			},
+		},
+		SourceRepresentations: []s3.Concept{
+			{
+				UUID:             "87cda39a-e354-3dfb-b28a-b9a04887577b",
+				PrefLabel:        "Independent Non-Executive Director",
+				Authority:        "FACTSET",
+				AuthValue:        "1000016",
+				Type:             "Membership",
+				PersonUUID:       "d4050b35-45ac-3933-9fad-7720a0dce8df",
+				OrganisationUUID: "064ce159-8835-3426-b456-c86d48de8511",
+				InceptionDate:    "2002-06-01T00:00:00.000Z",
+				TerminationDate:  "2011-11-30T00:00:00.000Z",
+				MembershipRoles: []s3.MembershipRole{
+					{
+
+						RoleUUID:        "344fdb1d-0585-31f7-814f-b478e54dbe1f",
+						InceptionDate:   "2002-06-01T00:00:00.000Z",
+						TerminationDate: "2011-11-29T00:00:00.000Z",
+					},
+					{
+						RoleUUID:        "abacb0e1-3f7e-334a-96b9-ed5da35f3251",
+						InceptionDate:   "2011-07-26T00:00:00.000Z",
+						TerminationDate: "2011-11-29T00:00:00.000Z",
+					},
+				},
+			},
+		},
+	}
+
+	c, tid, err := svc.GetConcordedConcept("87cda39a-e354-3dfb-b28a-b9a04887577b")
+	sort.Strings(c.Aliases)
+	sort.Strings(expectedConcept.Aliases)
+	assert.NoError(t, err)
+	assert.Equal(t, "tid_632", tid)
 	assert.Equal(t, expectedConcept, c)
 }
 
@@ -364,8 +478,6 @@ func TestResolveConceptType(t *testing.T) {
 }
 
 func setupTestService(httpError int, writerResponse string) (Service, *mockS3Client, *mockSQSClient, *mockConcordancesClient, *mockKinesisStreamClient) {
-	incTime := time.Date(2009, 11, 17, 20, 34, 58, 651387237, time.UTC)
-	termTime := time.Date(2009, 12, 17, 20, 34, 58, 651387237, time.UTC)
 	s3 := &mockS3Client{
 		concepts: map[string]struct {
 			transactionID string
@@ -397,14 +509,14 @@ func setupTestService(httpError int, writerResponse string) (Service, *mockS3Cli
 					MembershipRoles: []s3.MembershipRole{
 						{
 							RoleUUID:        "ccdff192-4d6c-4539-bbe8-7e24e81ed49e",
-							InceptionDate:   &incTime,
-							TerminationDate: &termTime,
+							InceptionDate:   "2002-06-01T00:00:00.000Z",
+							TerminationDate: "2011-11-29T00:00:00.000Z",
 						},
 					},
 					OrganisationUUID: "a4528fc9-0615-4bfa-bc99-596ea1ddec28",
 					PersonUUID:       "973509c1-5238-4c83-9a7d-89009e839ff8",
-					InceptionDate:    &incTime,
-					TerminationDate:  &termTime,
+					InceptionDate:    "2002-06-01T00:00:00.000Z",
+					TerminationDate:  "2011-11-29T00:00:00.000Z",
 					FigiCode:         "BBG000Y1HJT8",
 					IssuedBy:         "613b1f72-cc74-4d8f-9406-28fc91b82a2a",
 				},
@@ -427,6 +539,55 @@ func setupTestService(httpError int, writerResponse string) (Service, *mockS3Cli
 					Authority: "TME",
 					AuthValue: "TME-a2f",
 					Type:      "Person",
+				},
+			},
+			"6562674e-dbfa-4cb0-85b2-41b0948b7cc2": {
+				transactionID: "tid_630",
+				concept: s3.Concept{
+					UUID:      "6562674e-dbfa-4cb0-85b2-41b0948b7cc2",
+					PrefLabel: "Some random finanial instrument",
+					Authority: "FACTSET",
+					AuthValue: "B000BB-S",
+					Type:      "FinancialInstrument",
+					FigiCode:  "BBG000Y1HJT8",
+					IssuedBy:  "4e484678-cf47-4168-b844-6adb47f8eb58",
+				},
+			},
+			"344fdb1d-0585-31f7-814f-b478e54dbe1f": {
+				transactionID: "tid_631",
+				concept: s3.Concept{
+					UUID:      "344fdb1d-0585-31f7-814f-b478e54dbe1f",
+					PrefLabel: "Director/Board Member",
+					Authority: "FACTSET",
+					AuthValue: "BRD",
+					Type:      "BoardRole",
+				},
+			},
+			"87cda39a-e354-3dfb-b28a-b9a04887577b": {
+				transactionID: "tid_632",
+				concept: s3.Concept{
+					UUID:             "87cda39a-e354-3dfb-b28a-b9a04887577b",
+					PrefLabel:        "Independent Non-Executive Director",
+					Authority:        "FACTSET",
+					AuthValue:        "1000016",
+					Type:             "Membership",
+					PersonUUID:       "d4050b35-45ac-3933-9fad-7720a0dce8df",
+					OrganisationUUID: "064ce159-8835-3426-b456-c86d48de8511",
+					InceptionDate:    "2002-06-01T00:00:00.000Z",
+					TerminationDate:  "2011-11-30T00:00:00.000Z",
+					MembershipRoles: []s3.MembershipRole{
+						{
+
+							RoleUUID:        "344fdb1d-0585-31f7-814f-b478e54dbe1f",
+							InceptionDate:   "2002-06-01T00:00:00.000Z",
+							TerminationDate: "2011-11-29T00:00:00.000Z",
+						},
+						{
+							RoleUUID:        "abacb0e1-3f7e-334a-96b9-ed5da35f3251",
+							InceptionDate:   "2011-07-26T00:00:00.000Z",
+							TerminationDate: "2011-11-29T00:00:00.000Z",
+						},
+					},
 				},
 			},
 		},
