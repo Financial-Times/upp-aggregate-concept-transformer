@@ -5,7 +5,7 @@ import (
 )
 
 type MembershipRole struct {
-	RoleUUID        string `json:"roleUUID,omitempty"`
+	RoleUUID        string `json:"membershipRoleUUID,omitempty"`
 	InceptionDate   string `json:"inceptionDate,omitempty"`
 	TerminationDate string `json:"terminationDate,omitempty"`
 }
