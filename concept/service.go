@@ -28,6 +28,17 @@ var conceptTypesNotAllowedInElastic = [...]string{
 	"FinancialInstrument",
 }
 
+var irregularConceptTypePaths = map[string]string{
+	"AlphavilleSeries":    "alphaville-series",
+	"BoardRole":           "membership-roles",
+	"Dummy":               "dummies",
+	"FinancialInstrument": "financial-instruments",
+	"MembershipRole":      "membership-roles",
+	"Person":              "people",
+	"PublicCompany":       "organisations",
+	"SpecialReport":       "special-reports",
+}
+
 type Service interface {
 	ListenForNotifications()
 	ProcessMessage(UUID string) error
@@ -328,21 +339,11 @@ func createWriteRequest(baseUrl string, urlParam string, msgBody io.Reader, uuid
 
 //Turn stored singular type to plural form
 func resolveConceptType(conceptType string) string {
-	conceptType = strings.ToLower(conceptType)
-	var messageType string
-	switch conceptType {
-	case "person":
-		messageType = "people"
-	case "alphavilleseries":
-		messageType = "alphaville-series"
-	case "specialreport":
-		messageType = "special-reports"
-	case "financialinstrument":
-		messageType = "financial-instruments"
-	default:
-		messageType = conceptType + "s"
+	if ipath, ok := irregularConceptTypePaths[conceptType]; ok && ipath != "" {
+		return ipath
 	}
-	return messageType
+
+	return strings.ToLower(conceptType) + "s"
 }
 
 func (s *AggregateService) RWNeo4JHealthCheck() fthealth.Check {
