@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -29,14 +30,11 @@ var conceptTypesNotAllowedInElastic = [...]string{
 }
 
 var irregularConceptTypePaths = map[string]string{
-	"AlphavilleSeries":    "alphaville-series",
-	"BoardRole":           "membership-roles",
-	"Dummy":               "dummies",
-	"FinancialInstrument": "financial-instruments",
-	"MembershipRole":      "membership-roles",
-	"Person":              "people",
-	"PublicCompany":       "organisations",
-	"SpecialReport":       "special-reports",
+	"AlphavilleSeries": "alphaville-series",
+	"BoardRole":        "membership-roles",
+	"Dummy":            "dummies",
+	"Person":           "people",
+	"PublicCompany":    "organisations",
 }
 
 type Service interface {
@@ -343,7 +341,16 @@ func resolveConceptType(conceptType string) string {
 		return ipath
 	}
 
-	return strings.ToLower(conceptType) + "s"
+	return toSnakeCase(conceptType) + "s"
+}
+
+var matchFirstCap = regexp.MustCompile("(.)([A-Z][a-z]+)")
+var matchAllCap = regexp.MustCompile("([a-z0-9])([A-Z])")
+
+func toSnakeCase(str string) string {
+	snake := matchFirstCap.ReplaceAllString(str, "${1}-${2}")
+	snake = matchAllCap.ReplaceAllString(snake, "${1}-${2}")
+	return strings.ToLower(snake)
 }
 
 func (s *AggregateService) RWNeo4JHealthCheck() fthealth.Check {
