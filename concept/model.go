@@ -39,6 +39,16 @@ type ConcordedConcept struct {
 	PersonUUID       string           `json:"personUUID,omitempty"`
 
 	SourceRepresentations []s3.Concept `json:"sourceRepresentations,omitempty"`
+
+	ProperName             string   `json:"properName,omitempty"`
+	ShortName              string   `json:"shortName,omitempty"`
+	HiddenLabel            string   `json:"hiddenLabel,omitempty"`
+	FormerNames            []string `json:"formerNames,omitempty"`
+	CountryCode            string   `json:"countryCode,omitempty"`
+	CountryOfIncorporation string   `json:"countryOfIncorporation,omitempty"`
+	PostalCode             string   `json:"postalCode,omitempty"`
+	YearFounded            int      `json:"yearFounded,omitempty"`
+	LeiCode                string   `json:"leiCode,omitempty"`
 }
 
 type UpdatedConcepts struct {
