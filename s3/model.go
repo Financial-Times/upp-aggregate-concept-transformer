@@ -35,4 +35,14 @@ type Concept struct {
 	MembershipRoles  []MembershipRole `json:"membershipRoles,omitempty"`
 	OrganisationUUID string           `json:"organisationUUID,omitempty"`
 	PersonUUID       string           `json:"personUUID,omitempty"`
+
+	ProperName             string   `json:"properName,omitempty"`
+	ShortName              string   `json:"shortName,omitempty"`
+	HiddenLabel            string   `json:"hiddenLabel,omitempty"`
+	FormerNames            []string `json:"formerNames,omitempty"`
+	CountryCode            string   `json:"countryCode,omitempty"`
+	CountryOfIncorporation string   `json:"countryOfIncorporation,omitempty"`
+	PostalCode             string   `json:"postalCode,omitempty"`
+	YearFounded            int      `json:"yearFounded,omitempty"`
+	LeiCode                string   `json:"leiCode,omitempty"`
 }

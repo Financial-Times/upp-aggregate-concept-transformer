@@ -171,6 +171,72 @@ func TestAggregateService_GetConcordedConcept_FinancialInstrument(t *testing.T) 
 	assert.Equal(t, expectedConcept, c)
 }
 
+func TestAggregateService_GetConcordedConcept_Organisation(t *testing.T) {
+	svc, _, _, _, _ := setupTestService(200, payload)
+	expectedConcept := ConcordedConcept{
+		PrefUUID:    "c28fa0b4-4245-11e8-842f-0ed5f89f718b",
+		Type:        "PublicCompany",
+		ProperName:  "Strix Group Plc",
+		PrefLabel:   "Strix Group Plc",
+		ShortName:   "Strix Group",
+		HiddenLabel: "STRIX GROUP PLC",
+		FormerNames: []string{
+			"Castletown Thermostats",
+			"Steam Plc",
+		},
+		Aliases: []string{
+			"Strix Group Plc",
+			"STRIX GROUP PLC",
+			"Strix Group",
+			"Castletown Thermostats",
+			"Steam Plc",
+		},
+		CountryCode:            "GB",
+		CountryOfIncorporation: "IM",
+		PostalCode:             "IM9 2RG",
+		YearFounded:            1951,
+		EmailAddress:           "info@strix.com",
+		LeiCode:                "213800KZEW5W6BZMNT62",
+		SourceRepresentations: []s3.Concept{
+			{
+				UUID:        "c28fa0b4-4245-11e8-842f-0ed5f89f718b",
+				Type:        "PublicCompany",
+				Authority:   "FACTSET",
+				AuthValue:   "B000BB-S",
+				ProperName:  "Strix Group Plc",
+				PrefLabel:   "Strix Group Plc",
+				ShortName:   "Strix Group",
+				HiddenLabel: "STRIX GROUP PLC",
+				FormerNames: []string{
+					"Castletown Thermostats",
+					"Steam Plc",
+				},
+				Aliases: []string{
+					"Strix Group Plc",
+					"STRIX GROUP PLC",
+					"Strix Group",
+					"Castletown Thermostats",
+					"Steam Plc",
+				},
+				CountryCode:            "GB",
+				CountryOfIncorporation: "IM",
+				PostalCode:             "IM9 2RG",
+				YearFounded:            1951,
+				EmailAddress:           "info@strix.com",
+				LeiCode:                "213800KZEW5W6BZMNT62",
+			},
+		},
+	}
+	c, tid, err := svc.GetConcordedConcept("c28fa0b4-4245-11e8-842f-0ed5f89f718b")
+	sort.Strings(c.FormerNames)
+	sort.Strings(c.Aliases)
+	sort.Strings(expectedConcept.FormerNames)
+	sort.Strings(expectedConcept.Aliases)
+	assert.NoError(t, err)
+	assert.Equal(t, "tid_631", tid)
+	assert.Equal(t, expectedConcept, c)
+}
+
 func TestAggregateService_GetConcordedConcept_BoardRole(t *testing.T) {
 	svc, _, _, _, _ := setupTestService(200, payload)
 	expectedConcept := ConcordedConcept{
@@ -366,6 +432,36 @@ func setupTestService(httpError int, writerResponse string) (Service, *mockS3Cli
 			transactionID string
 			concept       s3.Concept
 		}{
+			"c28fa0b4-4245-11e8-842f-0ed5f89f718b": {
+				transactionID: "tid_631",
+				concept: s3.Concept{
+					UUID:        "c28fa0b4-4245-11e8-842f-0ed5f89f718b",
+					Type:        "PublicCompany",
+					Authority:   "FACTSET",
+					AuthValue:   "B000BB-S",
+					ProperName:  "Strix Group Plc",
+					PrefLabel:   "Strix Group Plc",
+					ShortName:   "Strix Group",
+					HiddenLabel: "STRIX GROUP PLC",
+					FormerNames: []string{
+						"Castletown Thermostats",
+						"Steam Plc",
+					},
+					Aliases: []string{
+						"Strix Group Plc",
+						"STRIX GROUP PLC",
+						"Strix Group",
+						"Castletown Thermostats",
+						"Steam Plc",
+					},
+					CountryCode:            "GB",
+					CountryOfIncorporation: "IM",
+					PostalCode:             "IM9 2RG",
+					YearFounded:            1951,
+					EmailAddress:           "info@strix.com",
+					LeiCode:                "213800KZEW5W6BZMNT62",
+				},
+			},
 			"99247059-04ec-3abb-8693-a0b8951fdcab": {
 				transactionID: "tid_123",
 				concept: s3.Concept{

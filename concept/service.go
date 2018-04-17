@@ -263,6 +263,16 @@ func mergeCanonicalInformation(c ConcordedConcept, s s3.Concept) ConcordedConcep
 	c.RelatedUUIDs = s.RelatedUUIDs
 	c.SourceRepresentations = append(c.SourceRepresentations, s)
 
+	c.ProperName = s.ProperName
+	c.ShortName = s.ShortName
+	c.HiddenLabel = s.HiddenLabel
+	c.FormerNames = s.FormerNames
+	c.CountryCode = s.CountryCode
+	c.CountryOfIncorporation = s.CountryOfIncorporation
+	c.PostalCode = s.PostalCode
+	c.YearFounded = s.YearFounded
+	c.LeiCode = s.LeiCode
+
 	if s.IsAuthor {
 		c.IsAuthor = s.IsAuthor
 	}
