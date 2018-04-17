@@ -6,9 +6,12 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
+
+	"time"
 
 	"github.com/Financial-Times/aggregate-concept-transformer/concordances"
 	"github.com/Financial-Times/aggregate-concept-transformer/kinesis"
@@ -16,10 +19,23 @@ import (
 	"github.com/Financial-Times/aggregate-concept-transformer/sqs"
 	fthealth "github.com/Financial-Times/go-fthealth/v1_1"
 	"github.com/Financial-Times/go-logger"
-	"time"
 )
 
 const smartlogicAuthority = "SmartLogic"
+
+var conceptTypesNotAllowedInElastic = [...]string{
+	"Role",
+	"Membership",
+	"FinancialInstrument",
+}
+
+var irregularConceptTypePaths = map[string]string{
+	"AlphavilleSeries": "alphaville-series",
+	"BoardRole":        "membership-roles",
+	"Dummy":            "dummies",
+	"Person":           "people",
+	"PublicCompany":    "organisations",
+}
 
 type Service interface {
 	ListenForNotifications()
@@ -99,9 +115,11 @@ func (s *AggregateService) ProcessMessage(UUID string) error {
 	logger.WithTransactionID(transactionID).WithUUID(concordedConcept.PrefUUID).Debug("Concept successfully updated in neo4j")
 
 	// Write to Elasticsearch
-	logger.WithTransactionID(transactionID).WithUUID(concordedConcept.PrefUUID).Debug("Writing concept to elastic search")
-	if _, err = sendToWriter(s.httpClient, s.elasticsearchWriterAddress, resolveConceptType(concordedConcept.Type), concordedConcept.PrefUUID, concordedConcept, transactionID); err != nil {
-		return err
+	if isTypeAllowedInElastic(resolveConceptType(concordedConcept.Type)) {
+		logger.WithTransactionID(transactionID).WithUUID(concordedConcept.PrefUUID).Debug("Writing concept to elastic search")
+		if _, err = sendToWriter(s.httpClient, s.elasticsearchWriterAddress, resolveConceptType(concordedConcept.Type), concordedConcept.PrefUUID, concordedConcept, transactionID); err != nil {
+			return err
+		}
 	}
 
 	conceptAsBytes, err := json.Marshal(updatedConcepts)
@@ -249,9 +267,20 @@ func mergeCanonicalInformation(c ConcordedConcept, s s3.Concept) ConcordedConcep
 		c.IsAuthor = s.IsAuthor
 	}
 
-	c.MembershipRoles = s.MembershipRoles
+	for _, mr := range s.MembershipRoles {
+		c.MembershipRoles = append(c.MembershipRoles, MembershipRole{
+			RoleUUID:        mr.RoleUUID,
+			InceptionDate:   mr.InceptionDate,
+			TerminationDate: mr.TerminationDate,
+		})
+	}
 	c.OrganisationUUID = s.OrganisationUUID
 	c.PersonUUID = s.PersonUUID
+
+	c.InceptionDate = s.InceptionDate
+	c.TerminationDate = s.TerminationDate
+	c.FigiCode = s.FigiCode
+	c.IssuedBy = s.IssuedBy
 
 	return c
 }
@@ -308,19 +337,20 @@ func createWriteRequest(baseUrl string, urlParam string, msgBody io.Reader, uuid
 
 //Turn stored singular type to plural form
 func resolveConceptType(conceptType string) string {
-	conceptType = strings.ToLower(conceptType)
-	var messageType string
-	switch conceptType {
-	case "person":
-		messageType = "people"
-	case "alphavilleseries":
-		messageType = "alphaville-series"
-	case "specialreport":
-		messageType = "special-reports"
-	default:
-		messageType = conceptType + "s"
+	if ipath, ok := irregularConceptTypePaths[conceptType]; ok && ipath != "" {
+		return ipath
 	}
-	return messageType
+
+	return toSnakeCase(conceptType) + "s"
+}
+
+var matchFirstCap = regexp.MustCompile("(.)([A-Z][a-z]+)")
+var matchAllCap = regexp.MustCompile("([a-z0-9])([A-Z])")
+
+func toSnakeCase(str string) string {
+	snake := matchFirstCap.ReplaceAllString(str, "${1}-${2}")
+	snake = matchAllCap.ReplaceAllString(snake, "${1}-${2}")
+	return strings.ToLower(snake)
 }
 
 func (s *AggregateService) RWNeo4JHealthCheck() fthealth.Check {
@@ -373,4 +403,14 @@ func (s *AggregateService) RWElasticsearchHealthCheck() fthealth.Check {
 			return "", nil
 		},
 	}
+}
+
+func isTypeAllowedInElastic(conceptType string) bool {
+	for _, ct := range conceptTypesNotAllowedInElastic {
+		if ct == conceptType {
+			return false
+		}
+	}
+
+	return true
 }

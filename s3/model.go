@@ -1,5 +1,11 @@
 package s3
 
+type MembershipRole struct {
+	RoleUUID        string `json:"membershipRoleUUID,omitempty"`
+	InceptionDate   string `json:"inceptionDate,omitempty"`
+	TerminationDate string `json:"terminationDate,omitempty"`
+}
+
 type Concept struct {
 	UUID           string   `json:"uuid,omitempty"`
 	PrefLabel      string   `json:"prefLabel,omitempty"`
@@ -19,9 +25,14 @@ type Concept struct {
 	ScopeNote      string   `json:"scopeNote,omitempty"`
 	ShortLabel     string   `json:"shortLabel,omitempty"`
 
+	InceptionDate   string `json:"inceptionDate,omitempty"`
+	TerminationDate string `json:"terminationDate,omitempty"`
+	FigiCode        string `json:"figiCode,omitempty"`
+	IssuedBy        string `json:"issuedBy,omitempty"`
+
 	IsAuthor bool `json:"isAuthor,omitempty"`
 
-	MembershipRoles  []string `json:"membershipRoles,omitempty"`
-	OrganisationUUID string   `json:"organisationUUID,omitempty"`
-	PersonUUID       string   `json:"personUUID,omitempty"`
+	MembershipRoles  []MembershipRole `json:"membershipRoles,omitempty"`
+	OrganisationUUID string           `json:"organisationUUID,omitempty"`
+	PersonUUID       string           `json:"personUUID,omitempty"`
 }
