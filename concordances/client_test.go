@@ -9,6 +9,10 @@ import (
 	"gopkg.in/jarcoal/httpmock.v1"
 )
 
+func init() {
+	logger.InitDefaultLogger("test")
+}
+
 type RWTestSuite struct {
 	suite.Suite
 	client *RWClient
