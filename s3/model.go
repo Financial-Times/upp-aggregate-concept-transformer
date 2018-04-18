@@ -15,7 +15,6 @@ type Concept struct {
 	ParentUUIDs    []string `json:"parentUUIDs,omitempty"`
 	BroaderUUIDs   []string `json:"broaderUUIDs,omitempty"`
 	RelatedUUIDs   []string `json:"relatedUUIDs,omitempty"`
-	Strapline      string   `json:"strapline,omitempty"`
 	DescriptionXML string   `json:"descriptionXML,omitempty"`
 	ImageURL       string   `json:"_imageUrl,omitempty"`
 	Type           string   `json:"type,omitempty"`
@@ -24,25 +23,27 @@ type Concept struct {
 	TwitterHandle  string   `json:"twitterHandle,omitempty"`
 	ScopeNote      string   `json:"scopeNote,omitempty"`
 	ShortLabel     string   `json:"shortLabel,omitempty"`
-
-	InceptionDate   string `json:"inceptionDate,omitempty"`
-	TerminationDate string `json:"terminationDate,omitempty"`
-	FigiCode        string `json:"figiCode,omitempty"`
-	IssuedBy        string `json:"issuedBy,omitempty"`
-
+	// Brand
+	Strapline string `json:"strapline,omitempty"`
+	// Person
 	IsAuthor bool `json:"isAuthor,omitempty"`
-
+	// Financial Instrument
+	FigiCode string `json:"figiCode,omitempty"`
+	IssuedBy string `json:"issuedBy,omitempty"`
+	// Membership
+	InceptionDate    string           `json:"inceptionDate,omitempty"`
 	MembershipRoles  []MembershipRole `json:"membershipRoles,omitempty"`
 	OrganisationUUID string           `json:"organisationUUID,omitempty"`
 	PersonUUID       string           `json:"personUUID,omitempty"`
-
-	ProperName             string   `json:"properName,omitempty"`
-	ShortName              string   `json:"shortName,omitempty"`
-	HiddenLabel            string   `json:"hiddenLabel,omitempty"`
-	FormerNames            []string `json:"formerNames,omitempty"`
+	TerminationDate  string           `json:"terminationDate,omitempty"`
+	// Organisation
 	CountryCode            string   `json:"countryCode,omitempty"`
 	CountryOfIncorporation string   `json:"countryOfIncorporation,omitempty"`
-	PostalCode             string   `json:"postalCode,omitempty"`
-	YearFounded            int      `json:"yearFounded,omitempty"`
+	FormerNames            []string `json:"formerNames,omitempty"`
+	HiddenLabel            string   `json:"hiddenLabel,omitempty"`
 	LeiCode                string   `json:"leiCode,omitempty"`
+	PostalCode             string   `json:"postalCode,omitempty"`
+	ProperName             string   `json:"properName,omitempty"`
+	ShortName              string   `json:"shortName,omitempty"`
+	YearFounded            int      `json:"yearFounded,omitempty"`
 }
