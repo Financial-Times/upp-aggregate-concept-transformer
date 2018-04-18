@@ -115,7 +115,7 @@ func (s *AggregateService) ProcessMessage(UUID string) error {
 	logger.WithTransactionID(transactionID).WithUUID(concordedConcept.PrefUUID).Debug("Concept successfully updated in neo4j")
 
 	// Write to Elasticsearch
-	if isTypeAllowedInElastic(resolveConceptType(concordedConcept.Type)) {
+	if isTypeAllowedInElastic(concordedConcept.Type) {
 		logger.WithTransactionID(transactionID).WithUUID(concordedConcept.PrefUUID).Debug("Writing concept to elastic search")
 		if _, err = sendToWriter(s.httpClient, s.elasticsearchWriterAddress, resolveConceptType(concordedConcept.Type), concordedConcept.PrefUUID, concordedConcept, transactionID); err != nil {
 			return err
