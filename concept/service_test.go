@@ -1,20 +1,13 @@
 package concept
 
 import (
-	"bytes"
 	"errors"
-	"io/ioutil"
-	"net/http"
 	"sort"
-	"sync"
 	"testing"
 	"time"
 
 	"github.com/Financial-Times/aggregate-concept-transformer/concordances"
 	"github.com/Financial-Times/aggregate-concept-transformer/s3"
-	"github.com/Financial-Times/aggregate-concept-transformer/sqs"
-	fthealth "github.com/Financial-Times/go-fthealth/v1_1"
-	"github.com/Financial-Times/go-logger"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -30,133 +23,9 @@ const (
 
     			]
 		 }`
-	esUrl    = "localhost:8080/__concept-rw-elasticsearch"
-	neo4jUrl = "localhost:8080/__concepts-rw-neo4j"
+	esUrl    = "concept-rw-elasticsearch"
+	neo4jUrl = "concepts-rw-neo4j"
 )
-
-type mockSQSClient struct {
-	queue map[string]string
-	s     sync.RWMutex
-}
-
-func (c *mockSQSClient) ListenAndServeQueue() []sqs.Notification {
-	c.s.Lock()
-	defer c.s.Unlock()
-	q := c.queue
-	notifications := []sqs.Notification{}
-	for msgTag, UUID := range q {
-		notifications = append(notifications, sqs.Notification{
-			UUID:          UUID,
-			ReceiptHandle: &msgTag,
-		})
-	}
-	return notifications
-}
-
-func (c *mockSQSClient) RemoveMessageFromQueue(receiptHandle *string) error {
-	c.s.Lock()
-	defer c.s.Unlock()
-	if _, ok := c.queue[*receiptHandle]; ok {
-		delete(c.queue, *receiptHandle)
-		return nil
-	}
-	return errors.New("Receipt handle not present on queue")
-}
-
-func (c *mockSQSClient) Queue() map[string]string {
-	c.s.RLock()
-	defer c.s.RUnlock()
-	return c.queue
-}
-
-func (c *mockSQSClient) Healthcheck() fthealth.Check {
-	return fthealth.Check{
-		Checker: func() (string, error) {
-			return "", nil
-		},
-	}
-}
-
-type mockConcordancesClient struct {
-	concordances map[string][]concordances.ConcordanceRecord
-	err          error
-}
-
-func (d *mockConcordancesClient) GetConcordance(uuid string) ([]concordances.ConcordanceRecord, error) {
-	if cons, ok := d.concordances[uuid]; ok {
-		return cons, d.err
-	}
-	return []concordances.ConcordanceRecord{
-		concordances.ConcordanceRecord{
-			UUID:      uuid,
-			Authority: "SmartLogic",
-		},
-	}, d.err
-}
-
-func (d *mockConcordancesClient) Healthcheck() fthealth.Check {
-	return fthealth.Check{
-		Checker: func() (string, error) {
-			return "", nil
-		},
-	}
-}
-
-type mockKinesisStreamClient struct {
-	err error
-}
-
-func (k *mockKinesisStreamClient) AddRecordToStream(concept []byte, conceptType string) error {
-	if k.err != nil {
-		return k.err
-	}
-	return nil
-}
-
-func (d *mockKinesisStreamClient) Healthcheck() fthealth.Check {
-	return fthealth.Check{
-		Checker: func() (string, error) {
-			return "", nil
-		},
-	}
-}
-
-type mockS3Client struct {
-	concepts map[string]struct {
-		transactionID string
-		concept       s3.Concept
-	}
-	err error
-}
-
-func (s *mockS3Client) GetConceptAndTransactionId(UUID string) (bool, s3.Concept, string, error) {
-	if c, ok := s.concepts[UUID]; ok {
-		return true, c.concept, c.transactionID, s.err
-	}
-	return false, s3.Concept{}, "", s.err
-}
-func (s *mockS3Client) Healthcheck() fthealth.Check {
-	return fthealth.Check{
-		Checker: func() (string, error) {
-			return "", nil
-		},
-	}
-}
-
-type mockHTTPClient struct {
-	resp       string
-	statusCode int
-	err        error
-}
-
-func init() {
-	logger.InitLogger("test-aggregate-concept-transformer", "debug")
-}
-
-func (c mockHTTPClient) Do(req *http.Request) (resp *http.Response, err error) {
-	cb := ioutil.NopCloser(bytes.NewReader([]byte(c.resp)))
-	return &http.Response{Body: cb, StatusCode: c.statusCode}, c.err
-}
 
 func TestNewService(t *testing.T) {
 	svc, _, _, _, _ := setupTestService(200, payload)
@@ -390,8 +259,22 @@ func TestAggregateService_GetConcordedConcept_Memberships(t *testing.T) {
 
 func TestAggregateService_ProcessMessage_Success(t *testing.T) {
 	svc, _, _, _, _ := setupTestService(200, payload)
-
 	err := svc.ProcessMessage("28090964-9997-4bc2-9638-7a11135aaff9")
+	mockWriter := svc.(*AggregateService).httpClient.(*mockHTTPClient)
+	assert.Equal(t, []string{
+		"concepts-rw-neo4j/people/28090964-9997-4bc2-9638-7a11135aaff9",
+		"concept-rw-elasticsearch/people/28090964-9997-4bc2-9638-7a11135aaff9",
+	}, mockWriter.called)
+	assert.NoError(t, err)
+}
+
+func TestAggregateService_ProcessMessage_NoElasticSuccess(t *testing.T) {
+	svc, _, _, _, _ := setupTestService(200, payload)
+	err := svc.ProcessMessage("6562674e-dbfa-4cb0-85b2-41b0948b7cc2")
+	mockWriter := svc.(*AggregateService).httpClient.(*mockHTTPClient)
+	assert.Equal(t, []string{
+		"concepts-rw-neo4j/financial-instruments/6562674e-dbfa-4cb0-85b2-41b0948b7cc2",
+	}, mockWriter.called)
 	assert.NoError(t, err)
 }
 
@@ -416,7 +299,7 @@ func TestAggregateService_ProcessMessage_GenericWriterError(t *testing.T) {
 
 	err := svc.ProcessMessage("28090964-9997-4bc2-9638-7a11135aaff9")
 	assert.Error(t, err)
-	assert.Equal(t, "Request to localhost:8080/__concepts-rw-neo4j/people/28090964-9997-4bc2-9638-7a11135aaff9 returned status: 503; skipping 28090964-9997-4bc2-9638-7a11135aaff9", err.Error())
+	assert.Equal(t, "Request to concepts-rw-neo4j/people/28090964-9997-4bc2-9638-7a11135aaff9 returned status: 503; skipping 28090964-9997-4bc2-9638-7a11135aaff9", err.Error())
 }
 
 func TestAggregateService_ProcessMessage_GenericKinesisError(t *testing.T) {
@@ -641,6 +524,7 @@ func setupTestService(httpError int, writerResponse string) (Service, *mockS3Cli
 			resp:       writerResponse,
 			statusCode: httpError,
 			err:        nil,
+			called:     []string{},
 		}, 1,
 	), s3, sqs, concordClient, kinesis
 }
