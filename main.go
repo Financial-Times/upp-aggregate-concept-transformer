@@ -38,7 +38,7 @@ func main() {
 	})
 	port := app.String(cli.StringOpt{
 		Name:   "port",
-		Value:  "8080",
+		Value:  "8082",
 		Desc:   "Port to listen on",
 		EnvVar: "APP_PORT",
 	})
@@ -99,6 +99,12 @@ func main() {
 		Desc:   "Address for the Elasticsearch Concept Writer",
 		EnvVar: "ES_WRITER_ADDRESS",
 	})
+	varnishPurgerAddress := app.String(cli.StringOpt{
+		Name:   "varnishPurgerAddress",
+		Value:  "http://localhost:8080/",
+		Desc:   "Address for the Varnish Purger application",
+		EnvVar: "VARNISH_PURGER_ADDRESS",
+	})
 	crossAccountRoleARN := app.String(cli.StringOpt{
 		Name:      "crossAccountRoleARN",
 		HideValue: true,
@@ -143,6 +149,7 @@ func main() {
 			"ES_WRITER_ADDRESS":       *elasticsearchWriterAddress,
 			"CONCORDANCES_RW_ADDRESS": *concordancesReaderAddress,
 			"NEO_WRITER_ADDRESS":      *neoWriterAddress,
+			"VARNISH_PURGER_ADDRESS":  *varnishPurgerAddress,
 			"BUCKET_REGION":           *bucketRegion,
 			"BUCKET_NAME":             *bucketName,
 			"SQS_REGION":              *sqsRegion,
@@ -195,7 +202,7 @@ func main() {
 			logger.WithError(err).Fatal("Error creating Kinesis client")
 		}
 
-		svc := concept.NewService(s3Client, sqsClient, concordancesClient, kinesisClient, *neoWriterAddress, *elasticsearchWriterAddress, defaultHTTPClient(), *notificationSleepDuration)
+		svc := concept.NewService(s3Client, sqsClient, concordancesClient, kinesisClient, *neoWriterAddress, *elasticsearchWriterAddress, *varnishPurgerAddress, defaultHTTPClient(), *notificationSleepDuration)
 		handler := concept.NewHandler(svc)
 		hs := concept.NewHealthService(svc, *appSystemCode, *appName, *port, appDescription)
 

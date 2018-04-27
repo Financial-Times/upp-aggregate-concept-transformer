@@ -47,6 +47,8 @@ spec:
           value: "http://concepts-rw-neo4j:8080"
         - name: ES_WRITER_ADDRESS 
           value: "http://concept-rw-elasticsearch:8080"
+        - name: VARNISH_PURGER_ADDRESS
+          value: "http://varnish-purger:8080"
         - name: CONCORDANCES_RW_ADDRESS 
           value: "{{ .Values.concordances.address }}"
         - name: MAX_MESSAGES 
