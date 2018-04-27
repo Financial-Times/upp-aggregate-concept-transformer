@@ -21,7 +21,10 @@ import (
 	"github.com/Financial-Times/go-logger"
 )
 
-const smartlogicAuthority = "SmartLogic"
+const (
+	smartlogicAuthority = "SmartLogic"
+	thingsAPIEndpoint   = "/things"
+)
 
 var conceptTypesNotAllowedInElastic = [...]string{
 	"Role",
@@ -50,12 +53,13 @@ type AggregateService struct {
 	sqs                        sqs.Client
 	kinesis                    kinesis.Client
 	neoWriterAddress           string
+	varnishPurgerAddress       string
 	elasticsearchWriterAddress string
 	httpClient                 httpClient
 	notificationSleepDuration  int
 }
 
-func NewService(S3Client s3.Client, SQSClient sqs.Client, concordancesClient concordances.Client, kinesisClient kinesis.Client, neoAddress string, elasticsearchAddress string, httpClient httpClient, notificationSleepDuration int) Service {
+func NewService(S3Client s3.Client, SQSClient sqs.Client, concordancesClient concordances.Client, kinesisClient kinesis.Client, neoAddress string, elasticsearchAddress string, varnishPurgerAddress string, httpClient httpClient, notificationSleepDuration int) Service {
 	return &AggregateService{
 		s3:                         S3Client,
 		concordances:               concordancesClient,
@@ -63,6 +67,7 @@ func NewService(S3Client s3.Client, SQSClient sqs.Client, concordancesClient con
 		kinesis:                    kinesisClient,
 		neoWriterAddress:           neoAddress,
 		elasticsearchWriterAddress: elasticsearchAddress,
+		varnishPurgerAddress:       varnishPurgerAddress,
 		httpClient:                 httpClient,
 		notificationSleepDuration:  notificationSleepDuration,
 	}
@@ -113,6 +118,12 @@ func (s *AggregateService) ProcessMessage(UUID string) error {
 		return nil
 	}
 	logger.WithTransactionID(transactionID).WithUUID(concordedConcept.PrefUUID).Debug("Concept successfully updated in neo4j")
+
+	// Purge concept URLs in varnish
+	err = sendToPurger(s.httpClient, s.varnishPurgerAddress, resolveConceptType(concordedConcept.Type), concordedConcept.PrefUUID, concordedConcept.Type, transactionID)
+	if err != nil {
+		logger.WithTransactionID(transactionID).WithUUID(concordedConcept.PrefUUID).Errorf("Concept couldn't be purged from Varnish cache")
+	}
 
 	// Write to Elasticsearch
 	if isTypeAllowedInElastic(concordedConcept.Type) {
@@ -227,6 +238,7 @@ func (s *AggregateService) Healthchecks() []fthealth.Check {
 		s.sqs.Healthcheck(),
 		s.RWElasticsearchHealthCheck(),
 		s.RWNeo4JHealthCheck(),
+		s.VarnishPurgerHealthCheck(),
 		s.concordances.Healthcheck(),
 		s.kinesis.Healthcheck(),
 	}
@@ -283,6 +295,40 @@ func mergeCanonicalInformation(c ConcordedConcept, s s3.Concept) ConcordedConcep
 	c.IssuedBy = s.IssuedBy
 
 	return c
+}
+
+func sendToPurger(client httpClient, baseUrl string, urlParam string, conceptUUID string, conceptType string, tid string) error {
+
+	if conceptType != "Person" {
+		return nil
+	}
+
+	req, err := http.NewRequest("POST", strings.TrimRight(baseUrl, "/")+"/purge", nil)
+	if err != nil {
+		return err
+	}
+
+	queryParams := req.URL.Query()
+	queryParams.Add("target", "/"+urlParam+"/"+conceptUUID)
+	queryParams.Add("target", thingsAPIEndpoint+"/"+conceptUUID)
+	req.URL.RawQuery = queryParams.Encode()
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("Request was not successful, status code: %v", resp.StatusCode)
+	}
+
+	if err == nil {
+		logger.WithTransactionID(tid).WithUUID(conceptUUID).Debug("Concept successfully purged from varnish cache")
+	}
+
+	return err
 }
 
 func sendToWriter(client httpClient, baseUrl string, urlParam string, conceptUUID string, concept ConcordedConcept, tid string) (UpdatedConcepts, error) {
@@ -373,6 +419,32 @@ func (s *AggregateService) RWNeo4JHealthCheck() fthealth.Check {
 			resp.Body.Close()
 			if resp != nil && resp.StatusCode != http.StatusOK {
 				return "", fmt.Errorf("writer %v returned status %d", urlToCheck, resp.StatusCode)
+			}
+			return "", nil
+		},
+	}
+}
+
+func (s *AggregateService) VarnishPurgerHealthCheck() fthealth.Check {
+	return fthealth.Check{
+		BusinessImpact:   "Editorial updates of concepts won't be immediately refreshed in the cache",
+		Name:             "Check connectivity to varnish purger",
+		PanicGuide:       "https://dewey.ft.com/aggregate-concept-transformer.html",
+		Severity:         3,
+		TechnicalSummary: `Cannot connect to varnish purger. If this check fails, check health of varnish-purger service`,
+		Checker: func() (string, error) {
+			urlToCheck := strings.TrimRight(s.varnishPurgerAddress, "/") + "/__gtg"
+			req, err := http.NewRequest("GET", urlToCheck, nil)
+			if err != nil {
+				return "", err
+			}
+			resp, err := s.httpClient.Do(req)
+			if err != nil {
+				return "", fmt.Errorf("error calling purger at %s : %v", urlToCheck, err)
+			}
+			resp.Body.Close()
+			if resp != nil && resp.StatusCode != http.StatusOK {
+				return "", fmt.Errorf("purger %v returned status %d", urlToCheck, resp.StatusCode)
 			}
 			return "", nil
 		},
