@@ -38,7 +38,7 @@ func main() {
 	})
 	port := app.String(cli.StringOpt{
 		Name:   "port",
-		Value:  "8082",
+		Value:  "8080",
 		Desc:   "Port to listen on",
 		EnvVar: "APP_PORT",
 	})
