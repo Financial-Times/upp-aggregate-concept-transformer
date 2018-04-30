@@ -250,29 +250,67 @@ func mergeCanonicalInformation(c ConcordedConcept, s s3.Concept) ConcordedConcep
 	c.Type = s.Type
 	c.Aliases = append(c.Aliases, s.Aliases...)
 	c.Aliases = append(c.Aliases, s.PrefLabel)
-	c.Strapline = s.Strapline
-	c.DescriptionXML = s.DescriptionXML
-	c.ImageURL = s.ImageURL
-	c.EmailAddress = s.EmailAddress
-	c.FacebookPage = s.FacebookPage
-	c.TwitterHandle = s.TwitterHandle
-	c.ScopeNote = s.ScopeNote
-	c.ShortLabel = s.ShortLabel
-	c.ParentUUIDs = s.ParentUUIDs
-	c.BroaderUUIDs = s.BroaderUUIDs
-	c.RelatedUUIDs = s.RelatedUUIDs
+	if s.Strapline != "" {
+		c.Strapline = s.Strapline
+	}
+	if s.DescriptionXML != "" {
+		c.DescriptionXML = s.DescriptionXML
+	}
+	if s.ImageURL != "" {
+		c.ImageURL = s.ImageURL
+	}
+	if s.EmailAddress != "" {
+		c.EmailAddress = s.EmailAddress
+	}
+	if s.FacebookPage != "" {
+		c.FacebookPage = s.FacebookPage
+	}
+	if s.TwitterHandle != "" {
+		c.TwitterHandle = s.TwitterHandle
+	}
+	if s.ScopeNote != "" {
+		c.ScopeNote = s.ScopeNote
+	}
+	if s.ShortLabel != "" {
+		c.ShortLabel = s.ShortLabel
+	}
+	if len(s.ParentUUIDs) > 0 {
+		c.ParentUUIDs = s.ParentUUIDs
+	}
+	if len(s.BroaderUUIDs) > 0 {
+		c.BroaderUUIDs = s.BroaderUUIDs
+	}
+	if len(s.RelatedUUIDs) > 0 {
+		c.RelatedUUIDs = s.RelatedUUIDs
+	}
 	c.SourceRepresentations = append(c.SourceRepresentations, s)
-
-	c.ProperName = s.ProperName
-	c.ShortName = s.ShortName
-	c.HiddenLabel = s.HiddenLabel
-	c.FormerNames = s.FormerNames
-	c.CountryCode = s.CountryCode
-	c.CountryOfIncorporation = s.CountryOfIncorporation
-	c.PostalCode = s.PostalCode
-	c.YearFounded = s.YearFounded
-	c.LeiCode = s.LeiCode
-
+	if s.ProperName != "" {
+		c.ProperName = s.ProperName
+	}
+	if s.ShortName != "" {
+		c.ShortName = s.ShortName
+	}
+	if s.HiddenLabel != "" {
+		c.HiddenLabel = s.HiddenLabel
+	}
+	if len(s.FormerNames) > 0 {
+		c.FormerNames = s.FormerNames
+	}
+	if s.CountryCode != "" {
+		c.CountryCode = s.CountryCode
+	}
+	if s.CountryOfIncorporation != "" {
+		c.CountryOfIncorporation = s.CountryOfIncorporation
+	}
+	if s.PostalCode != "" {
+		c.PostalCode = s.PostalCode
+	}
+	if s.YearFounded > 0 {
+		c.YearFounded = s.YearFounded
+	}
+	if s.LeiCode != "" {
+		c.LeiCode = s.LeiCode
+	}
 	if s.IsAuthor {
 		c.IsAuthor = s.IsAuthor
 	}
@@ -284,13 +322,24 @@ func mergeCanonicalInformation(c ConcordedConcept, s s3.Concept) ConcordedConcep
 			TerminationDate: mr.TerminationDate,
 		})
 	}
-	c.OrganisationUUID = s.OrganisationUUID
-	c.PersonUUID = s.PersonUUID
-
-	c.InceptionDate = s.InceptionDate
-	c.TerminationDate = s.TerminationDate
-	c.FigiCode = s.FigiCode
-	c.IssuedBy = s.IssuedBy
+	if s.OrganisationUUID != "" {
+		c.OrganisationUUID = s.OrganisationUUID
+	}
+	if s.PersonUUID != "" {
+		c.PersonUUID = s.PersonUUID
+	}
+	if s.InceptionDate != "" {
+		c.InceptionDate = s.InceptionDate
+	}
+	if s.TerminationDate != "" {
+		c.TerminationDate = s.TerminationDate
+	}
+	if s.FigiCode != "" {
+		c.FigiCode = s.FigiCode
+	}
+	if s.IssuedBy != "" {
+		c.IssuedBy = s.IssuedBy
+	}
 
 	return c
 }
