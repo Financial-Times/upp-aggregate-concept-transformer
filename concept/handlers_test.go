@@ -35,7 +35,7 @@ func TestHandlers(t *testing.T) {
 			"/concept/f7fd05ea-9999-47c0-9be9-c99dd84d0097",
 			"",
 			200,
-			"{\"prefLabel\":\"TestConcept\",\"prefUUID\":\"f7fd05ea-9999-47c0-9be9-c99dd84d0097\"}\n",
+			"{\"prefUUID\":\"f7fd05ea-9999-47c0-9be9-c99dd84d0097\",\"prefLabel\":\"TestConcept\"}\n",
 			nil,
 			map[string]ConcordedConcept{
 				"f7fd05ea-9999-47c0-9be9-c99dd84d0097": {

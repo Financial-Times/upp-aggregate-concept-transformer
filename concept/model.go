@@ -11,21 +11,22 @@ type MembershipRole struct {
 }
 
 type ConcordedConcept struct {
-	Aliases               []string     `json:"aliases,omitempty"`
-	BroaderUUIDs          []string     `json:"broaderUUIDs,omitempty"`
-	DescriptionXML        string       `json:"descriptionXML,omitempty"`
-	EmailAddress          string       `json:"emailAddress,omitempty"`
-	FacebookPage          string       `json:"facebookPage,omitempty"`
-	ImageURL              string       `json:"_imageUrl,omitempty"`
-	ParentUUIDs           []string     `json:"parentUUIDs,omitempty"`
-	PrefLabel             string       `json:"prefLabel,omitempty"`
-	PrefUUID              string       `json:"prefUUID,omitempty"`
-	RelatedUUIDs          []string     `json:"relatedUUIDs,omitempty"`
-	ScopeNote             string       `json:"scopeNote,omitempty"`
-	ShortLabel            string       `json:"shortLabel,omitempty"`
-	SourceRepresentations []s3.Concept `json:"sourceRepresentations,omitempty"`
-	TwitterHandle         string       `json:"twitterHandle,omitempty"`
-	Type                  string       `json:"type,omitempty"`
+	// Required fields
+	PrefUUID  string `json:"prefUUID,omitempty"`
+	PrefLabel string `json:"prefLabel,omitempty"`
+	Type      string `json:"type,omitempty"`
+	// Additional fields
+	Aliases        []string `json:"aliases,omitempty"`
+	BroaderUUIDs   []string `json:"broaderUUIDs,omitempty"`
+	DescriptionXML string   `json:"descriptionXML,omitempty"`
+	EmailAddress   string   `json:"emailAddress,omitempty"`
+	FacebookPage   string   `json:"facebookPage,omitempty"`
+	ImageURL       string   `json:"_imageUrl,omitempty"`
+	ParentUUIDs    []string `json:"parentUUIDs,omitempty"`
+	RelatedUUIDs   []string `json:"relatedUUIDs,omitempty"`
+	ScopeNote      string   `json:"scopeNote,omitempty"`
+	ShortLabel     string   `json:"shortLabel,omitempty"`
+	TwitterHandle  string   `json:"twitterHandle,omitempty"`
 	// Brand
 	Strapline string `json:"strapline,omitempty"`
 	// Person
@@ -45,10 +46,13 @@ type ConcordedConcept struct {
 	FormerNames            []string `json:"formerNames,omitempty"`
 	HiddenLabel            string   `json:"hiddenLabel,omitempty"`
 	LeiCode                string   `json:"leiCode,omitempty"`
+	ParentOrganisation     string   `json:"parentOrganisation,omitempty"`
 	PostalCode             string   `json:"postalCode,omitempty"`
 	ProperName             string   `json:"properName,omitempty"`
 	ShortName              string   `json:"shortName,omitempty"`
 	YearFounded            int      `json:"yearFounded,omitempty"`
+	// Source representations
+	SourceRepresentations []s3.Concept `json:"sourceRepresentations,omitempty"`
 }
 
 type UpdatedConcepts struct {

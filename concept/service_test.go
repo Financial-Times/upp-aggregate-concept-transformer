@@ -198,6 +198,7 @@ func TestAggregateService_GetConcordedConcept_Organisation(t *testing.T) {
 		YearFounded:            1951,
 		EmailAddress:           "info@strix.com",
 		LeiCode:                "213800KZEW5W6BZMNT62",
+		ParentOrganisation:     "123",
 		SourceRepresentations: []s3.Concept{
 			{
 				UUID:        "c28fa0b4-4245-11e8-842f-0ed5f89f718b",
@@ -225,6 +226,7 @@ func TestAggregateService_GetConcordedConcept_Organisation(t *testing.T) {
 				YearFounded:            1951,
 				EmailAddress:           "info@strix.com",
 				LeiCode:                "213800KZEW5W6BZMNT62",
+				ParentOrganisation:     "123",
 			},
 		},
 	}
@@ -462,6 +464,7 @@ func setupTestService(httpError int, writerResponse string) (Service, *mockS3Cli
 					YearFounded:            1951,
 					EmailAddress:           "info@strix.com",
 					LeiCode:                "213800KZEW5W6BZMNT62",
+					ParentOrganisation:     "123",
 				},
 			},
 			"99247059-04ec-3abb-8693-a0b8951fdcab": {
