@@ -105,7 +105,7 @@ func (s *AggregateService) ProcessMessage(UUID string) error {
 		return err
 	}
 	if concordedConcept.PrefUUID != UUID {
-		logger.WithTransactionID(transactionID).WithUUID(UUID).Infof("Requested concept %s is source node for canoncial concept %s", UUID, concordedConcept.PrefUUID)
+		logger.WithTransactionID(transactionID).WithUUID(UUID).Infof("Requested concept %s is source node for canonical concept %s", UUID, concordedConcept.PrefUUID)
 	}
 
 	// Write to Neo4j
@@ -120,7 +120,7 @@ func (s *AggregateService) ProcessMessage(UUID string) error {
 	logger.WithTransactionID(transactionID).WithUUID(concordedConcept.PrefUUID).Debug("Concept successfully updated in neo4j")
 
 	// Purge concept URLs in varnish
-	err = sendToPurger(s.httpClient, s.varnishPurgerAddress, resolveConceptType(concordedConcept.Type), concordedConcept.PrefUUID, concordedConcept.Type, transactionID)
+	err = sendToPurger(s.httpClient, s.varnishPurgerAddress, resolveConceptType(concordedConcept.Type), updatedConcepts.UpdatedIds, concordedConcept.Type, transactionID)
 	if err != nil {
 		logger.WithTransactionID(transactionID).WithUUID(concordedConcept.PrefUUID).Errorf("Concept couldn't be purged from Varnish cache")
 	}
@@ -297,7 +297,7 @@ func mergeCanonicalInformation(c ConcordedConcept, s s3.Concept) ConcordedConcep
 	return c
 }
 
-func sendToPurger(client httpClient, baseUrl string, urlParam string, conceptUUID string, conceptType string, tid string) error {
+func sendToPurger(client httpClient, baseUrl string, urlParam string, conceptUUIDs []string, conceptType string, tid string) error {
 
 	if conceptType != "Person" {
 		return nil
@@ -309,8 +309,11 @@ func sendToPurger(client httpClient, baseUrl string, urlParam string, conceptUUI
 	}
 
 	queryParams := req.URL.Query()
-	queryParams.Add("target", "/"+urlParam+"/"+conceptUUID)
-	queryParams.Add("target", thingsAPIEndpoint+"/"+conceptUUID)
+	for _, cUUID := range conceptUUIDs {
+		queryParams.Add("target", "/"+urlParam+"/"+cUUID)
+		queryParams.Add("target", thingsAPIEndpoint+"/"+cUUID)
+	}
+
 	req.URL.RawQuery = queryParams.Encode()
 
 	resp, err := client.Do(req)
@@ -325,7 +328,7 @@ func sendToPurger(client httpClient, baseUrl string, urlParam string, conceptUUI
 	}
 
 	if err == nil {
-		logger.WithTransactionID(tid).WithUUID(conceptUUID).Debug("Concept successfully purged from varnish cache")
+		logger.WithTransactionID(tid).Debugf("Concepts with ids %s successfully purged from varnish cache", conceptUUIDs)
 	}
 
 	return err
