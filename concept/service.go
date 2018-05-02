@@ -445,8 +445,8 @@ func (s *AggregateService) VarnishPurgerHealthCheck() fthealth.Check {
 			if err != nil {
 				return "", fmt.Errorf("error calling purger at %s : %v", urlToCheck, err)
 			}
-			resp.Body.Close()
-			if resp != nil && resp.StatusCode != http.StatusOK {
+			defer resp.Body.Close()
+			if resp.StatusCode != http.StatusOK {
 				return "", fmt.Errorf("purger %v returned status %d", urlToCheck, resp.StatusCode)
 			}
 			return "", nil
