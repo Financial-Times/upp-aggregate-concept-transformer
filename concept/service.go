@@ -314,9 +314,6 @@ func mergeCanonicalInformation(c ConcordedConcept, s s3.Concept) ConcordedConcep
 	if s.CountryOfIncorporation != "" {
 		c.CountryOfIncorporation = s.CountryOfIncorporation
 	}
-	if s.ParentOrganisation != "" {
-		c.ParentOrganisation = s.ParentOrganisation
-	}
 	if s.PostalCode != "" {
 		c.PostalCode = s.PostalCode
 	}

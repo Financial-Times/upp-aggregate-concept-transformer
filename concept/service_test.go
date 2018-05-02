@@ -198,7 +198,6 @@ func TestAggregateService_GetConcordedConcept_Organisation(t *testing.T) {
 		YearFounded:            1951,
 		EmailAddress:           "info@strix.com",
 		LeiCode:                "213800KZEW5W6BZMNT62",
-		ParentOrganisation:     "123",
 		SourceRepresentations: []s3.Concept{
 			{
 				UUID:        "c28fa0b4-4245-11e8-842f-0ed5f89f718b",
