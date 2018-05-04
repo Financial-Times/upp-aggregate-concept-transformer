@@ -23,13 +23,14 @@ const (
 
     			]
 		 }`
-	esUrl    = "concept-rw-elasticsearch"
-	neo4jUrl = "concepts-rw-neo4j"
+	esUrl            = "concept-rw-elasticsearch"
+	neo4jUrl         = "concepts-rw-neo4j"
+	varnishPurgerUrl = "varnish-purger"
 )
 
 func TestNewService(t *testing.T) {
 	svc, _, _, _, _ := setupTestService(200, payload)
-	assert.Equal(t, 6, len(svc.Healthchecks()))
+	assert.Equal(t, 7, len(svc.Healthchecks()))
 }
 
 func TestAggregateService_ListenForNotifications(t *testing.T) {
@@ -263,6 +264,7 @@ func TestAggregateService_ProcessMessage_Success(t *testing.T) {
 	mockWriter := svc.(*AggregateService).httpClient.(*mockHTTPClient)
 	assert.Equal(t, []string{
 		"concepts-rw-neo4j/people/28090964-9997-4bc2-9638-7a11135aaff9",
+		"varnish-purger/purge?target=%2Fpeople%2F28090964-9997-4bc2-9638-7a11135aaff9&target=%2Fthings%2F28090964-9997-4bc2-9638-7a11135aaff9&target=%2Fpeople%2F34a571fb-d779-4610-a7ba-2e127676db4d&target=%2Fthings%2F34a571fb-d779-4610-a7ba-2e127676db4d",
 		"concept-rw-elasticsearch/people/28090964-9997-4bc2-9638-7a11135aaff9",
 	}, mockWriter.called)
 	assert.NoError(t, err)
@@ -520,6 +522,7 @@ func setupTestService(httpError int, writerResponse string) (Service, *mockS3Cli
 	return NewService(s3, sqs, concordClient, kinesis,
 		neo4jUrl,
 		esUrl,
+		varnishPurgerUrl,
 		&mockHTTPClient{
 			resp:       writerResponse,
 			statusCode: httpError,
