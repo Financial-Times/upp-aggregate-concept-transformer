@@ -120,7 +120,7 @@ func (s *AggregateService) ProcessMessage(UUID string) error {
 	logger.WithTransactionID(transactionID).WithUUID(concordedConcept.PrefUUID).Debug("Concept successfully updated in neo4j")
 
 	// Purge concept URLs in varnish
-	err = sendToPurger(s.httpClient, s.varnishPurgerAddress, resolveConceptType(concordedConcept.Type), updatedConcepts.UpdatedIds, concordedConcept.Type, transactionID)
+	err = sendToPurger(s.httpClient, s.varnishPurgerAddress, updatedConcepts.UpdatedIds, concordedConcept.Type, transactionID)
 	if err != nil {
 		logger.WithTransactionID(transactionID).WithUUID(concordedConcept.PrefUUID).Errorf("Concept couldn't be purged from Varnish cache")
 	}
@@ -356,11 +356,7 @@ func mergeCanonicalInformation(c ConcordedConcept, s s3.Concept) ConcordedConcep
 	return c
 }
 
-func sendToPurger(client httpClient, baseUrl string, urlParam string, conceptUUIDs []string, conceptType string, tid string) error {
-
-	if conceptType != "Person" {
-		return nil
-	}
+func sendToPurger(client httpClient, baseUrl string, conceptUUIDs []string, conceptType string, tid string) error {
 
 	req, err := http.NewRequest("POST", strings.TrimRight(baseUrl, "/")+"/purge", nil)
 	if err != nil {
@@ -369,8 +365,15 @@ func sendToPurger(client httpClient, baseUrl string, urlParam string, conceptUUI
 
 	queryParams := req.URL.Query()
 	for _, cUUID := range conceptUUIDs {
-		queryParams.Add("target", "/"+urlParam+"/"+cUUID)
 		queryParams.Add("target", thingsAPIEndpoint+"/"+cUUID)
+	}
+
+	// purge the public endpoints as well (/people, /brands and /organisations)
+	if conceptType == "Person" || conceptType == "Brand" || conceptType == "Organisation" || conceptType == "PublicCompany" {
+		urlParam := resolveConceptType(conceptType)
+		for _, cUUID := range conceptUUIDs {
+			queryParams.Add("target", "/"+urlParam+"/"+cUUID)
+		}
 	}
 
 	req.URL.RawQuery = queryParams.Encode()
