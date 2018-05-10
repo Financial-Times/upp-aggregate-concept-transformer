@@ -604,6 +604,6 @@ func setupTestService(httpError int, writerResponse string) (Service, *mockS3Cli
 			statusCode: httpError,
 			err:        nil,
 			called:     []string{},
-		}, 1,
+		},
 	), s3, sqs, concordClient, kinesis
 }
