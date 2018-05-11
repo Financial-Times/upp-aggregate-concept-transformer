@@ -46,26 +46,28 @@ type Service interface {
 }
 
 type AggregateService struct {
-	s3                         s3.Client
-	concordances               concordances.Client
-	sqs                        sqs.Client
-	kinesis                    kinesis.Client
-	neoWriterAddress           string
-	varnishPurgerAddress       string
-	elasticsearchWriterAddress string
-	httpClient                 httpClient
+	s3                              s3.Client
+	concordances                    concordances.Client
+	sqs                             sqs.Client
+	kinesis                         kinesis.Client
+	neoWriterAddress                string
+	varnishPurgerAddress            string
+	elasticsearchWriterAddress      string
+	httpClient                      httpClient
+	typesToPurgeFromPublicEndpoints []string
 }
 
-func NewService(S3Client s3.Client, SQSClient sqs.Client, concordancesClient concordances.Client, kinesisClient kinesis.Client, neoAddress string, elasticsearchAddress string, varnishPurgerAddress string, httpClient httpClient) Service {
+func NewService(S3Client s3.Client, SQSClient sqs.Client, concordancesClient concordances.Client, kinesisClient kinesis.Client, neoAddress string, elasticsearchAddress string, varnishPurgerAddress string, typesToPurgeFromPublicEndpoints []string, httpClient httpClient) Service {
 	return &AggregateService{
-		s3:                         S3Client,
-		concordances:               concordancesClient,
-		sqs:                        SQSClient,
-		kinesis:                    kinesisClient,
-		neoWriterAddress:           neoAddress,
-		elasticsearchWriterAddress: elasticsearchAddress,
-		varnishPurgerAddress:       varnishPurgerAddress,
-		httpClient:                 httpClient,
+		s3:                              S3Client,
+		concordances:                    concordancesClient,
+		sqs:                             SQSClient,
+		kinesis:                         kinesisClient,
+		neoWriterAddress:                neoAddress,
+		elasticsearchWriterAddress:      elasticsearchAddress,
+		varnishPurgerAddress:            varnishPurgerAddress,
+		httpClient:                      httpClient,
+		typesToPurgeFromPublicEndpoints: typesToPurgeFromPublicEndpoints,
 	}
 }
 
@@ -116,7 +118,7 @@ func (s *AggregateService) ProcessMessage(UUID string) error {
 	logger.WithTransactionID(transactionID).WithUUID(concordedConcept.PrefUUID).Debug("Concept successfully updated in neo4j")
 
 	// Purge concept URLs in varnish
-	err = sendToPurger(s.httpClient, s.varnishPurgerAddress, updatedConcepts.UpdatedIds, concordedConcept.Type, transactionID)
+	err = sendToPurger(s.httpClient, s.varnishPurgerAddress, updatedConcepts.UpdatedIds, concordedConcept.Type, s.typesToPurgeFromPublicEndpoints, transactionID)
 	if err != nil {
 		logger.WithTransactionID(transactionID).WithUUID(concordedConcept.PrefUUID).Errorf("Concept couldn't be purged from Varnish cache")
 	}
@@ -350,7 +352,7 @@ func mergeCanonicalInformation(c ConcordedConcept, s s3.Concept) ConcordedConcep
 	return c
 }
 
-func sendToPurger(client httpClient, baseUrl string, conceptUUIDs []string, conceptType string, tid string) error {
+func sendToPurger(client httpClient, baseUrl string, conceptUUIDs []string, conceptType string, conceptTypesWithPublicEndpoints []string, tid string) error {
 
 	req, err := http.NewRequest("POST", strings.TrimRight(baseUrl, "/")+"/purge", nil)
 	if err != nil {
@@ -362,8 +364,7 @@ func sendToPurger(client httpClient, baseUrl string, conceptUUIDs []string, conc
 		queryParams.Add("target", thingsAPIEndpoint+"/"+cUUID)
 	}
 
-	// purge the public endpoints as well (/people, /brands and /organisations)
-	if conceptType == "Person" || conceptType == "Brand" || conceptType == "Organisation" || conceptType == "PublicCompany" {
+	if contains(conceptType, conceptTypesWithPublicEndpoints) {
 		urlParam := resolveConceptType(conceptType)
 		for _, cUUID := range conceptUUIDs {
 			queryParams.Add("target", "/"+urlParam+"/"+cUUID)
@@ -388,6 +389,15 @@ func sendToPurger(client httpClient, baseUrl string, conceptUUIDs []string, conc
 	}
 
 	return err
+}
+
+func contains(element string, types []string) bool {
+	for _, t := range types {
+		if element == t {
+			return true
+		}
+	}
+	return false
 }
 
 func sendToWriter(client httpClient, baseUrl string, urlParam string, conceptUUID string, concept ConcordedConcept, tid string) (UpdatedConcepts, error) {

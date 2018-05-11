@@ -697,6 +697,7 @@ func setupTestService(httpError int, writerResponse string) (Service, *mockS3Cli
 		neo4jUrl,
 		esUrl,
 		varnishPurgerUrl,
+		[]string{"Person", "Brand", "PublicCompany", "Organisation"},
 		&mockHTTPClient{
 			resp:       writerResponse,
 			statusCode: httpError,

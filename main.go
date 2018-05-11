@@ -105,6 +105,12 @@ func main() {
 		Desc:   "Address for the Varnish Purger application",
 		EnvVar: "VARNISH_PURGER_ADDRESS",
 	})
+	typesToPurgeFromPublicEndpoints := app.Strings(cli.StringsOpt{
+		Name:   "typesToPurgeFromPublicEndpoints",
+		Value:  []string{"Person", "Brand", "Organisation", "PublicCompany"},
+		Desc:   "Concept types that need purging from specific public endpoints (other than /things)",
+		EnvVar: "TYPES_TO_PURGE_FROM_PUBLIC_ENDPOINTS",
+	})
 	crossAccountRoleARN := app.String(cli.StringOpt{
 		Name:      "crossAccountRoleARN",
 		HideValue: true,
@@ -196,7 +202,7 @@ func main() {
 			logger.WithError(err).Fatal("Error creating Kinesis client")
 		}
 
-		svc := concept.NewService(s3Client, sqsClient, concordancesClient, kinesisClient, *neoWriterAddress, *elasticsearchWriterAddress, *varnishPurgerAddress, defaultHTTPClient())
+		svc := concept.NewService(s3Client, sqsClient, concordancesClient, kinesisClient, *neoWriterAddress, *elasticsearchWriterAddress, *varnishPurgerAddress, *typesToPurgeFromPublicEndpoints, defaultHTTPClient())
 		handler := concept.NewHandler(svc)
 		hs := concept.NewHealthService(svc, *appSystemCode, *appName, *port, appDescription)
 
