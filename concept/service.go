@@ -11,8 +11,6 @@ import (
 	"strings"
 	"sync"
 
-	"time"
-
 	"github.com/Financial-Times/aggregate-concept-transformer/concordances"
 	"github.com/Financial-Times/aggregate-concept-transformer/kinesis"
 	"github.com/Financial-Times/aggregate-concept-transformer/s3"
@@ -48,28 +46,28 @@ type Service interface {
 }
 
 type AggregateService struct {
-	s3                         s3.Client
-	concordances               concordances.Client
-	sqs                        sqs.Client
-	kinesis                    kinesis.Client
-	neoWriterAddress           string
-	varnishPurgerAddress       string
-	elasticsearchWriterAddress string
-	httpClient                 httpClient
-	notificationSleepDuration  int
+	s3                              s3.Client
+	concordances                    concordances.Client
+	sqs                             sqs.Client
+	kinesis                         kinesis.Client
+	neoWriterAddress                string
+	varnishPurgerAddress            string
+	elasticsearchWriterAddress      string
+	httpClient                      httpClient
+	typesToPurgeFromPublicEndpoints []string
 }
 
-func NewService(S3Client s3.Client, SQSClient sqs.Client, concordancesClient concordances.Client, kinesisClient kinesis.Client, neoAddress string, elasticsearchAddress string, varnishPurgerAddress string, httpClient httpClient, notificationSleepDuration int) Service {
+func NewService(S3Client s3.Client, SQSClient sqs.Client, concordancesClient concordances.Client, kinesisClient kinesis.Client, neoAddress string, elasticsearchAddress string, varnishPurgerAddress string, typesToPurgeFromPublicEndpoints []string, httpClient httpClient) Service {
 	return &AggregateService{
-		s3:                         S3Client,
-		concordances:               concordancesClient,
-		sqs:                        SQSClient,
-		kinesis:                    kinesisClient,
-		neoWriterAddress:           neoAddress,
-		elasticsearchWriterAddress: elasticsearchAddress,
-		varnishPurgerAddress:       varnishPurgerAddress,
-		httpClient:                 httpClient,
-		notificationSleepDuration:  notificationSleepDuration,
+		s3:                              S3Client,
+		concordances:                    concordancesClient,
+		sqs:                             SQSClient,
+		kinesis:                         kinesisClient,
+		neoWriterAddress:                neoAddress,
+		elasticsearchWriterAddress:      elasticsearchAddress,
+		varnishPurgerAddress:            varnishPurgerAddress,
+		httpClient:                      httpClient,
+		typesToPurgeFromPublicEndpoints: typesToPurgeFromPublicEndpoints,
 	}
 }
 
@@ -120,7 +118,7 @@ func (s *AggregateService) ProcessMessage(UUID string) error {
 	logger.WithTransactionID(transactionID).WithUUID(concordedConcept.PrefUUID).Debug("Concept successfully updated in neo4j")
 
 	// Purge concept URLs in varnish
-	err = sendToPurger(s.httpClient, s.varnishPurgerAddress, resolveConceptType(concordedConcept.Type), updatedConcepts.UpdatedIds, concordedConcept.Type, transactionID)
+	err = sendToPurger(s.httpClient, s.varnishPurgerAddress, updatedConcepts.UpdatedIds, concordedConcept.Type, s.typesToPurgeFromPublicEndpoints, transactionID)
 	if err != nil {
 		logger.WithTransactionID(transactionID).WithUUID(concordedConcept.PrefUUID).Errorf("Concept couldn't be purged from Varnish cache")
 	}
@@ -138,9 +136,7 @@ func (s *AggregateService) ProcessMessage(UUID string) error {
 		logger.WithError(err).WithTransactionID(transactionID).WithUUID(concordedConcept.PrefUUID).Errorf("Failed to marshall updatedIDs record: %v", updatedConcepts)
 		return err
 	}
-	//Sleep to get around the concept updates hitting the cache
-	//TODO remove this when caching is properly fixed
-	time.Sleep(time.Second * time.Duration(s.notificationSleepDuration))
+
 	//Send notification to stream
 	logger.WithTransactionID(transactionID).WithUUID(concordedConcept.PrefUUID).Debugf("Sending notification of updated concepts to kinesis queue: %v", updatedConcepts)
 	if err = s.kinesis.AddRecordToStream(conceptAsBytes, concordedConcept.Type); err != nil {
@@ -356,11 +352,7 @@ func mergeCanonicalInformation(c ConcordedConcept, s s3.Concept) ConcordedConcep
 	return c
 }
 
-func sendToPurger(client httpClient, baseUrl string, urlParam string, conceptUUIDs []string, conceptType string, tid string) error {
-
-	if conceptType != "Person" {
-		return nil
-	}
+func sendToPurger(client httpClient, baseUrl string, conceptUUIDs []string, conceptType string, conceptTypesWithPublicEndpoints []string, tid string) error {
 
 	req, err := http.NewRequest("POST", strings.TrimRight(baseUrl, "/")+"/purge", nil)
 	if err != nil {
@@ -369,8 +361,14 @@ func sendToPurger(client httpClient, baseUrl string, urlParam string, conceptUUI
 
 	queryParams := req.URL.Query()
 	for _, cUUID := range conceptUUIDs {
-		queryParams.Add("target", "/"+urlParam+"/"+cUUID)
 		queryParams.Add("target", thingsAPIEndpoint+"/"+cUUID)
+	}
+
+	if contains(conceptType, conceptTypesWithPublicEndpoints) {
+		urlParam := resolveConceptType(conceptType)
+		for _, cUUID := range conceptUUIDs {
+			queryParams.Add("target", "/"+urlParam+"/"+cUUID)
+		}
 	}
 
 	req.URL.RawQuery = queryParams.Encode()
@@ -391,6 +389,15 @@ func sendToPurger(client httpClient, baseUrl string, urlParam string, conceptUUI
 	}
 
 	return err
+}
+
+func contains(element string, types []string) bool {
+	for _, t := range types {
+		if element == t {
+			return true
+		}
+	}
+	return false
 }
 
 func sendToWriter(client httpClient, baseUrl string, urlParam string, conceptUUID string, concept ConcordedConcept, tid string) (UpdatedConcepts, error) {
