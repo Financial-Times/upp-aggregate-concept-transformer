@@ -49,5 +49,5 @@ type Concept struct {
 	ProperName             string   `json:"properName,omitempty"`
 	ShortName              string   `json:"shortName,omitempty"`
 	YearFounded            int      `json:"yearFounded,omitempty"`
-	IsDeprecated           bool     `json:"isDeprecated,omitempty"`
+	IsDeprecated           bool     `json:"isDeprecated"`
 }
