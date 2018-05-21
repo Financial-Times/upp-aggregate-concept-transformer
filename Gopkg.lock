@@ -173,7 +173,7 @@
     "unix",
     "windows"
   ]
-  revision = "478fcf54317e52ab69f40bb4c7a1520288d7f7ea"
+  revision = "7c87d13f8e835d2fb3a70a2912c811ed0c1d241b"
 
 [[projects]]
   branch = "v1"

@@ -98,6 +98,7 @@ func TestAggregateService_GetConcordedConcept_TMEConcordance(t *testing.T) {
 		},
 		OrganisationUUID: "a4528fc9-0615-4bfa-bc99-596ea1ddec28",
 		PersonUUID:       "973509c1-5238-4c83-9a7d-89009e839ff8",
+		IsDeprecated: true,
 		SourceRepresentations: []s3.Concept{
 			{
 				UUID:      "34a571fb-d779-4610-a7ba-2e127676db4d",
@@ -105,6 +106,7 @@ func TestAggregateService_GetConcordedConcept_TMEConcordance(t *testing.T) {
 				Authority: "TME",
 				AuthValue: "TME-123",
 				Type:      "Person",
+				IsDeprecated: true,
 			},
 			{
 				UUID:            "28090964-9997-4bc2-9638-7a11135aaff9",
@@ -558,6 +560,7 @@ func setupTestService(httpError int, writerResponse string) (Service, *mockS3Cli
 					Authority: "TME",
 					AuthValue: "TME-123",
 					Type:      "Person",
+					IsDeprecated: true,
 				},
 			},
 			"c9d3a92a-da84-11e7-a121-0401beb96201": {
