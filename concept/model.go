@@ -50,6 +50,7 @@ type ConcordedConcept struct {
 	ProperName             string   `json:"properName,omitempty"`
 	ShortName              string   `json:"shortName,omitempty"`
 	YearFounded            int      `json:"yearFounded,omitempty"`
+	IsDeprecated           bool     `json:"isDeprecated,omitempty"`
 	// Source representations
 	SourceRepresentations []s3.Concept `json:"sourceRepresentations,omitempty"`
 }

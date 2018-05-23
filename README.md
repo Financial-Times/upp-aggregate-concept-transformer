@@ -16,6 +16,8 @@ or update:
 
 `go get -u github.com/Financial-Times/aggregate-concept-transformer`
 
+`dep ensure -v`
+
 # Running
 
 ```
