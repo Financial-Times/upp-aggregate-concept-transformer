@@ -72,11 +72,6 @@ spec:
             secretKeyRef:
               name: global-secrets
               key: concepts.sqs_url
-        - name: DYNAMODB_TABLE
-          valueFrom:
-            secretKeyRef:
-              name: global-secrets
-              key: concepts.dynamodb_table
         - name: KINESIS_STREAM_NAME
           valueFrom:
             secretKeyRef:

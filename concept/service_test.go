@@ -71,6 +71,8 @@ func TestAggregateService_GetConcordedConcept_NoConcordance(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, "tid_123", tid)
 	assert.Equal(t, "Test Concept", c.PrefLabel)
+	assert.Equal(t, "Mr", c.Salutation)
+	assert.Equal(t, 2018, c.BirthYear)
 }
 
 func TestAggregateService_GetConcordedConcept_TMEConcordance(t *testing.T) {
@@ -98,14 +100,14 @@ func TestAggregateService_GetConcordedConcept_TMEConcordance(t *testing.T) {
 		},
 		OrganisationUUID: "a4528fc9-0615-4bfa-bc99-596ea1ddec28",
 		PersonUUID:       "973509c1-5238-4c83-9a7d-89009e839ff8",
-		IsDeprecated: true,
+		IsDeprecated:     true,
 		SourceRepresentations: []s3.Concept{
 			{
-				UUID:      "34a571fb-d779-4610-a7ba-2e127676db4d",
-				PrefLabel: "TME Concept",
-				Authority: "TME",
-				AuthValue: "TME-123",
-				Type:      "Person",
+				UUID:         "34a571fb-d779-4610-a7ba-2e127676db4d",
+				PrefLabel:    "TME Concept",
+				Authority:    "TME",
+				AuthValue:    "TME-123",
+				Type:         "Person",
 				IsDeprecated: true,
 			},
 			{
@@ -238,6 +240,81 @@ func TestAggregateService_GetConcordedConcept_Organisation(t *testing.T) {
 	sort.Strings(expectedConcept.Aliases)
 	assert.NoError(t, err)
 	assert.Equal(t, "tid_631", tid)
+	assert.Equal(t, expectedConcept, c)
+}
+
+func TestAggregateService_GetConcordedConcept_PublicCompany(t *testing.T) {
+	svc, _, _, _, _ := setupTestService(200, payload)
+	expectedConcept := ConcordedConcept{
+		PrefUUID:    "a141f50f-31d7-4f89-8143-eec971e54ba8",
+		Type:        "PublicCompany",
+		ProperName:  "Strix Group Plc",
+		PrefLabel:   "Test FT Concorded Organisation",
+		ShortName:   "Strix Group",
+		HiddenLabel: "STRIX GROUP PLC",
+		FormerNames: []string{
+			"Castletown Thermostats",
+			"Steam Plc",
+		},
+		Aliases: []string{
+			"Strix Group Plc",
+			"STRIX GROUP PLC",
+			"Strix Group",
+			"Castletown Thermostats",
+			"Steam Plc",
+			"Test FT Concorded Organisation",
+		},
+		CountryCode:            "GB",
+		CountryOfIncorporation: "IM",
+		PostalCode:             "IM9 2RG",
+		YearFounded:            1951,
+		EmailAddress:           "info@strix.com",
+		LeiCode:                "213800KZEW5W6BZMNT62",
+		SourceRepresentations: []s3.Concept{
+			{
+				UUID:        "c28fa0b4-4245-11e8-842f-0ed5f89f718b",
+				Type:        "PublicCompany",
+				Authority:   "FACTSET",
+				AuthValue:   "B000BB-S",
+				ProperName:  "Strix Group Plc",
+				PrefLabel:   "Strix Group Plc",
+				ShortName:   "Strix Group",
+				HiddenLabel: "STRIX GROUP PLC",
+				FormerNames: []string{
+					"Castletown Thermostats",
+					"Steam Plc",
+				},
+				Aliases: []string{
+					"Strix Group Plc",
+					"STRIX GROUP PLC",
+					"Strix Group",
+					"Castletown Thermostats",
+					"Steam Plc",
+				},
+				CountryCode:            "GB",
+				CountryOfIncorporation: "IM",
+				PostalCode:             "IM9 2RG",
+				YearFounded:            1951,
+				EmailAddress:           "info@strix.com",
+				LeiCode:                "213800KZEW5W6BZMNT62",
+				ParentOrganisation:     "123",
+			},
+			{
+				UUID:      "a141f50f-31d7-4f89-8143-eec971e54ba8",
+				PrefLabel: "Test FT Concorded Organisation",
+				Authority: "Smartlogic",
+				AuthValue: "a141f50f-31d7-4f89-8143-eec971e54ba8",
+				Type:      "Organisation",
+			},
+		},
+	}
+	c, tid, err := svc.GetConcordedConcept("a141f50f-31d7-4f89-8143-eec971e54ba8")
+	sort.Strings(c.FormerNames)
+	sort.Strings(c.Aliases)
+	sort.Strings(expectedConcept.FormerNames)
+	sort.Strings(expectedConcept.Aliases)
+	assert.NoError(t, err)
+	assert.Equal(t, "tid_636", tid)
 	assert.Equal(t, expectedConcept, c)
 }
 
@@ -386,14 +463,6 @@ func TestAggregateService_ProcessMessage_Success_PurgeOnPublicCompany(t *testing
 	assert.NoError(t, err)
 }
 
-func TestAggregateService_ProcessMessage_GenericDynamoError(t *testing.T) {
-	svc, _, _, mockDynamoClient, _ := setupTestService(200, payload)
-	mockDynamoClient.err = errors.New("Could not get concordance record from DynamoDB")
-	err := svc.ProcessMessage("28090964-9997-4bc2-9638-7a11135aaff9")
-	assert.Error(t, err)
-	assert.Equal(t, "Could not get concordance record from DynamoDB", err.Error())
-}
-
 func TestAggregateService_ProcessMessage_GenericS3Error(t *testing.T) {
 	svc, mockS3Client, _, _, _ := setupTestService(200, payload)
 	mockS3Client.err = errors.New("Error retrieving concept from S3")
@@ -517,11 +586,13 @@ func setupTestService(httpError int, writerResponse string) (Service, *mockS3Cli
 			"99247059-04ec-3abb-8693-a0b8951fdcab": {
 				transactionID: "tid_123",
 				concept: s3.Concept{
-					UUID:      "99247059-04eFc-3abb-8693-a0b8951fdcab",
-					PrefLabel: "Test Concept",
-					Authority: "Smartlogic",
-					AuthValue: "99247059-04ec-3abb-8693-a0b8951fdcab",
-					Type:      "Person",
+					UUID:       "99247059-04eFc-3abb-8693-a0b8951fdcab",
+					PrefLabel:  "Test Concept",
+					Authority:  "Smartlogic",
+					AuthValue:  "99247059-04ec-3abb-8693-a0b8951fdcab",
+					Type:       "Person",
+					Salutation: "Mr",
+					BirthYear:  2018,
 				},
 			},
 			"28090964-9997-4bc2-9638-7a11135aaff9": {
@@ -555,11 +626,11 @@ func setupTestService(httpError int, writerResponse string) (Service, *mockS3Cli
 			"34a571fb-d779-4610-a7ba-2e127676db4d": {
 				transactionID: "tid_789",
 				concept: s3.Concept{
-					UUID:      "34a571fb-d779-4610-a7ba-2e127676db4d",
-					PrefLabel: "TME Concept",
-					Authority: "TME",
-					AuthValue: "TME-123",
-					Type:      "Person",
+					UUID:         "34a571fb-d779-4610-a7ba-2e127676db4d",
+					PrefLabel:    "TME Concept",
+					Authority:    "TME",
+					AuthValue:    "TME-123",
+					Type:         "Person",
 					IsDeprecated: true,
 				},
 			},
@@ -652,6 +723,16 @@ func setupTestService(httpError int, writerResponse string) (Service, *mockS3Cli
 					Type:      "PublicCompany",
 				},
 			},
+			"a141f50f-31d7-4f89-8143-eec971e54ba8": {
+				transactionID: "tid_636",
+				concept: s3.Concept{
+					UUID:      "a141f50f-31d7-4f89-8143-eec971e54ba8",
+					PrefLabel: "Test FT Concorded Organisation",
+					Authority: "Smartlogic",
+					AuthValue: "a141f50f-31d7-4f89-8143-eec971e54ba8",
+					Type:      "Organisation",
+				},
+			},
 		},
 	}
 	sqs := &mockSQSClient{
@@ -689,6 +770,16 @@ func setupTestService(httpError int, writerResponse string) (Service, *mockS3Cli
 				concordances.ConcordanceRecord{
 					UUID:      "3a3da730-0f4c-4a20-85a6-3ebd5776bd49",
 					Authority: "FT-TME",
+				},
+			},
+			"a141f50f-31d7-4f89-8143-eec971e54ba8": []concordances.ConcordanceRecord{
+				concordances.ConcordanceRecord{
+					UUID:      "a141f50f-31d7-4f89-8143-eec971e54ba8",
+					Authority: "SmartLogic",
+				},
+				concordances.ConcordanceRecord{
+					UUID:      "c28fa0b4-4245-11e8-842f-0ed5f89f718b",
+					Authority: "FACTSET",
 				},
 			},
 		},

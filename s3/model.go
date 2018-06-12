@@ -28,7 +28,9 @@ type Concept struct {
 	// Brand
 	Strapline string `json:"strapline,omitempty"`
 	// Person
-	IsAuthor bool `json:"isAuthor,omitempty"`
+	IsAuthor   bool   `json:"isAuthor,omitempty"`
+	Salutation string `json:"salutation,omitempty"`
+	BirthYear  int    `json:"birthYear,omitempty"`
 	// Financial Instrument
 	FigiCode string `json:"figiCode,omitempty"`
 	IssuedBy string `json:"issuedBy,omitempty"`
@@ -49,5 +51,5 @@ type Concept struct {
 	ProperName             string   `json:"properName,omitempty"`
 	ShortName              string   `json:"shortName,omitempty"`
 	YearFounded            int      `json:"yearFounded,omitempty"`
-	IsDeprecated           bool     `json:"isDeprecated"`
+	IsDeprecated           bool     `json:"isDeprecated,omitempty"`
 }
