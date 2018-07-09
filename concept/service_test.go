@@ -52,7 +52,10 @@ func TestAggregateService_ListenForNotifications_ProcessConceptNotInS3(t *testin
 	expectedMap[receiptHandle] = nonExistingConcept
 	go svc.ListenForNotifications()
 	time.Sleep(500 * time.Microsecond)
-	assert.Len(t, mockSqsClient.queue, 0)
+	assert.Equal(t, expectedMap, mockSqsClient.queue)
+	assert.Equal(t, 1, len(mockSqsClient.Queue()))
+	err := mockSqsClient.RemoveMessageFromQueue(&receiptHandle)
+	assert.NoError(t, err)
 }
 
 func TestAggregateService_ListenForNotifications_CannotProcessRemoveMessageNotPresentOnQueue(t *testing.T) {
