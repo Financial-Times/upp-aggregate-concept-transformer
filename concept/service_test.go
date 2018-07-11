@@ -413,7 +413,12 @@ func TestAggregateService_ProcessMessage_Success(t *testing.T) {
 	mockWriter := svc.(*AggregateService).httpClient.(*mockHTTPClient)
 	assert.Equal(t, []string{
 		"concepts-rw-neo4j/people/28090964-9997-4bc2-9638-7a11135aaff9",
-		"varnish-purger/purge?target=%2Fthings%2F28090964-9997-4bc2-9638-7a11135aaff9&target=%2Fthings%2F34a571fb-d779-4610-a7ba-2e127676db4d&target=%2Fpeople%2F28090964-9997-4bc2-9638-7a11135aaff9&target=%2Fpeople%2F34a571fb-d779-4610-a7ba-2e127676db4d",
+		"varnish-purger/purge?target=%2Fthings%2F28090964-9997-4bc2-9638-7a11135aaff9" +
+			"&target=%2Fconcepts%2F28090964-9997-4bc2-9638-7a11135aaff9" +
+			"&target=%2Fthings%2F34a571fb-d779-4610-a7ba-2e127676db4d" +
+			"&target=%2Fconcepts%2F34a571fb-d779-4610-a7ba-2e127676db4d" +
+			"&target=%2Fpeople%2F28090964-9997-4bc2-9638-7a11135aaff9" +
+			"&target=%2Fpeople%2F34a571fb-d779-4610-a7ba-2e127676db4d",
 		"concept-rw-elasticsearch/people/28090964-9997-4bc2-9638-7a11135aaff9",
 	}, mockWriter.called)
 	assert.NoError(t, err)
@@ -425,7 +430,13 @@ func TestAggregateService_ProcessMessage_NoElasticSuccess(t *testing.T) {
 	mockWriter := svc.(*AggregateService).httpClient.(*mockHTTPClient)
 	assert.Equal(t, []string{
 		"concepts-rw-neo4j/financial-instruments/6562674e-dbfa-4cb0-85b2-41b0948b7cc2",
-		"varnish-purger/purge?target=%2Fthings%2F28090964-9997-4bc2-9638-7a11135aaff9&target=%2Fthings%2F34a571fb-d779-4610-a7ba-2e127676db4d",
+		"varnish-purger/purge?target=%2Fthings%2F28090964-9997-4bc2-9638-7a11135aaff9" +
+			"&target=%2Fconcepts%2F28090964-9997-4bc2-9638-7a11135aaff9" +
+			"&target=%2Fthings%2F34a571fb-d779-4610-a7ba-2e127676db4d" +
+			"&target=%2Fconcepts%2F34a571fb-d779-4610-a7ba-2e127676db4d",
+		"varnish-purger/purge?target=%2Fthings%2F4e484678-cf47-4168-b844-6adb47f8eb58" +
+			"&target=%2Fconcepts%2F4e484678-cf47-4168-b844-6adb47f8eb58" +
+			"&target=%2Forganisations%2F4e484678-cf47-4168-b844-6adb47f8eb58",
 	}, mockWriter.called)
 	assert.NoError(t, err)
 }
@@ -436,7 +447,12 @@ func TestAggregateService_ProcessMessage_Success_PurgeOnBrands(t *testing.T) {
 	mockWriter := svc.(*AggregateService).httpClient.(*mockHTTPClient)
 	assert.Equal(t, []string{
 		"concepts-rw-neo4j/brands/781bb463-dc53-4d3e-9d49-c48dc4cf6d55",
-		"varnish-purger/purge?target=%2Fthings%2F28090964-9997-4bc2-9638-7a11135aaff9&target=%2Fthings%2F34a571fb-d779-4610-a7ba-2e127676db4d&target=%2Fbrands%2F28090964-9997-4bc2-9638-7a11135aaff9&target=%2Fbrands%2F34a571fb-d779-4610-a7ba-2e127676db4d",
+		"varnish-purger/purge?target=%2Fthings%2F28090964-9997-4bc2-9638-7a11135aaff9" +
+			"&target=%2Fconcepts%2F28090964-9997-4bc2-9638-7a11135aaff9" +
+			"&target=%2Fthings%2F34a571fb-d779-4610-a7ba-2e127676db4d" +
+			"&target=%2Fconcepts%2F34a571fb-d779-4610-a7ba-2e127676db4d" +
+			"&target=%2Fbrands%2F28090964-9997-4bc2-9638-7a11135aaff9" +
+			"&target=%2Fbrands%2F34a571fb-d779-4610-a7ba-2e127676db4d",
 		"concept-rw-elasticsearch/brands/781bb463-dc53-4d3e-9d49-c48dc4cf6d55",
 	}, mockWriter.called)
 	assert.NoError(t, err)
@@ -448,7 +464,12 @@ func TestAggregateService_ProcessMessage_Success_PurgeOnOrgs(t *testing.T) {
 	mockWriter := svc.(*AggregateService).httpClient.(*mockHTTPClient)
 	assert.Equal(t, []string{
 		"concepts-rw-neo4j/organisations/94659314-7eb0-423a-8030-c4abf3d6458e",
-		"varnish-purger/purge?target=%2Fthings%2F28090964-9997-4bc2-9638-7a11135aaff9&target=%2Fthings%2F34a571fb-d779-4610-a7ba-2e127676db4d&target=%2Forganisations%2F28090964-9997-4bc2-9638-7a11135aaff9&target=%2Forganisations%2F34a571fb-d779-4610-a7ba-2e127676db4d",
+		"varnish-purger/purge?target=%2Fthings%2F28090964-9997-4bc2-9638-7a11135aaff9" +
+			"&target=%2Fconcepts%2F28090964-9997-4bc2-9638-7a11135aaff9" +
+			"&target=%2Fthings%2F34a571fb-d779-4610-a7ba-2e127676db4d" +
+			"&target=%2Fconcepts%2F34a571fb-d779-4610-a7ba-2e127676db4d" +
+			"&target=%2Forganisations%2F28090964-9997-4bc2-9638-7a11135aaff9" +
+			"&target=%2Forganisations%2F34a571fb-d779-4610-a7ba-2e127676db4d",
 		"concept-rw-elasticsearch/organisations/94659314-7eb0-423a-8030-c4abf3d6458e",
 	}, mockWriter.called)
 	assert.NoError(t, err)
@@ -460,8 +481,34 @@ func TestAggregateService_ProcessMessage_Success_PurgeOnPublicCompany(t *testing
 	mockWriter := svc.(*AggregateService).httpClient.(*mockHTTPClient)
 	assert.Equal(t, []string{
 		"concepts-rw-neo4j/organisations/e8251dab-c6d4-42d0-a4f6-430a0c565a83",
-		"varnish-purger/purge?target=%2Fthings%2F28090964-9997-4bc2-9638-7a11135aaff9&target=%2Fthings%2F34a571fb-d779-4610-a7ba-2e127676db4d&target=%2Forganisations%2F28090964-9997-4bc2-9638-7a11135aaff9&target=%2Forganisations%2F34a571fb-d779-4610-a7ba-2e127676db4d",
+		"varnish-purger/purge?target=%2Fthings%2F28090964-9997-4bc2-9638-7a11135aaff9" +
+			"&target=%2Fconcepts%2F28090964-9997-4bc2-9638-7a11135aaff9" +
+			"&target=%2Fthings%2F34a571fb-d779-4610-a7ba-2e127676db4d" +
+			"&target=%2Fconcepts%2F34a571fb-d779-4610-a7ba-2e127676db4d" +
+			"&target=%2Forganisations%2F28090964-9997-4bc2-9638-7a11135aaff9" +
+			"&target=%2Forganisations%2F34a571fb-d779-4610-a7ba-2e127676db4d",
 		"concept-rw-elasticsearch/organisations/e8251dab-c6d4-42d0-a4f6-430a0c565a83",
+	}, mockWriter.called)
+	assert.NoError(t, err)
+}
+
+
+
+func TestAggregateService_ProcessMessage_Success_PurgeOnMembership(t *testing.T) {
+	svc, _, _, _, _ := setupTestService(200, `{
+		"UpdatedIds": [
+		"ce922022-8114-11e8-8f42-da24cd01f044"
+		]
+	}`)
+	err := svc.ProcessMessage("ce922022-8114-11e8-8f42-da24cd01f044")
+	mockWriter := svc.(*AggregateService).httpClient.(*mockHTTPClient)
+	assert.Equal(t, []string{
+		"concepts-rw-neo4j/memberships/ce922022-8114-11e8-8f42-da24cd01f044",
+		"varnish-purger/purge?target=%2Fthings%2Fce922022-8114-11e8-8f42-da24cd01f044" +
+			"&target=%2Fconcepts%2Fce922022-8114-11e8-8f42-da24cd01f044",
+		"varnish-purger/purge?target=%2Fthings%2F3b961db6-02c1-4fde-b96d-aefd339a02a6" +
+			"&target=%2Fconcepts%2F3b961db6-02c1-4fde-b96d-aefd339a02a6" +
+			"&target=%2Fpeople%2F3b961db6-02c1-4fde-b96d-aefd339a02a6",
 	}, mockWriter.called)
 	assert.NoError(t, err)
 }
@@ -759,6 +806,28 @@ func setupTestService(httpError int, writerResponse string) (Service, *mockS3Cli
 					Authority: "Smartlogic",
 					AuthValue: "a141f50f-31d7-4f89-8143-eec971e54ba8",
 					Type:      "Organisation",
+				},
+			},
+			"ce922022-8114-11e8-8f42-da24cd01f044": {
+				transactionID: "tid_637",
+				concept: s3.Concept{
+					UUID:             "ce922022-8114-11e8-8f42-da24cd01f044",
+					PrefLabel:        "Test Membership",
+					Authority:        "FACTSET",
+					AuthValue:        "100001-E",
+					Type:             "Membership",
+					PersonUUID:       "3b961db6-02c1-4fde-b96d-aefd339a02a6",
+					OrganisationUUID: "064ce159-8835-3426-b456-c86d48de8511",
+					InceptionDate:    "2000-01-01",
+					TerminationDate:  "2009-12-31",
+					MembershipRoles: []s3.MembershipRole{
+						{
+
+							RoleUUID:        "344fdb1d-0585-31f7-814f-b478e54dbe1f",
+							InceptionDate:   "2000-01-01",
+							TerminationDate: "2009-12-31",
+						},
+					},
 				},
 			},
 		},

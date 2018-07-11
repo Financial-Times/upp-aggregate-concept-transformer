@@ -22,7 +22,8 @@ import (
 const (
 	smartlogicAuthority      = "SmartLogic"
 	managedLocationAuthority = "ManagedLocation"
-	thingsAPIEndpoint        = "/things"
+	thingsAPIEndpoint   = "/things"
+	conceptsAPIEnpoint  = "/concepts"
 )
 
 var conceptTypesNotAllowedInElastic = [...]string{
@@ -119,9 +120,25 @@ func (s *AggregateService) ProcessMessage(UUID string) error {
 	logger.WithTransactionID(transactionID).WithUUID(concordedConcept.PrefUUID).Debug("Concept successfully updated in neo4j")
 
 	// Purge concept URLs in varnish
+	// Always purge top level concept
 	err = sendToPurger(s.httpClient, s.varnishPurgerAddress, updatedConcepts.UpdatedIds, concordedConcept.Type, s.typesToPurgeFromPublicEndpoints, transactionID)
 	if err != nil {
 		logger.WithTransactionID(transactionID).WithUUID(concordedConcept.PrefUUID).Errorf("Concept couldn't be purged from Varnish cache")
+	}
+
+	//opitionally purge other affected concepts
+	if concordedConcept.Type == "FinancialInstrument" {
+		err = sendToPurger(s.httpClient, s.varnishPurgerAddress, []string{concordedConcept.SourceRepresentations[0].IssuedBy}, "Organisation", s.typesToPurgeFromPublicEndpoints, transactionID)
+	}
+	if err != nil {
+		logger.WithTransactionID(transactionID).WithUUID(concordedConcept.SourceRepresentations[0].IssuedBy).Errorf("Concept couldn't be purged from Varnish cache")
+	}
+
+	if concordedConcept.Type == "Membership" {
+		err = sendToPurger(s.httpClient, s.varnishPurgerAddress, []string{concordedConcept.PersonUUID}, "Person", s.typesToPurgeFromPublicEndpoints, transactionID)
+	}
+	if err != nil {
+		logger.WithTransactionID(transactionID).WithUUID(concordedConcept.PersonUUID).Errorf("Concept couldn't be purged from Varnish cache")
 	}
 
 	// Write to Elasticsearch
@@ -381,6 +398,7 @@ func sendToPurger(client httpClient, baseUrl string, conceptUUIDs []string, conc
 	queryParams := req.URL.Query()
 	for _, cUUID := range conceptUUIDs {
 		queryParams.Add("target", thingsAPIEndpoint+"/"+cUUID)
+		queryParams.Add("target", conceptsAPIEnpoint+"/"+cUUID)
 	}
 
 	if contains(conceptType, conceptTypesWithPublicEndpoints) {
