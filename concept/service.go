@@ -22,8 +22,8 @@ import (
 const (
 	smartlogicAuthority      = "SmartLogic"
 	managedLocationAuthority = "ManagedLocation"
-	thingsAPIEndpoint   = "/things"
-	conceptsAPIEnpoint  = "/concepts"
+	thingsAPIEndpoint        = "/things"
+	conceptsAPIEnpoint       = "/concepts"
 )
 
 var conceptTypesNotAllowedInElastic = [...]string{
@@ -178,18 +178,36 @@ func bucketConcordances(concordanceRecords []concordances.ConcordanceRecord) (ma
 		bucketedConcordances[v.Authority] = append(bucketedConcordances[v.Authority], v)
 	}
 
-	if bucketedConcordances[smartlogicAuthority] != nil && len(bucketedConcordances[smartlogicAuthority]) == 1 {
-		return bucketedConcordances, smartlogicAuthority, nil
+	var primaryAuthority string
+	var err error
+	if bucketedConcordances[smartlogicAuthority] != nil {
+		if len(bucketedConcordances[smartlogicAuthority]) == 1 {
+			primaryAuthority = smartlogicAuthority
+		} else {
+			err = fmt.Errorf("more than 1 primary authority")
+		}
 	}
-	if bucketedConcordances[managedLocationAuthority] != nil && len(bucketedConcordances[managedLocationAuthority]) == 1 {
-		return bucketedConcordances, managedLocationAuthority, nil
+	if bucketedConcordances[managedLocationAuthority] != nil {
+		if len(bucketedConcordances[managedLocationAuthority]) == 1 {
+			if primaryAuthority != "" {
+				err = fmt.Errorf("more than 1 Smartlogic primary authority")
+			}
+			primaryAuthority = managedLocationAuthority
+		} else {
+			err = fmt.Errorf("more than 1 ManagedLocation primary authority")
+		}
 	}
-	err := fmt.Errorf("no or more than 1 primary authority")
-	logger.WithError(err).
-		WithField("alert_tag", "AggregateConceptTransformerMultiplePrimaryAuthorities").
-		WithField("primary_authorities", fmt.Sprintf("%v, %v", bucketedConcordances[smartlogicAuthority], bucketedConcordances[managedLocationAuthority])).
-		Error("Error grouping concordance records")
-	return nil, "", err
+	if primaryAuthority == "" && err == nil {
+		err = fmt.Errorf("no primary authority")
+	}
+	if err != nil {
+		logger.WithError(err).
+			WithField("alert_tag", "AggregateConceptTransformerMultiplePrimaryAuthorities").
+			WithField("primary_authorities", fmt.Sprintf("%v, %v", bucketedConcordances[smartlogicAuthority], bucketedConcordances[managedLocationAuthority])).
+			Error("Error grouping concordance records")
+		return nil, "", err
+	}
+	return bucketedConcordances, primaryAuthority, nil
 }
 
 func (s *AggregateService) GetConcordedConcept(UUID string) (ConcordedConcept, string, error) {
