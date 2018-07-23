@@ -184,6 +184,7 @@ func TestAggregateService_GetConcordedConcept_Organisation(t *testing.T) {
 		ProperName: "Strix Group Plc",
 		PrefLabel:  "Strix Group Plc",
 		ShortName:  "Strix Group",
+		TradeNames: []string{"Strixy"},
 		FormerNames: []string{
 			"Castletown Thermostats",
 			"Steam Plc",
@@ -210,6 +211,7 @@ func TestAggregateService_GetConcordedConcept_Organisation(t *testing.T) {
 				ProperName: "Strix Group Plc",
 				PrefLabel:  "Strix Group Plc",
 				ShortName:  "Strix Group",
+				TradeNames: []string{"Strixy"},
 				FormerNames: []string{
 					"Castletown Thermostats",
 					"Steam Plc",
@@ -249,6 +251,7 @@ func TestAggregateService_GetConcordedConcept_PublicCompany(t *testing.T) {
 		ProperName: "Strix Group Plc",
 		PrefLabel:  "Test FT Concorded Organisation",
 		ShortName:  "Strix Group",
+		TradeNames: []string{"Strixy"},
 		FormerNames: []string{
 			"Castletown Thermostats",
 			"Steam Plc",
@@ -276,6 +279,7 @@ func TestAggregateService_GetConcordedConcept_PublicCompany(t *testing.T) {
 				ProperName: "Strix Group Plc",
 				PrefLabel:  "Strix Group Plc",
 				ShortName:  "Strix Group",
+				TradeNames: []string{"Strixy"},
 				FormerNames: []string{
 					"Castletown Thermostats",
 					"Steam Plc",
@@ -603,6 +607,7 @@ func setupTestService(httpError int, writerResponse string) (Service, *mockS3Cli
 					ProperName: "Strix Group Plc",
 					PrefLabel:  "Strix Group Plc",
 					ShortName:  "Strix Group",
+					TradeNames: []string{"Strixy"},
 					FormerNames: []string{
 						"Castletown Thermostats",
 						"Steam Plc",
