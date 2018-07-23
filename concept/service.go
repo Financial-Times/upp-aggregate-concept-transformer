@@ -180,15 +180,17 @@ func bucketConcordances(concordanceRecords []concordances.ConcordanceRecord) (ma
 
 	var primaryAuthority string
 	var err error
-	if bucketedConcordances[smartlogicAuthority] != nil {
-		if len(bucketedConcordances[smartlogicAuthority]) == 1 {
+	slRecords, slFound := bucketedConcordances[smartlogicAuthority]
+	if slFound {
+		if len(slRecords) == 1 {
 			primaryAuthority = smartlogicAuthority
 		} else {
 			err = fmt.Errorf("more than 1 primary authority")
 		}
 	}
-	if bucketedConcordances[managedLocationAuthority] != nil {
-		if len(bucketedConcordances[managedLocationAuthority]) == 1 {
+	mlRecords, mlFound := bucketedConcordances[managedLocationAuthority]
+	if mlFound {
+		if len(mlRecords) == 1 {
 			if primaryAuthority != "" {
 				err = fmt.Errorf("more than 1 Smartlogic primary authority")
 			}
@@ -203,7 +205,7 @@ func bucketConcordances(concordanceRecords []concordances.ConcordanceRecord) (ma
 	if err != nil {
 		logger.WithError(err).
 			WithField("alert_tag", "AggregateConceptTransformerMultiplePrimaryAuthorities").
-			WithField("primary_authorities", fmt.Sprintf("%v, %v", bucketedConcordances[smartlogicAuthority], bucketedConcordances[managedLocationAuthority])).
+			WithField("primary_authorities", fmt.Sprintf("Smartlogic=%v, ManagedLocation=%v", slRecords, mlRecords)).
 			Error("Error grouping concordance records")
 		return nil, "", err
 	}
