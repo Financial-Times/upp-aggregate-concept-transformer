@@ -44,7 +44,6 @@ type Concept struct {
 	CountryCode            string   `json:"countryCode,omitempty"`
 	CountryOfIncorporation string   `json:"countryOfIncorporation,omitempty"`
 	FormerNames            []string `json:"formerNames,omitempty"`
-	HiddenLabel            string   `json:"hiddenLabel,omitempty"`
 	LeiCode                string   `json:"leiCode,omitempty"`
 	ParentOrganisation     string   `json:"parentOrganisation,omitempty"`
 	PostalCode             string   `json:"postalCode,omitempty"`

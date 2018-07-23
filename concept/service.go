@@ -322,8 +322,6 @@ func mergeCanonicalInformation(c ConcordedConcept, s s3.Concept) ConcordedConcep
 	if s.ShortName != "" {
 		c.ShortName = s.ShortName
 	}
-	if s.HiddenLabel != "" {
-		c.HiddenLabel = s.HiddenLabel
 	}
 	if len(s.FormerNames) > 0 {
 		c.FormerNames = s.FormerNames

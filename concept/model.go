@@ -46,7 +46,6 @@ type ConcordedConcept struct {
 	CountryCode            string   `json:"countryCode,omitempty"`
 	CountryOfIncorporation string   `json:"countryOfIncorporation,omitempty"`
 	FormerNames            []string `json:"formerNames,omitempty"`
-	HiddenLabel            string   `json:"hiddenLabel,omitempty"`
 	LeiCode                string   `json:"leiCode,omitempty"`
 	PostalCode             string   `json:"postalCode,omitempty"`
 	ProperName             string   `json:"properName,omitempty"`
