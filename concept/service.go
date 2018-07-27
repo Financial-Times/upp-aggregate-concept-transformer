@@ -191,10 +191,9 @@ func bucketConcordances(concordanceRecords []concordances.ConcordanceRecord) (ma
 	mlRecords, mlFound := bucketedConcordances[managedLocationAuthority]
 	if mlFound {
 		if len(mlRecords) == 1 {
-			if primaryAuthority != "" {
-				err = fmt.Errorf("more than 1 Smartlogic primary authority")
+			if primaryAuthority == "" {
+				primaryAuthority = managedLocationAuthority
 			}
-			primaryAuthority = managedLocationAuthority
 		} else {
 			err = fmt.Errorf("more than 1 ManagedLocation primary authority")
 		}

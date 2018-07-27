@@ -487,8 +487,6 @@ func TestAggregateService_ProcessMessage_Success_PurgeOnPublicCompany(t *testing
 	assert.NoError(t, err)
 }
 
-
-
 func TestAggregateService_ProcessMessage_Success_PurgeOnMembership(t *testing.T) {
 	svc, _, _, _, _ := setupTestService(200, `{
 		"UpdatedIds": [

@@ -2,9 +2,9 @@ package concept
 
 import (
 	"bytes"
+	"io"
 	"io/ioutil"
 	"net/http"
-	"io"
 
 	"github.com/Financial-Times/go-logger"
 )
