@@ -177,12 +177,12 @@ func TestAggregateService_GetConcordedConcept_FinancialInstrument(t *testing.T) 
 func TestAggregateService_GetConcordedConcept_Organisation(t *testing.T) {
 	svc, _, _, _, _ := setupTestService(200, payload)
 	expectedConcept := ConcordedConcept{
-		PrefUUID:    "c28fa0b4-4245-11e8-842f-0ed5f89f718b",
-		Type:        "PublicCompany",
-		ProperName:  "Strix Group Plc",
-		PrefLabel:   "Strix Group Plc",
-		ShortName:   "Strix Group",
-		HiddenLabel: "STRIX GROUP PLC",
+		PrefUUID:   "c28fa0b4-4245-11e8-842f-0ed5f89f718b",
+		Type:       "PublicCompany",
+		ProperName: "Strix Group Plc",
+		PrefLabel:  "Strix Group Plc",
+		ShortName:  "Strix Group",
+		TradeNames: []string{"Strixy"},
 		FormerNames: []string{
 			"Castletown Thermostats",
 			"Steam Plc",
@@ -202,14 +202,14 @@ func TestAggregateService_GetConcordedConcept_Organisation(t *testing.T) {
 		LeiCode:                "213800KZEW5W6BZMNT62",
 		SourceRepresentations: []s3.Concept{
 			{
-				UUID:        "c28fa0b4-4245-11e8-842f-0ed5f89f718b",
-				Type:        "PublicCompany",
-				Authority:   "FACTSET",
-				AuthValue:   "B000BB-S",
-				ProperName:  "Strix Group Plc",
-				PrefLabel:   "Strix Group Plc",
-				ShortName:   "Strix Group",
-				HiddenLabel: "STRIX GROUP PLC",
+				UUID:       "c28fa0b4-4245-11e8-842f-0ed5f89f718b",
+				Type:       "PublicCompany",
+				Authority:  "FACTSET",
+				AuthValue:  "B000BB-S",
+				ProperName: "Strix Group Plc",
+				PrefLabel:  "Strix Group Plc",
+				ShortName:  "Strix Group",
+				TradeNames: []string{"Strixy"},
 				FormerNames: []string{
 					"Castletown Thermostats",
 					"Steam Plc",
@@ -244,12 +244,12 @@ func TestAggregateService_GetConcordedConcept_Organisation(t *testing.T) {
 func TestAggregateService_GetConcordedConcept_PublicCompany(t *testing.T) {
 	svc, _, _, _, _ := setupTestService(200, payload)
 	expectedConcept := ConcordedConcept{
-		PrefUUID:    "a141f50f-31d7-4f89-8143-eec971e54ba8",
-		Type:        "PublicCompany",
-		ProperName:  "Strix Group Plc",
-		PrefLabel:   "Test FT Concorded Organisation",
-		ShortName:   "Strix Group",
-		HiddenLabel: "STRIX GROUP PLC",
+		PrefUUID:   "a141f50f-31d7-4f89-8143-eec971e54ba8",
+		Type:       "PublicCompany",
+		ProperName: "Strix Group Plc",
+		PrefLabel:  "Test FT Concorded Organisation",
+		ShortName:  "Strix Group",
+		TradeNames: []string{"Strixy"},
 		FormerNames: []string{
 			"Castletown Thermostats",
 			"Steam Plc",
@@ -270,14 +270,14 @@ func TestAggregateService_GetConcordedConcept_PublicCompany(t *testing.T) {
 		LeiCode:                "213800KZEW5W6BZMNT62",
 		SourceRepresentations: []s3.Concept{
 			{
-				UUID:        "c28fa0b4-4245-11e8-842f-0ed5f89f718b",
-				Type:        "PublicCompany",
-				Authority:   "FACTSET",
-				AuthValue:   "B000BB-S",
-				ProperName:  "Strix Group Plc",
-				PrefLabel:   "Strix Group Plc",
-				ShortName:   "Strix Group",
-				HiddenLabel: "STRIX GROUP PLC",
+				UUID:       "c28fa0b4-4245-11e8-842f-0ed5f89f718b",
+				Type:       "PublicCompany",
+				Authority:  "FACTSET",
+				AuthValue:  "B000BB-S",
+				ProperName: "Strix Group Plc",
+				PrefLabel:  "Strix Group Plc",
+				ShortName:  "Strix Group",
+				TradeNames: []string{"Strixy"},
 				FormerNames: []string{
 					"Castletown Thermostats",
 					"Steam Plc",
@@ -623,14 +623,14 @@ func setupTestService(httpError int, writerResponse string) (Service, *mockS3Cli
 			"c28fa0b4-4245-11e8-842f-0ed5f89f718b": {
 				transactionID: "tid_631",
 				concept: s3.Concept{
-					UUID:        "c28fa0b4-4245-11e8-842f-0ed5f89f718b",
-					Type:        "PublicCompany",
-					Authority:   "FACTSET",
-					AuthValue:   "B000BB-S",
-					ProperName:  "Strix Group Plc",
-					PrefLabel:   "Strix Group Plc",
-					ShortName:   "Strix Group",
-					HiddenLabel: "STRIX GROUP PLC",
+					UUID:       "c28fa0b4-4245-11e8-842f-0ed5f89f718b",
+					Type:       "PublicCompany",
+					Authority:  "FACTSET",
+					AuthValue:  "B000BB-S",
+					ProperName: "Strix Group Plc",
+					PrefLabel:  "Strix Group Plc",
+					ShortName:  "Strix Group",
+					TradeNames: []string{"Strixy"},
 					FormerNames: []string{
 						"Castletown Thermostats",
 						"Steam Plc",
