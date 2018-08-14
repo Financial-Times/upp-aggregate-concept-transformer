@@ -67,11 +67,16 @@ spec:
             secretKeyRef:
               name: global-secrets
               key: concepts.s3_bucket
-        - name: QUEUE_URL
+        - name: CONCEPTS_QUEUE_URL
           valueFrom:
             secretKeyRef:
               name: global-secrets
-              key: concepts.sqs_url
+              key: concepts.updates_sqs_url
+        - name: EVENTS_QUEUE_URL
+          valueFrom:
+            secretKeyRef:
+              name: global-secrets
+              key: concepts.events_sqs_url
         - name: KINESIS_STREAM_NAME
           valueFrom:
             secretKeyRef:
