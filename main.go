@@ -58,10 +58,10 @@ func main() {
 		Desc:   "Bucket to read concepts from.",
 		EnvVar: "BUCKET_NAME",
 	})
-	queueURL := app.String(cli.StringOpt{
-		Name:   "queueUrl",
-		Desc:   "Url of AWS sqs queue to listen to",
-		EnvVar: "QUEUE_URL",
+	conceptUpdatesQueueURL := app.String(cli.StringOpt{
+		Name:   "conceptUpdatesQueueURL",
+		Desc:   "Url of AWS sqs queue to listen for concept updates",
+		EnvVar: "CONCEPTS_QUEUE_URL",
 	})
 	messagesToProcess := app.Int(cli.IntOpt{
 		Name:   "messagesToProcess",
@@ -128,6 +128,11 @@ func main() {
 		Desc:   "AWS region the kinesis stream is located",
 		EnvVar: "KINESIS_REGION",
 	})
+	eventsQueueURL := app.String(cli.StringOpt{
+		Name:   "eventsQueueURL",
+		Desc:   "Url of AWS sqs queue to send concept notifications to",
+		EnvVar: "EVENTS_QUEUE_URL",
+	})
 	requestLoggingOn := app.Bool(cli.BoolOpt{
 		Name:   "requestLoggingOn",
 		Value:  true,
@@ -153,7 +158,8 @@ func main() {
 			"BUCKET_REGION":           *bucketRegion,
 			"BUCKET_NAME":             *bucketName,
 			"SQS_REGION":              *sqsRegion,
-			"QUEUE_URL":               *queueURL,
+			"CONCEPTS_QUEUE_URL":      *conceptUpdatesQueueURL,
+			"EVENTS_QUEUE_URL":        *eventsQueueURL,
 			"LOG_LEVEL":               *logLevel,
 			"KINESIS_STREAM_NAME":     *kinesisStreamName,
 		}).Info("Starting app with arguments")
@@ -162,8 +168,8 @@ func main() {
 			logger.Fatal("S3 bucket name not set")
 		}
 
-		if *queueURL == "" {
-			logger.Fatal("SQS queue url not set")
+		if *conceptUpdatesQueueURL == "" {
+			logger.Fatal("Concept update SQS queue url not set")
 		}
 
 		if *bucketRegion == "" {
@@ -187,9 +193,14 @@ func main() {
 			logger.WithError(err).Fatal("Error creating S3 client")
 		}
 
-		sqsClient, err := sqs.NewClient(*sqsRegion, *queueURL, *messagesToProcess, *visibilityTimeout, *waitTime)
+		conceptUpdatesSqsClient, err := sqs.NewClient(*sqsRegion, *conceptUpdatesQueueURL, *messagesToProcess, *visibilityTimeout, *waitTime)
 		if err != nil {
-			logger.WithError(err).Fatal("Error creating SQS client")
+			logger.WithError(err).Fatal("Error creating concept updates SQS client")
+		}
+
+		eventsQueueURL, err := sqs.NewClient(*sqsRegion, *eventsQueueURL, *messagesToProcess, *visibilityTimeout, *waitTime)
+		if err != nil {
+			logger.WithError(err).Fatal("Error creating concept events SQS client")
 		}
 
 		concordancesClient, err := concordances.NewClient(*concordancesReaderAddress)
@@ -202,7 +213,7 @@ func main() {
 			logger.WithError(err).Fatal("Error creating Kinesis client")
 		}
 
-		svc := concept.NewService(s3Client, sqsClient, concordancesClient, kinesisClient, *neoWriterAddress, *elasticsearchWriterAddress, *varnishPurgerAddress, *typesToPurgeFromPublicEndpoints, defaultHTTPClient())
+		svc := concept.NewService(s3Client, conceptUpdatesSqsClient, eventsQueueURL, concordancesClient, kinesisClient, *neoWriterAddress, *elasticsearchWriterAddress, *varnishPurgerAddress, *typesToPurgeFromPublicEndpoints, defaultHTTPClient())
 		handler := concept.NewHandler(svc)
 		hs := concept.NewHealthService(svc, *appSystemCode, *appName, *port, appDescription)
 
