@@ -6,6 +6,9 @@ import (
 	"testing"
 	"time"
 
+	"encoding/json"
+	"io/ioutil"
+
 	"github.com/Financial-Times/aggregate-concept-transformer/concordances"
 	"github.com/Financial-Times/aggregate-concept-transformer/s3"
 	"github.com/stretchr/testify/assert"
@@ -40,19 +43,14 @@ func TestAggregateService_ListenForNotifications(t *testing.T) {
 	assert.Equal(t, 0, len(mockSqsClient.Queue()))
 }
 
-func TestAggregateService_ListenForNotifications_CannotProcessConceptNotInS3(t *testing.T) {
+func TestAggregateService_ListenForNotifications_ProcessConceptNotInS3(t *testing.T) {
 	svc, _, mockSqsClient, _, _ := setupTestService(200, payload)
 	var receiptHandle string = "1"
 	var nonExistingConcept string = "99247059-04ec-3abb-8693-a0b8951fdcab"
 	mockSqsClient.queue[receiptHandle] = nonExistingConcept
-	var expectedMap = make(map[string]string)
-	expectedMap[receiptHandle] = nonExistingConcept
 	go svc.ListenForNotifications()
-	time.Sleep(50 * time.Microsecond)
-	assert.Equal(t, expectedMap, mockSqsClient.queue)
-	assert.Equal(t, 1, len(mockSqsClient.Queue()))
-	err := mockSqsClient.RemoveMessageFromQueue(&receiptHandle)
-	assert.NoError(t, err)
+	time.Sleep(2000 * time.Microsecond)
+	assert.Len(t, mockSqsClient.Queue(), 0)
 }
 
 func TestAggregateService_ListenForNotifications_CannotProcessRemoveMessageNotPresentOnQueue(t *testing.T) {
@@ -533,11 +531,36 @@ func TestAggregateService_ProcessMessage_GenericKinesisError(t *testing.T) {
 	assert.Equal(t, "Failed to add record to stream", err.Error())
 }
 
-func TestAggregateService_ProcessMessage_S3SourceNotFound(t *testing.T) {
+func TestAggregateService_ProcessMessage_S3SourceNotFoundStillWrittenAsThing(t *testing.T) {
 	svc, _, _, _, _ := setupTestService(200, payload)
-	err := svc.ProcessMessage("c9d3a92a-da84-11e7-a121-0401beb96201")
-	assert.Error(t, err)
-	assert.Equal(t, "Source concept 3a3da730-0f4c-4a20-85a6-3ebd5776bd49 not found in S3", err.Error())
+	testUUID := "c9d3a92a-da84-11e7-a121-0401beb96201"
+	err := svc.ProcessMessage(testUUID)
+	assert.NoError(t, err)
+	mockWriter := svc.(*AggregateService).httpClient.(*mockHTTPClient)
+	actualBody, err := ioutil.ReadAll(mockWriter.capturedBody)
+	assert.NoError(t, err)
+	expectedConcordedConcept := ConcordedConcept{
+		PrefUUID:  testUUID,
+		PrefLabel: "TME Concept",
+		Type:      "Person",
+		Aliases:   []string{"TME Concept"},
+		SourceRepresentations: []s3.Concept{
+			{
+				UUID:      "3a3da730-0f4c-4a20-85a6-3ebd5776bd49",
+				Type:      "Thing",
+				Authority: "DBPedia",
+			},
+			{
+				UUID:      testUUID,
+				Type:      "Person",
+				PrefLabel: "TME Concept",
+				Authority: "TME",
+				AuthValue: "TME-a2f",
+			},
+		},
+	}
+	expectedBody, _ := json.Marshal(expectedConcordedConcept)
+	assert.Equal(t, expectedBody, actualBody)
 }
 
 func TestAggregateService_ProcessMessage_S3CanonicalNotFound(t *testing.T) {
@@ -826,7 +849,7 @@ func setupTestService(httpError int, writerResponse string) (Service, *mockS3Cli
 				},
 				concordances.ConcordanceRecord{
 					UUID:      "3a3da730-0f4c-4a20-85a6-3ebd5776bd49",
-					Authority: "FT-TME",
+					Authority: "DBPedia",
 				},
 			},
 			"4a4aaca0-b059-426c-bf4f-f00c6ef940ae": []concordances.ConcordanceRecord{

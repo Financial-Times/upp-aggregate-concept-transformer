@@ -77,7 +77,7 @@ This service aggregates a number of source concepts into a single canonical view
 
 ## Endpoints
 
-See [swagger.yml](api/swagger.yml)
+See [swagger.yml](api/swagger.yml).
 
 ## Admin Endpoints
 
