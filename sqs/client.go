@@ -69,7 +69,7 @@ func (c *NotificationClient) ListenAndServeQueue() []ConceptUpdate {
 }
 
 func (c *NotificationClient) SendEvents(messages []Event) error {
-	if c.queueUrl == "" {
+	if !strings.Contains(c.queueUrl,"upp-concept-events-dev"){
 		return nil
 	}
 	var entries []*sqs.SendMessageBatchRequestEntry
