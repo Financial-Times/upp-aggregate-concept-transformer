@@ -171,13 +171,13 @@ func (s *AggregateService) ProcessMessage(UUID string) error {
 	}
 
 	//Send notification to stream
-	buf := &bytes.Buffer{}
-	if err = gob.NewEncoder(buf).Encode(updateRecord.UpdatedIds); err != nil {
-		logger.WithTransactionID(transactionID).WithUUID(concordedConcept.PersonUUID).Errorf("unable to encode updated ids", updateRecord.UpdatedIds)
+	rawIDList, err := json.Marshal(conceptChanges.UpdatedIds)
+	if err != nil {
+		logger.WithError(err).WithTransactionID(transactionID).WithUUID(concordedConcept.PrefUUID).Errorf("failed to marshall concept changes record: %v", conceptChanges.UpdatedIds)
 		return err
 	}
 	logger.WithTransactionID(transactionID).WithUUID(concordedConcept.PrefUUID).Debugf("sending notification of updated concepts to kinesis conceptsQueue: %v", conceptChanges)
-	if err = s.kinesis.AddRecordToStream(buf.Bytes(), concordedConcept.Type); err != nil {
+	if err = s.kinesis.AddRecordToStream(rawIDList, concordedConcept.Type); err != nil {
 		logger.WithError(err).WithTransactionID(transactionID).WithUUID(concordedConcept.PrefUUID).Errorf("Failed to update stream with notification record %v", conceptChanges)
 		return err
 	}
