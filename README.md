@@ -4,7 +4,7 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/Financial-Times/aggregate-concept-transformer)](https://goreportcard.com/report/github.com/Financial-Times/aggregate-concept-transformer)
 [![Coverage Status](https://coveralls.io/repos/github/Financial-Times/aggregate-concept-transformer/badge.svg)](https://coveralls.io/github/Financial-Times/aggregate-concept-transformer)
 
-__A service which gets notified via SQS of updates to source concepts in an Amazon S3 bucket. It then returns all UUIDs with concordance to said concept, requests each in turn from S3, builds the concorded JSON model and sends the updated concept JSON to both Neo4j and Elasticsearch. After the concept has successfully been written in Neo4j, the varnish-purger is called to invalidate the cache for the given concept. Finally it sends a notification of all updated concepts to a kinesis stream and removes the SNS message from the queue__
+__A service which gets notified via SQS of updates to source concepts in an Amazon S3 bucket. It then returns all UUIDs with concordance to said concept, requests each in turn from S3, builds the concorded JSON model and sends the updated concept JSON to both Neo4j and Elasticsearch. After the concept has successfully been written in Neo4j, the varnish-purger is called to invalidate the cache for the given concept. Finally it sends a notification of all updated concepts IDs to a kinesis stream, a list of updates events to the event queue and finally removes the SQS message from the queue__
 
 # Installation
 
@@ -32,7 +32,7 @@ Options:
   --bucketRegion="eu-west-1"                              AWS Region in which the S3 bucket is located ($BUCKET_REGION)
   --sqsRegion=""                                          AWS Region in which the SQS queue is located ($SQS_REGION)
   --bucketName=""                                         Bucket to read concepts from. ($BUCKET_NAME)
-  --queueUrl=""                                           Url of AWS sqs queue to listen to ($QUEUE_URL)
+  --conceptUpdatesQueueURL=""                             Url of AWS sqs queue to listen to with concept updates ($CONCEPTS_QUEUE_URL)
   --messagesToProcess=10                                  Maximum number or messages to concurrently read off of queue and process ($MAX_MESSAGES)
   --visibilityTimeout=30                                  Duration(seconds) that messages will be ignored by subsequent requests after initial response ($VISIBILITY_TIMEOUT)
   --waitTime=20                                           Duration(seconds) to wait on queue for messages until returning. Will be shorter if messages arrive ($WAIT_TIME)
@@ -43,6 +43,7 @@ Options:
   --crossAccountRoleARN                                   ARN for cross account role ($CROSS_ACCOUNT_ARN)
   --kinesisStreamName=""                                  AWS Kinesis stream name ($KINESIS_STREAM_NAME)
   --kinesisRegion="eu-west-1"                             AWS region the kinesis stream is located ($KINESIS_REGION)
+  --eventsQueueURL=""                                     Queue to send concept events to ($EVENTS_QUEUE_URL)
   --requestLoggingOn=true                                 Whether to log http requests or not ($REQUEST_LOGGING_ON)
   --logLevel="info"                                       App log level ($LOG_LEVEL)
 ```
@@ -71,7 +72,7 @@ AWS_SECRET_ACCESS_KEY=MY-SECRET-KEY
 
 ## Aggregation
 This service aggregates a number of source concepts into a single canonical view.  At present, the logic is as follows:
-- All concorded/secondary concepts are merged together without any ordering.  These will always be from TME at the moment.
+- All concorded/secondary concepts are merged together without any ordering.  These will always be from TME or Factset at the moment.
 - The primary concept is then merged, overwriting the fields from the secondary concepts.  This is a Smartlogic concept.
 - Aliases are the exception - they are merged between all concepts and de-duplicated.
 

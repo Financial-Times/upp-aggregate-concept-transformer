@@ -56,7 +56,3 @@ type ConcordedConcept struct {
 	// Source representations
 	SourceRepresentations []s3.Concept `json:"sourceRepresentations,omitempty"`
 }
-
-type UpdatedConcepts struct {
-	UpdatedIds []string `json:"UpdatedIds"`
-}

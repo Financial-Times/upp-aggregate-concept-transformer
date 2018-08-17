@@ -16,15 +16,56 @@ import (
 
 const (
 	payload = `{
-    			"UpdatedIds": [
-        			"28090964-9997-4bc2-9638-7a11135aaff9",
-        			"34a571fb-d779-4610-a7ba-2e127676db4d"
-    			]
-		 }`
+		"events": [
+			{
+				"conceptType": "Person",
+				"conceptUUID": "28090964-9997-4bc2-9638-7a11135aaff9",
+				"aggregateHash": "1234567890",
+				"eventDetails": {
+					"type": "Concept Updated"
+				}
+			},
+			{
+				"conceptType": "Person",
+				"conceptUUID": "34a571fb-d779-4610-a7ba-2e127676db4d",
+				"aggregateHash": "1234567890",
+				"eventDetails": {
+					"type": "Concept Updated"
+				}
+			},
+			{
+				"conceptType": "Person",
+				"conceptUUID": "28090964-9997-4bc2-9638-7a11135aaff9",
+				"aggregateHash": "1234567890",
+				"eventDetails": {
+					"type":  "Concordance Added",
+					"oldID": "34a571fb-d779-4610-a7ba-2e127676db4d",
+					"newID": "28090964-9997-4bc2-9638-7a11135aaff9"
+				}
+			}
+		],
+		"updatedIDs": [
+			"28090964-9997-4bc2-9638-7a11135aaff9",
+			"34a571fb-d779-4610-a7ba-2e127676db4d"
+		]
+	 }`
+	membershipPayload = `{
+		"events": [
+			{
+				"conceptType": "Membership",
+				"conceptUUID": "ce922022-8114-11e8-8f42-da24cd01f044",
+				"aggregateHash": "9876543210",
+				"eventDetails": {
+					"type": "Concept Updated"
+				}
+			}
+		],
+		"updatedIDs": [
+			"ce922022-8114-11e8-8f42-da24cd01f044"
+		]
+	}`
 	emptyPayload = `{
-    			"UpdatedIds": [
-
-    			]
+    			"updatedIDs": []
 		 }`
 	esUrl            = "concept-rw-elasticsearch"
 	neo4jUrl         = "concepts-rw-neo4j"
@@ -47,10 +88,15 @@ func TestAggregateService_ListenForNotifications_ProcessConceptNotInS3(t *testin
 	svc, _, mockSqsClient, _, _ := setupTestService(200, payload)
 	var receiptHandle string = "1"
 	var nonExistingConcept string = "99247059-04ec-3abb-8693-a0b8951fdcab"
-	mockSqsClient.queue[receiptHandle] = nonExistingConcept
+	mockSqsClient.conceptsQueue[receiptHandle] = nonExistingConcept
+	var expectedMap = make(map[string]string)
+	expectedMap[receiptHandle] = nonExistingConcept
 	go svc.ListenForNotifications()
-	time.Sleep(2000 * time.Microsecond)
-	assert.Len(t, mockSqsClient.Queue(), 0)
+	time.Sleep(50 * time.Microsecond)
+	assert.Equal(t, expectedMap, mockSqsClient.conceptsQueue)
+	assert.Equal(t, 1, len(mockSqsClient.Queue()))
+	err := mockSqsClient.RemoveMessageFromQueue(&receiptHandle)
+	assert.NoError(t, err)
 }
 
 func TestAggregateService_ListenForNotifications_CannotProcessRemoveMessageNotPresentOnQueue(t *testing.T) {
@@ -59,7 +105,7 @@ func TestAggregateService_ListenForNotifications_CannotProcessRemoveMessageNotPr
 	go svc.ListenForNotifications()
 	err := mockSqsClient.RemoveMessageFromQueue(&receiptHandle)
 	assert.Error(t, err)
-	assert.Equal(t, "Receipt handle not present on queue", err.Error())
+	assert.Equal(t, "Receipt handle not present on conceptsQueue", err.Error())
 }
 
 func TestAggregateService_GetConcordedConcept_NoConcordance(t *testing.T) {
@@ -403,7 +449,7 @@ func TestAggregateService_GetConcordedConcept_Memberships(t *testing.T) {
 }
 
 func TestAggregateService_ProcessMessage_Success(t *testing.T) {
-	svc, _, _, _, _ := setupTestService(200, payload)
+	svc, _, _, eventQueue, _ := setupTestService(200, payload)
 	err := svc.ProcessMessage("28090964-9997-4bc2-9638-7a11135aaff9")
 	mockWriter := svc.(*AggregateService).httpClient.(*mockHTTPClient)
 	assert.Equal(t, []string{
@@ -417,10 +463,11 @@ func TestAggregateService_ProcessMessage_Success(t *testing.T) {
 		"concept-rw-elasticsearch/people/28090964-9997-4bc2-9638-7a11135aaff9",
 	}, mockWriter.called)
 	assert.NoError(t, err)
+	assert.Equal(t, 3, len(eventQueue.eventList))
 }
 
 func TestAggregateService_ProcessMessage_NoElasticSuccess(t *testing.T) {
-	svc, _, _, _, _ := setupTestService(200, payload)
+	svc, _, _, eventQueue, _ := setupTestService(200, payload)
 	err := svc.ProcessMessage("6562674e-dbfa-4cb0-85b2-41b0948b7cc2")
 	mockWriter := svc.(*AggregateService).httpClient.(*mockHTTPClient)
 	assert.Equal(t, []string{
@@ -434,6 +481,7 @@ func TestAggregateService_ProcessMessage_NoElasticSuccess(t *testing.T) {
 			"&target=%2Forganisations%2F4e484678-cf47-4168-b844-6adb47f8eb58",
 	}, mockWriter.called)
 	assert.NoError(t, err)
+	assert.Equal(t, 3, len(eventQueue.eventList))
 }
 
 func TestAggregateService_ProcessMessage_Success_PurgeOnBrands(t *testing.T) {
@@ -488,11 +536,7 @@ func TestAggregateService_ProcessMessage_Success_PurgeOnPublicCompany(t *testing
 }
 
 func TestAggregateService_ProcessMessage_Success_PurgeOnMembership(t *testing.T) {
-	svc, _, _, _, _ := setupTestService(200, `{
-		"UpdatedIds": [
-		"ce922022-8114-11e8-8f42-da24cd01f044"
-		]
-	}`)
+	svc, _, _, _, _ := setupTestService(200, membershipPayload)
 	err := svc.ProcessMessage("ce922022-8114-11e8-8f42-da24cd01f044")
 	mockWriter := svc.(*AggregateService).httpClient.(*mockHTTPClient)
 	assert.Equal(t, []string{
@@ -520,6 +564,15 @@ func TestAggregateService_ProcessMessage_GenericWriterError(t *testing.T) {
 	err := svc.ProcessMessage("28090964-9997-4bc2-9638-7a11135aaff9")
 	assert.Error(t, err)
 	assert.Equal(t, "Request to concepts-rw-neo4j/people/28090964-9997-4bc2-9638-7a11135aaff9 returned status: 503; skipping 28090964-9997-4bc2-9638-7a11135aaff9", err.Error())
+}
+
+func TestAggregateService_ProcessMessage_GenericSqsError(t *testing.T) {
+	svc, _, _, mockEventQueue, _ := setupTestService(200, payload)
+	mockEventQueue.err = errors.New("could not connect to SQS")
+
+	err := svc.ProcessMessage("28090964-9997-4bc2-9638-7a11135aaff9")
+	assert.Error(t, err)
+	assert.Equal(t, "could not connect to SQS", err.Error())
 }
 
 func TestAggregateService_ProcessMessage_GenericKinesisError(t *testing.T) {
@@ -614,7 +667,7 @@ func TestResolveConceptType(t *testing.T) {
 	assert.Equal(t, "organisations", company)
 }
 
-func setupTestService(httpError int, writerResponse string) (Service, *mockS3Client, *mockSQSClient, *mockConcordancesClient, *mockKinesisStreamClient) {
+func setupTestService(httpError int, writerResponse string) (Service, *mockS3Client, *mockSQSClient, *mockSQSClient, *mockKinesisStreamClient) {
 	s3 := &mockS3Client{
 		concepts: map[string]struct {
 			transactionID string
@@ -825,11 +878,12 @@ func setupTestService(httpError int, writerResponse string) (Service, *mockS3Cli
 			},
 		},
 	}
-	sqs := &mockSQSClient{
-		queue: map[string]string{
+	conceptsQueue := &mockSQSClient{
+		conceptsQueue: map[string]string{
 			"1": "99247059-04ec-3abb-8693-a0b8951fdcab",
 		},
 	}
+	eventsQueue := &mockSQSClient{}
 	concordClient := &mockConcordancesClient{
 		concordances: map[string][]concordances.ConcordanceRecord{
 			"28090964-9997-4bc2-9638-7a11135aaff9": []concordances.ConcordanceRecord{
@@ -877,7 +931,7 @@ func setupTestService(httpError int, writerResponse string) (Service, *mockS3Cli
 
 	kinesis := &mockKinesisStreamClient{}
 
-	return NewService(s3, sqs, concordClient, kinesis,
+	return NewService(s3, conceptsQueue, eventsQueue, concordClient, kinesis,
 		neo4jUrl,
 		esUrl,
 		varnishPurgerUrl,
@@ -888,5 +942,5 @@ func setupTestService(httpError int, writerResponse string) (Service, *mockS3Cli
 			err:        nil,
 			called:     []string{},
 		},
-	), s3, sqs, concordClient, kinesis
+	), s3, conceptsQueue, eventsQueue, kinesis
 }

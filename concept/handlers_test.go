@@ -26,7 +26,7 @@ func TestHandlers(t *testing.T) {
 		resultBody    string
 		err           error
 		concepts      map[string]ConcordedConcept
-		notifications []sqs.Notification
+		notifications []sqs.ConceptUpdate
 		healthchecks  []fthealth.Check
 	}{
 		{
@@ -43,7 +43,7 @@ func TestHandlers(t *testing.T) {
 					PrefLabel: "TestConcept",
 				},
 			},
-			[]sqs.Notification{},
+			[]sqs.ConceptUpdate{},
 			nil,
 		},
 		{
@@ -55,7 +55,7 @@ func TestHandlers(t *testing.T) {
 			"{\"message\": \"Canonical concept not found in S3\"}\n",
 			errors.New("Canonical concept not found in S3"),
 			map[string]ConcordedConcept{},
-			[]sqs.Notification{},
+			[]sqs.ConceptUpdate{},
 			nil,
 		},
 		{
@@ -72,7 +72,7 @@ func TestHandlers(t *testing.T) {
 					PrefLabel: "TestConcept",
 				},
 			},
-			[]sqs.Notification{},
+			[]sqs.ConceptUpdate{},
 			nil,
 		},
 		{
@@ -84,7 +84,7 @@ func TestHandlers(t *testing.T) {
 			"{\"message\":\"Could not process the concept.\"}",
 			errors.New("Could not process the concept."),
 			map[string]ConcordedConcept{},
-			[]sqs.Notification{},
+			[]sqs.ConceptUpdate{},
 			nil,
 		},
 		{
@@ -96,7 +96,7 @@ func TestHandlers(t *testing.T) {
 			"OK",
 			nil,
 			map[string]ConcordedConcept{},
-			[]sqs.Notification{},
+			[]sqs.ConceptUpdate{},
 			nil,
 		},
 		{
@@ -108,7 +108,7 @@ func TestHandlers(t *testing.T) {
 			"GTG fail error",
 			nil,
 			map[string]ConcordedConcept{},
-			[]sqs.Notification{},
+			[]sqs.ConceptUpdate{},
 			[]fthealth.Check{
 				{
 					Checker: func() (string, error) {
@@ -143,14 +143,14 @@ func TestHandlers(t *testing.T) {
 }
 
 type MockService struct {
-	notifications []sqs.Notification
+	notifications []sqs.ConceptUpdate
 	concepts      map[string]ConcordedConcept
 	m             sync.RWMutex
 	healthchecks  []fthealth.Check
 	err           error
 }
 
-func NewMockService(concepts map[string]ConcordedConcept, notifications []sqs.Notification, healthchecks []fthealth.Check, err error) Service {
+func NewMockService(concepts map[string]ConcordedConcept, notifications []sqs.ConceptUpdate, healthchecks []fthealth.Check, err error) Service {
 	return &MockService{
 		concepts:      concepts,
 		notifications: notifications,

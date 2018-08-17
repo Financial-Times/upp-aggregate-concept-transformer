@@ -50,7 +50,8 @@ type Service interface {
 type AggregateService struct {
 	s3                              s3.Client
 	concordances                    concordances.Client
-	sqs                             sqs.Client
+	conceptUpdatesSqs               sqs.Client
+	eventsSqs                       sqs.Client
 	kinesis                         kinesis.Client
 	neoWriterAddress                string
 	varnishPurgerAddress            string
@@ -59,11 +60,12 @@ type AggregateService struct {
 	typesToPurgeFromPublicEndpoints []string
 }
 
-func NewService(S3Client s3.Client, SQSClient sqs.Client, concordancesClient concordances.Client, kinesisClient kinesis.Client, neoAddress string, elasticsearchAddress string, varnishPurgerAddress string, typesToPurgeFromPublicEndpoints []string, httpClient httpClient) Service {
+func NewService(S3Client s3.Client, conceptUpdatesSQSClient sqs.Client, eventsSQSClient sqs.Client, concordancesClient concordances.Client, kinesisClient kinesis.Client, neoAddress string, elasticsearchAddress string, varnishPurgerAddress string, typesToPurgeFromPublicEndpoints []string, httpClient httpClient) Service {
 	return &AggregateService{
 		s3:                              S3Client,
 		concordances:                    concordancesClient,
-		sqs:                             SQSClient,
+		conceptUpdatesSqs:               conceptUpdatesSQSClient,
+		eventsSqs:                       eventsSQSClient,
 		kinesis:                         kinesisClient,
 		neoWriterAddress:                neoAddress,
 		elasticsearchWriterAddress:      elasticsearchAddress,
@@ -75,19 +77,19 @@ func NewService(S3Client s3.Client, SQSClient sqs.Client, concordancesClient con
 
 func (s *AggregateService) ListenForNotifications() {
 	for {
-		notifications := s.sqs.ListenAndServeQueue()
+		notifications := s.conceptUpdatesSqs.ListenAndServeQueue()
 		if len(notifications) > 0 {
 			var wg sync.WaitGroup
 			wg.Add(len(notifications))
 			for _, n := range notifications {
-				go func(n sqs.Notification) {
+				go func(n sqs.ConceptUpdate) {
 					defer wg.Done()
 					err := s.ProcessMessage(n.UUID)
 					if err != nil {
 						logger.WithError(err).WithUUID(n.UUID).Error("Error processing message.")
 						return
 					}
-					err = s.sqs.RemoveMessageFromQueue(n.ReceiptHandle)
+					err = s.conceptUpdatesSqs.RemoveMessageFromQueue(n.ReceiptHandle)
 					if err != nil {
 						logger.WithError(err).WithUUID(n.UUID).Error("Error removing message from SQS.")
 					}
@@ -110,23 +112,35 @@ func (s *AggregateService) ProcessMessage(UUID string) error {
 
 	// Write to Neo4j
 	logger.WithTransactionID(transactionID).WithUUID(concordedConcept.PrefUUID).Debug("Sending concept to Neo4j")
-	updatedConcepts, err := sendToWriter(s.httpClient, s.neoWriterAddress, resolveConceptType(concordedConcept.Type), concordedConcept.PrefUUID, concordedConcept, transactionID)
+	conceptChanges, err := sendToWriter(s.httpClient, s.neoWriterAddress, resolveConceptType(concordedConcept.Type), concordedConcept.PrefUUID, concordedConcept, transactionID)
 	if err != nil {
 		return err
-	} else if len(updatedConcepts.UpdatedIds) < 1 {
-		logger.WithTransactionID(transactionID).WithUUID(concordedConcept.PrefUUID).Info("Concept was unchanged since last update, skipping!")
+	}
+	rawJson, err := json.Marshal(conceptChanges)
+	if err != nil {
+		logger.WithError(err).WithTransactionID(transactionID).WithUUID(concordedConcept.PrefUUID).Errorf("failed to marshall concept changes record: %v", conceptChanges)
+		return err
+	}
+	var updateRecord sqs.ConceptChanges
+	if err = json.Unmarshal(rawJson, &updateRecord); err != nil {
+		logger.WithError(err).WithTransactionID(transactionID).WithUUID(concordedConcept.PrefUUID).Errorf("failed to unmarshall raw json into update record: %v", rawJson)
+		return err
+	}
+
+	if len(updateRecord.ChangedRecords) < 1 {
+		logger.WithTransactionID(transactionID).WithUUID(concordedConcept.PrefUUID).Info("concept was unchanged since last update, skipping!")
 		return nil
 	}
-	logger.WithTransactionID(transactionID).WithUUID(concordedConcept.PrefUUID).Debug("Concept successfully updated in neo4j")
+	logger.WithTransactionID(transactionID).WithUUID(concordedConcept.PrefUUID).Debug("concept successfully updated in neo4j")
 
 	// Purge concept URLs in varnish
 	// Always purge top level concept
-	err = sendToPurger(s.httpClient, s.varnishPurgerAddress, updatedConcepts.UpdatedIds, concordedConcept.Type, s.typesToPurgeFromPublicEndpoints, transactionID)
+	err = sendToPurger(s.httpClient, s.varnishPurgerAddress, updateRecord.UpdatedIds, concordedConcept.Type, s.typesToPurgeFromPublicEndpoints, transactionID)
 	if err != nil {
 		logger.WithTransactionID(transactionID).WithUUID(concordedConcept.PrefUUID).Errorf("Concept couldn't be purged from Varnish cache")
 	}
 
-	//opitionally purge other affected concepts
+	//optionally purge other affected concepts
 	if concordedConcept.Type == "FinancialInstrument" {
 		err = sendToPurger(s.httpClient, s.varnishPurgerAddress, []string{concordedConcept.SourceRepresentations[0].IssuedBy}, "Organisation", s.typesToPurgeFromPublicEndpoints, transactionID)
 	}
@@ -149,16 +163,20 @@ func (s *AggregateService) ProcessMessage(UUID string) error {
 		}
 	}
 
-	conceptAsBytes, err := json.Marshal(updatedConcepts)
-	if err != nil {
-		logger.WithError(err).WithTransactionID(transactionID).WithUUID(concordedConcept.PrefUUID).Errorf("Failed to marshall updatedIDs record: %v", updatedConcepts)
+	if err := s.eventsSqs.SendEvents(updateRecord.ChangedRecords); err != nil {
+		logger.WithTransactionID(transactionID).WithUUID(concordedConcept.PersonUUID).Errorf("unable to send events: %v to Event Queue", updateRecord.ChangedRecords)
 		return err
 	}
 
 	//Send notification to stream
-	logger.WithTransactionID(transactionID).WithUUID(concordedConcept.PrefUUID).Debugf("Sending notification of updated concepts to kinesis queue: %v", updatedConcepts)
-	if err = s.kinesis.AddRecordToStream(conceptAsBytes, concordedConcept.Type); err != nil {
-		logger.WithError(err).WithTransactionID(transactionID).WithUUID(concordedConcept.PrefUUID).Errorf("Failed to update stream with notification record %v", updatedConcepts)
+	rawIDList, err := json.Marshal(conceptChanges.UpdatedIds)
+	if err != nil {
+		logger.WithError(err).WithTransactionID(transactionID).WithUUID(concordedConcept.PrefUUID).Errorf("failed to marshall concept changes record: %v", conceptChanges.UpdatedIds)
+		return err
+	}
+	logger.WithTransactionID(transactionID).WithUUID(concordedConcept.PrefUUID).Debugf("sending notification of updated concepts to kinesis conceptsQueue: %v", conceptChanges)
+	if err = s.kinesis.AddRecordToStream(rawIDList, concordedConcept.Type); err != nil {
+		logger.WithError(err).WithTransactionID(transactionID).WithUUID(concordedConcept.PrefUUID).Errorf("Failed to update stream with notification record %v", conceptChanges)
 		return err
 	}
 	logger.WithTransactionID(transactionID).WithUUID(concordedConcept.PrefUUID).Infof("Finished processing update of %s", UUID)
@@ -268,7 +286,7 @@ func (s *AggregateService) GetConcordedConcept(UUID string) (ConcordedConcept, s
 func (s *AggregateService) Healthchecks() []fthealth.Check {
 	return []fthealth.Check{
 		s.s3.Healthcheck(),
-		s.sqs.Healthcheck(),
+		s.conceptUpdatesSqs.Healthcheck(),
 		s.RWElasticsearchHealthCheck(),
 		s.RWNeo4JHealthCheck(),
 		s.VarnishPurgerHealthCheck(),
@@ -456,8 +474,8 @@ func contains(element string, types []string) bool {
 	return false
 }
 
-func sendToWriter(client httpClient, baseUrl string, urlParam string, conceptUUID string, concept ConcordedConcept, tid string) (UpdatedConcepts, error) {
-	updatedConcepts := UpdatedConcepts{}
+func sendToWriter(client httpClient, baseUrl string, urlParam string, conceptUUID string, concept ConcordedConcept, tid string) (sqs.ConceptChanges, error) {
+	updatedConcepts := sqs.ConceptChanges{}
 	body, err := json.Marshal(concept)
 	if err != nil {
 		return updatedConcepts, err
