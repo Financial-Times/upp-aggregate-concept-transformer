@@ -17,6 +17,8 @@ import (
 	"github.com/Financial-Times/aggregate-concept-transformer/sqs"
 	fthealth "github.com/Financial-Times/go-fthealth/v1_1"
 	"github.com/Financial-Times/go-logger"
+	"bytes"
+	"encoding/gob"
 )
 
 const (
@@ -169,8 +171,13 @@ func (s *AggregateService) ProcessMessage(UUID string) error {
 	}
 
 	//Send notification to stream
+	buf := &bytes.Buffer{}
+	if err = gob.NewEncoder(buf).Encode(updateRecord.UpdatedIds); err != nil {
+		logger.WithTransactionID(transactionID).WithUUID(concordedConcept.PersonUUID).Errorf("unable to encode updated ids", updateRecord.UpdatedIds)
+		return err
+	}
 	logger.WithTransactionID(transactionID).WithUUID(concordedConcept.PrefUUID).Debugf("sending notification of updated concepts to kinesis conceptsQueue: %v", conceptChanges)
-	if err = s.kinesis.AddRecordToStream(rawJson, concordedConcept.Type); err != nil {
+	if err = s.kinesis.AddRecordToStream(buf.Bytes(), concordedConcept.Type); err != nil {
 		logger.WithError(err).WithTransactionID(transactionID).WithUUID(concordedConcept.PrefUUID).Errorf("Failed to update stream with notification record %v", conceptChanges)
 		return err
 	}
