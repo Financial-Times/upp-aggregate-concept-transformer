@@ -77,6 +77,7 @@ spec:
             secretKeyRef:
               name: global-secrets
               key: concepts.events_sqs_url
+              optional: true
         - name: KINESIS_STREAM_NAME
           valueFrom:
             secretKeyRef:
