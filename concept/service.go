@@ -20,9 +20,10 @@ import (
 )
 
 const (
-	smartlogicAuthority = "SmartLogic"
-	thingsAPIEndpoint   = "/things"
-	conceptsAPIEnpoint  = "/concepts"
+	smartlogicAuthority      = "SmartLogic"
+	managedLocationAuthority = "ManagedLocation"
+	thingsAPIEndpoint        = "/things"
+	conceptsAPIEnpoint       = "/concepts"
 )
 
 var conceptTypesNotAllowedInElastic = [...]string{
@@ -105,7 +106,6 @@ func (s *AggregateService) ProcessMessage(UUID string) error {
 	if err != nil {
 		return err
 	}
-
 	if concordedConcept.PrefUUID != UUID {
 		logger.WithTransactionID(transactionID).WithUUID(UUID).Infof("Requested concept %s is source node for canonical concept %s", UUID, concordedConcept.PrefUUID)
 	}
@@ -179,78 +179,101 @@ func (s *AggregateService) ProcessMessage(UUID string) error {
 	return nil
 }
 
-func bucketConcordances(concordances []concordances.ConcordanceRecord) (map[string][]string, string, error) {
-	bucketedConcordances := map[string][]string{}
-	for _, v := range concordances {
-		bucketedConcordances[v.Authority] = append(bucketedConcordances[v.Authority], v.UUID)
-	}
-
-	if concordances == nil || len(concordances) == 0 {
+func bucketConcordances(concordanceRecords []concordances.ConcordanceRecord) (map[string][]concordances.ConcordanceRecord, string, error) {
+	if concordanceRecords == nil || len(concordanceRecords) == 0 {
 		err := fmt.Errorf("no concordances provided")
 		logger.WithError(err).Error("Error grouping concordance records")
 		return nil, "", err
 	}
 
-	if bucketedConcordances[smartlogicAuthority] != nil && len(bucketedConcordances[smartlogicAuthority]) != 1 {
-		err := fmt.Errorf("only 1 primary authority allowed")
+	bucketedConcordances := map[string][]concordances.ConcordanceRecord{}
+	for _, v := range concordanceRecords {
+		bucketedConcordances[v.Authority] = append(bucketedConcordances[v.Authority], v)
+	}
+
+	var primaryAuthority string
+	var err error
+	slRecords, slFound := bucketedConcordances[smartlogicAuthority]
+	if slFound {
+		if len(slRecords) == 1 {
+			primaryAuthority = smartlogicAuthority
+		} else {
+			err = fmt.Errorf("more than 1 primary authority")
+		}
+	}
+	mlRecords, mlFound := bucketedConcordances[managedLocationAuthority]
+	if mlFound {
+		if len(mlRecords) == 1 {
+			if primaryAuthority == "" {
+				primaryAuthority = managedLocationAuthority
+			}
+		} else {
+			err = fmt.Errorf("more than 1 ManagedLocation primary authority")
+		}
+	}
+	if primaryAuthority == "" && err == nil {
+		err = fmt.Errorf("no primary authority")
+	}
+	if err != nil {
 		logger.WithError(err).
 			WithField("alert_tag", "AggregateConceptTransformerMultiplePrimaryAuthorities").
-			WithField("primary_authorities", bucketedConcordances[smartlogicAuthority]).
+			WithField("primary_authorities", fmt.Sprintf("Smartlogic=%v, ManagedLocation=%v", slRecords, mlRecords)).
 			Error("Error grouping concordance records")
 		return nil, "", err
 	}
-
-	return bucketedConcordances, smartlogicAuthority, nil
+	return bucketedConcordances, primaryAuthority, nil
 }
 
 func (s *AggregateService) GetConcordedConcept(UUID string) (ConcordedConcept, string, error) {
 	concordedConcept := ConcordedConcept{}
-	// Get concordance UUIDs
-	concordances, err := s.concordances.GetConcordance(UUID)
+	concordedRecords, err := s.concordances.GetConcordance(UUID)
 	if err != nil {
 		return ConcordedConcept{}, "", err
 	}
-	logger.WithField("UUID", UUID).Debugf("Returned concordance record: %v", concordances)
+	logger.WithField("UUID", UUID).Debugf("Returned concordance record: %v", concordedRecords)
 
-	bucketedConcordances, primaryAuthority, err := bucketConcordances(concordances)
+	bucketedConcordances, primaryAuthority, err := bucketConcordances(concordedRecords)
 	if err != nil {
 		return ConcordedConcept{}, "", err
 	}
 
 	// Get all concepts from S3
-	for authority, authorityUUIDs := range bucketedConcordances {
+	for authority, concordanceRecords := range bucketedConcordances {
 		if authority == primaryAuthority {
 			continue
 		}
-		for _, sourceId := range authorityUUIDs {
-			found, sourceConcept, _, err := s.s3.GetConceptAndTransactionId(sourceId)
+		for _, conc := range concordanceRecords {
+			found, sourceConcept, _, err := s.s3.GetConceptAndTransactionId(conc.UUID)
 			if err != nil {
 				return ConcordedConcept{}, "", err
 			}
 
 			if !found {
-				err := fmt.Errorf("Source concept %s not found in S3", sourceId)
-				logger.WithField("UUID", UUID).Error(err.Error())
-				return ConcordedConcept{}, "", err
+				//we should let the concorded concept to be written as a "Thing"
+				logger.WithField("UUID", UUID).Warn(fmt.Sprintf("Source concept %s not found in S3", conc))
+				sourceConcept.Authority = authority
+				sourceConcept.AuthValue = conc.AuthorityValue
+				sourceConcept.UUID = conc.UUID
+				sourceConcept.Type = "Thing"
 			}
 
 			concordedConcept = mergeCanonicalInformation(concordedConcept, sourceConcept)
 		}
 	}
 
-	canonicalConceptID := bucketedConcordances[primaryAuthority][0]
+	canonicalConcept := bucketedConcordances[primaryAuthority][0]
 
-	found, primaryConcept, transactionID, err := s.s3.GetConceptAndTransactionId(canonicalConceptID)
+	found, primaryConcept, transactionID, err := s.s3.GetConceptAndTransactionId(canonicalConcept.UUID)
 	if err != nil {
 		return ConcordedConcept{}, "", err
 	} else if !found {
-		err := fmt.Errorf("Canonical concept %s not found in S3", canonicalConceptID)
+		err := fmt.Errorf("Canonical concept %s not found in S3", canonicalConcept.UUID)
 		logger.WithField("UUID", UUID).Error(err.Error())
 		return ConcordedConcept{}, "", err
 	}
 
 	concordedConcept = mergeCanonicalInformation(concordedConcept, primaryConcept)
-	concordedConcept.Aliases = deduplicateAliases(concordedConcept.Aliases)
+	concordedConcept.Aliases = deduplicateAndSkipEmptyAliases(concordedConcept.Aliases)
 
 	return concordedConcept, transactionID, nil
 }
@@ -267,10 +290,13 @@ func (s *AggregateService) Healthchecks() []fthealth.Check {
 	}
 }
 
-func deduplicateAliases(aliases []string) []string {
+func deduplicateAndSkipEmptyAliases(aliases []string) []string {
 	aMap := map[string]bool{}
 	var outAliases []string
 	for _, v := range aliases {
+		if v == "" {
+			continue
+		}
 		aMap[v] = true
 	}
 	for a := range aMap {

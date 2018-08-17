@@ -11,7 +11,7 @@ import (
 	"time"
 
 	fthealth "github.com/Financial-Times/go-fthealth/v1_1"
-	logger "github.com/Financial-Times/go-logger"
+	"github.com/Financial-Times/go-logger"
 )
 
 type Client interface {
@@ -48,9 +48,9 @@ func (c *RWClient) GetConcordance(uuid string) ([]ConcordanceRecord, error) {
 		// No concordance found, so we'll create a fake record to return the solo concept.
 		logger.WithError(err).WithField("UUID", uuid).Debug("No matching record in db")
 		return []ConcordanceRecord{
-			ConcordanceRecord{
+			{
 				UUID:      uuid,
-				Authority: "SmartLogic",
+				Authority: "SmartLogic", //we have to provide a primary authority here, but it will be indifferent at a later point if this is Smartlogic or ManagedLocation
 			},
 		}, nil
 
