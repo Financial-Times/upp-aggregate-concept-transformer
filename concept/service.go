@@ -17,8 +17,6 @@ import (
 	"github.com/Financial-Times/aggregate-concept-transformer/sqs"
 	fthealth "github.com/Financial-Times/go-fthealth/v1_1"
 	"github.com/Financial-Times/go-logger"
-	"bytes"
-	"encoding/gob"
 )
 
 const (
