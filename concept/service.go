@@ -256,7 +256,12 @@ func (s *AggregateService) GetConcordedConcept(UUID string) (ConcordedConcept, s
 			if !found {
 				//we should let the concorded concept to be written as a "Thing"
 				logger.WithField("UUID", UUID).Warn(fmt.Sprintf("Source concept %s not found in S3", conc))
-				sourceConcept.Authority = authority
+				//workaround for older concordances which were written with FT-TME authority
+				if authority == "FT-TME" {
+					sourceConcept.Authority = "TME"
+				} else {
+					sourceConcept.Authority = authority
+				}
 				sourceConcept.AuthValue = conc.AuthorityValue
 				sourceConcept.UUID = conc.UUID
 				sourceConcept.Type = "Thing"

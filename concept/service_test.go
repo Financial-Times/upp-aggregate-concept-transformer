@@ -913,7 +913,7 @@ func setupTestService(httpError int, writerResponse string) (Service, *mockS3Cli
 				},
 				concordances.ConcordanceRecord{
 					UUID:      "3a3da730-0f4c-4a20-85a6-3ebd5776bd49",
-					Authority: "FT-TME",
+					Authority: "TME",
 				},
 			},
 			"a141f50f-31d7-4f89-8143-eec971e54ba8": []concordances.ConcordanceRecord{
