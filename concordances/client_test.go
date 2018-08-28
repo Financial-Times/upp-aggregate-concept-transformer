@@ -72,7 +72,7 @@ func (suite *RWTestSuite) TestGetConcordance_MissingConcordanceReturns404() {
 	retCon := []ConcordanceRecord{
 		ConcordanceRecord{
 			UUID:      "a",
-			Authority: "SmartLogic",
+			Authority: "Smartlogic",
 		},
 	}
 

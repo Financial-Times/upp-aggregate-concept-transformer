@@ -17,7 +17,7 @@ func (d *mockConcordancesClient) GetConcordance(uuid string) ([]concordances.Con
 	return []concordances.ConcordanceRecord{
 		concordances.ConcordanceRecord{
 			UUID:      uuid,
-			Authority: "SmartLogic",
+			Authority: "Smartlogic",
 		},
 	}, d.err
 }

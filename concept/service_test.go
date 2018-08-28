@@ -889,7 +889,7 @@ func setupTestService(httpError int, writerResponse string) (Service, *mockS3Cli
 			"28090964-9997-4bc2-9638-7a11135aaff9": []concordances.ConcordanceRecord{
 				concordances.ConcordanceRecord{
 					UUID:      "28090964-9997-4bc2-9638-7a11135aaff9",
-					Authority: "SmartLogic",
+					Authority: "Smartlogic",
 				},
 				concordances.ConcordanceRecord{
 					UUID:      "34a571fb-d779-4610-a7ba-2e127676db4d",
@@ -899,7 +899,7 @@ func setupTestService(httpError int, writerResponse string) (Service, *mockS3Cli
 			"c9d3a92a-da84-11e7-a121-0401beb96201": []concordances.ConcordanceRecord{
 				concordances.ConcordanceRecord{
 					UUID:      "c9d3a92a-da84-11e7-a121-0401beb96201",
-					Authority: "SmartLogic",
+					Authority: "Smartlogic",
 				},
 				concordances.ConcordanceRecord{
 					UUID:      "3a3da730-0f4c-4a20-85a6-3ebd5776bd49",
@@ -909,7 +909,7 @@ func setupTestService(httpError int, writerResponse string) (Service, *mockS3Cli
 			"4a4aaca0-b059-426c-bf4f-f00c6ef940ae": []concordances.ConcordanceRecord{
 				concordances.ConcordanceRecord{
 					UUID:      "4a4aaca0-b059-426c-bf4f-f00c6ef940ae",
-					Authority: "SmartLogic",
+					Authority: "Smartlogic",
 				},
 				concordances.ConcordanceRecord{
 					UUID:      "3a3da730-0f4c-4a20-85a6-3ebd5776bd49",
@@ -919,7 +919,7 @@ func setupTestService(httpError int, writerResponse string) (Service, *mockS3Cli
 			"a141f50f-31d7-4f89-8143-eec971e54ba8": []concordances.ConcordanceRecord{
 				concordances.ConcordanceRecord{
 					UUID:      "a141f50f-31d7-4f89-8143-eec971e54ba8",
-					Authority: "SmartLogic",
+					Authority: "Smartlogic",
 				},
 				concordances.ConcordanceRecord{
 					UUID:      "c28fa0b4-4245-11e8-842f-0ed5f89f718b",
