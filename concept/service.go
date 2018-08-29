@@ -20,7 +20,7 @@ import (
 )
 
 const (
-	smartlogicAuthority      = "SmartLogic"
+	smartlogicAuthority      = "Smartlogic"
 	managedLocationAuthority = "ManagedLocation"
 	thingsAPIEndpoint        = "/things"
 	conceptsAPIEnpoint       = "/concepts"

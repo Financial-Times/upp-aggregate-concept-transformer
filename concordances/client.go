@@ -50,7 +50,7 @@ func (c *RWClient) GetConcordance(uuid string) ([]ConcordanceRecord, error) {
 		return []ConcordanceRecord{
 			{
 				UUID:      uuid,
-				Authority: "SmartLogic", //we have to provide a primary authority here, but it will be indifferent at a later point if this is Smartlogic or ManagedLocation
+				Authority: "Smartlogic", //we have to provide a primary authority here, but it will be indifferent at a later point if this is Smartlogic or ManagedLocation
 			},
 		}, nil
 
