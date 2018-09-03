@@ -144,7 +144,7 @@ func TestAggregateService_GetConcordedConcept_TMEConcordance(t *testing.T) {
 		},
 		OrganisationUUID: "a4528fc9-0615-4bfa-bc99-596ea1ddec28",
 		PersonUUID:       "973509c1-5238-4c83-9a7d-89009e839ff8",
-		IsDeprecated:     true,
+		IsDeprecated:     false,
 		SourceRepresentations: []s3.Concept{
 			{
 				UUID:         "34a571fb-d779-4610-a7ba-2e127676db4d",
