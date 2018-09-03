@@ -199,6 +199,7 @@ func TestAggregateService_GetConcordedConcept_FinancialInstrument(t *testing.T) 
 		Aliases:   []string{"Some random finanial instrument"},
 		FigiCode:  "BBG000Y1HJT8",
 		IssuedBy:  "4e484678-cf47-4168-b844-6adb47f8eb58",
+		IsDeprecated: false,
 		SourceRepresentations: []s3.Concept{
 			{
 				UUID:      "6562674e-dbfa-4cb0-85b2-41b0948b7cc2",

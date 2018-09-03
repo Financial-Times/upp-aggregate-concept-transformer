@@ -425,7 +425,11 @@ func mergeCanonicalInformation(c ConcordedConcept, s s3.Concept) ConcordedConcep
 	if s.IssuedBy != "" {
 		c.IssuedBy = s.IssuedBy
 	}
-	c.IsDeprecated = s.IsDeprecated
+	if s.IsDeprecated {
+		c.IsDeprecated = s.IsDeprecated
+	} else {
+		c.IsDeprecated = false
+	}
 	return c
 }
 
