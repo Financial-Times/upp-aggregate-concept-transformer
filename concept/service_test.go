@@ -262,6 +262,76 @@ func TestAggregateService_GetConcordedConcept_DeprecatedSmartlogic(t *testing.T)
 	assert.Equal(t, expectedConcept, c)
 }
 
+func TestAggregateService_GetConcordedConcept_SupersededConcept(t *testing.T) {
+	svc, _, _, _, _ := setupTestService(200, payload)
+	expectedConcept := ConcordedConcept{
+		PrefUUID:        "28090964-9997-4bc2-9638-7a11135aaf11",
+		PrefLabel:       "Root Concept",
+		Type:            "Person",
+		Aliases:         []string{"Root Concept"},
+		EmailAddress:    "person123@ft.com",
+		FacebookPage:    "facebook/smartlogicPerson",
+		TwitterHandle:   "@FtSmartlogicPerson",
+		ScopeNote:       "This note is in scope",
+		ShortLabel:      "Concept",
+		InceptionDate:   "2002-06-01",
+		TerminationDate: "2011-11-29",
+		FigiCode:        "BBG000Y1HJT8",
+		IssuedBy:        "613b1f72-cc74-4d8f-9406-28fc91b82a2a",
+		SupersededByUUIDs: []string{
+			"28090964-9997-4bc2-9638-7a11135aaff9",
+		},
+		MembershipRoles: []MembershipRole{
+			{
+				RoleUUID:        "ccdff192-4d6c-4539-bbe8-7e24e81ed49e",
+				InceptionDate:   "2002-06-01",
+				TerminationDate: "2011-11-29",
+			},
+		},
+		OrganisationUUID: "a4528fc9-0615-4bfa-bc99-596ea1ddec28",
+		PersonUUID:       "973509c1-5238-4c83-9a7d-89009e839ff8",
+		IsDeprecated:     true,
+		SourceRepresentations: []s3.Concept{
+			{
+				UUID:            "28090964-9997-4bc2-9638-7a11135aaf11",
+				PrefLabel:       "Root Concept",
+				Authority:       "Smartlogic",
+				AuthValue:       "28090964-9997-4bc2-9638-7a11135aaf11",
+				Type:            "Person",
+				FacebookPage:    "facebook/smartlogicPerson",
+				TwitterHandle:   "@FtSmartlogicPerson",
+				ScopeNote:       "This note is in scope",
+				EmailAddress:    "person123@ft.com",
+				ShortLabel:      "Concept",
+				InceptionDate:   "2002-06-01",
+				TerminationDate: "2011-11-29",
+				FigiCode:        "BBG000Y1HJT8",
+				IssuedBy:        "613b1f72-cc74-4d8f-9406-28fc91b82a2a",
+				SupersededByUUIDs: []string{
+					"28090964-9997-4bc2-9638-7a11135aaff9",
+				},
+				MembershipRoles: []s3.MembershipRole{
+					{
+						RoleUUID:        "ccdff192-4d6c-4539-bbe8-7e24e81ed49e",
+						InceptionDate:   "2002-06-01",
+						TerminationDate: "2011-11-29",
+					},
+				},
+				OrganisationUUID: "a4528fc9-0615-4bfa-bc99-596ea1ddec28",
+				PersonUUID:       "973509c1-5238-4c83-9a7d-89009e839ff8",
+				IsDeprecated:     true,
+			},
+		},
+	}
+
+	c, tid, err := svc.GetConcordedConcept("28090964-9997-4bc2-9638-7a11135aaf11")
+	sort.Strings(c.Aliases)
+	sort.Strings(expectedConcept.Aliases)
+	assert.NoError(t, err)
+	assert.Equal(t, "tid_456", tid)
+	assert.Equal(t, expectedConcept, c)
+}
+
 func TestAggregateService_GetConcordedConcept_FinancialInstrument(t *testing.T) {
 	svc, _, _, _, _ := setupTestService(200, payload)
 	expectedConcept := ConcordedConcept{
@@ -866,6 +936,38 @@ func setupTestService(httpError int, writerResponse string) (Service, *mockS3Cli
 					AuthValue:    "TME-123",
 					Type:         "Person",
 					IsDeprecated: false,
+				},
+			},
+			"28090964-9997-4bc2-9638-7a11135aaf11": {
+				transactionID: "tid_456",
+				concept: s3.Concept{
+					UUID:          "28090964-9997-4bc2-9638-7a11135aaf11",
+					PrefLabel:     "Root Concept",
+					Authority:     "Smartlogic",
+					AuthValue:     "28090964-9997-4bc2-9638-7a11135aaf11",
+					Type:          "Person",
+					FacebookPage:  "facebook/smartlogicPerson",
+					TwitterHandle: "@FtSmartlogicPerson",
+					ScopeNote:     "This note is in scope",
+					EmailAddress:  "person123@ft.com",
+					ShortLabel:    "Concept",
+					SupersededByUUIDs: []string{
+						"28090964-9997-4bc2-9638-7a11135aaff9",
+					},
+					MembershipRoles: []s3.MembershipRole{
+						{
+							RoleUUID:        "ccdff192-4d6c-4539-bbe8-7e24e81ed49e",
+							InceptionDate:   "2002-06-01",
+							TerminationDate: "2011-11-29",
+						},
+					},
+					OrganisationUUID: "a4528fc9-0615-4bfa-bc99-596ea1ddec28",
+					PersonUUID:       "973509c1-5238-4c83-9a7d-89009e839ff8",
+					InceptionDate:    "2002-06-01",
+					TerminationDate:  "2011-11-29",
+					FigiCode:         "BBG000Y1HJT8",
+					IssuedBy:         "613b1f72-cc74-4d8f-9406-28fc91b82a2a",
+					IsDeprecated:     true,
 				},
 			},
 			"c9d3a92a-da84-11e7-a121-0401beb96201": {
