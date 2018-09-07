@@ -216,13 +216,17 @@ func bucketConcordances(concordanceRecords []concordances.ConcordanceRecord) (ma
 			err = fmt.Errorf("more than 1 ManagedLocation primary authority")
 		}
 	}
-	if primaryAuthority == "" && err == nil {
-		err = fmt.Errorf("no primary authority")
-	}
 	if err != nil {
 		logger.WithError(err).
 			WithField("alert_tag", "AggregateConceptTransformerMultiplePrimaryAuthorities").
 			WithField("primary_authorities", fmt.Sprintf("Smartlogic=%v, ManagedLocation=%v", slRecords, mlRecords)).
+			Error("Error grouping concordance records")
+		return nil, "", err
+	}
+	if primaryAuthority == "" {
+		err = fmt.Errorf("no primary authority")
+		logger.WithError(err).
+			WithField("alert_tag", "AggregateConceptTransformerNoPrimaryAuthority").
 			Error("Error grouping concordance records")
 		return nil, "", err
 	}
@@ -419,9 +423,7 @@ func mergeCanonicalInformation(c ConcordedConcept, s s3.Concept) ConcordedConcep
 	if s.IssuedBy != "" {
 		c.IssuedBy = s.IssuedBy
 	}
-	if s.IsDeprecated {
-		c.IsDeprecated = s.IsDeprecated
-	}
+	c.IsDeprecated = s.IsDeprecated
 	return c
 }
 
