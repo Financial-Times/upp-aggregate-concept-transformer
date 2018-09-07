@@ -223,10 +223,8 @@ func bucketConcordances(concordanceRecords []concordances.ConcordanceRecord) (ma
 			Error("Error grouping concordance records")
 		return nil, "", err
 	}
-	if primaryAuthority == "" && err == nil {
+	if primaryAuthority == "" {
 		err = fmt.Errorf("no primary authority")
-	}
-	if err != nil {
 		logger.WithError(err).
 			WithField("alert_tag", "AggregateConceptTransformerNoPrimaryAuthority").
 			Error("Error grouping concordance records")
