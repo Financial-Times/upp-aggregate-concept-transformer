@@ -351,6 +351,9 @@ func mergeCanonicalInformation(c ConcordedConcept, s s3.Concept) ConcordedConcep
 	if s.ShortLabel != "" {
 		c.ShortLabel = s.ShortLabel
 	}
+	if len(s.SupersededByUUIDs) > 0 {
+		c.SupersededByUUIDs = s.SupersededByUUIDs
+	}
 	if len(s.ParentUUIDs) > 0 {
 		c.ParentUUIDs = s.ParentUUIDs
 	}
