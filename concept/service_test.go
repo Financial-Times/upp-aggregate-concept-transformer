@@ -190,15 +190,87 @@ func TestAggregateService_GetConcordedConcept_TMEConcordance(t *testing.T) {
 	assert.Equal(t, expectedConcept, c)
 }
 
+func TestAggregateService_GetConcordedConcept_DeprecatedSmartlogic(t *testing.T) {
+	svc, _, _, _, _ := setupTestService(200, payload)
+	expectedConcept := ConcordedConcept{
+		PrefUUID:        "28090964-9997-4bc2-9638-7a11135aaf10",
+		PrefLabel:       "Root Concept",
+		Type:            "Person",
+		Aliases:         []string{"TME Concept", "Root Concept"},
+		EmailAddress:    "person123@ft.com",
+		FacebookPage:    "facebook/smartlogicPerson",
+		TwitterHandle:   "@FtSmartlogicPerson",
+		ScopeNote:       "This note is in scope",
+		ShortLabel:      "Concept",
+		InceptionDate:   "2002-06-01",
+		TerminationDate: "2011-11-29",
+		FigiCode:        "BBG000Y1HJT8",
+		IssuedBy:        "613b1f72-cc74-4d8f-9406-28fc91b82a2a",
+		MembershipRoles: []MembershipRole{
+			{
+				RoleUUID:        "ccdff192-4d6c-4539-bbe8-7e24e81ed49e",
+				InceptionDate:   "2002-06-01",
+				TerminationDate: "2011-11-29",
+			},
+		},
+		OrganisationUUID: "a4528fc9-0615-4bfa-bc99-596ea1ddec28",
+		PersonUUID:       "973509c1-5238-4c83-9a7d-89009e839ff8",
+		IsDeprecated:     true,
+		SourceRepresentations: []s3.Concept{
+			{
+				UUID:         "34a571fb-d779-4610-a7ba-2e127676db4e",
+				PrefLabel:    "TME Concept",
+				Authority:    "TME",
+				AuthValue:    "TME-123",
+				Type:         "Person",
+				IsDeprecated: false,
+			},
+			{
+				UUID:            "28090964-9997-4bc2-9638-7a11135aaf10",
+				PrefLabel:       "Root Concept",
+				Authority:       "Smartlogic",
+				AuthValue:       "28090964-9997-4bc2-9638-7a11135aaf10",
+				Type:            "Person",
+				FacebookPage:    "facebook/smartlogicPerson",
+				TwitterHandle:   "@FtSmartlogicPerson",
+				ScopeNote:       "This note is in scope",
+				EmailAddress:    "person123@ft.com",
+				ShortLabel:      "Concept",
+				InceptionDate:   "2002-06-01",
+				TerminationDate: "2011-11-29",
+				FigiCode:        "BBG000Y1HJT8",
+				IssuedBy:        "613b1f72-cc74-4d8f-9406-28fc91b82a2a",
+				MembershipRoles: []s3.MembershipRole{
+					{
+						RoleUUID:        "ccdff192-4d6c-4539-bbe8-7e24e81ed49e",
+						InceptionDate:   "2002-06-01",
+						TerminationDate: "2011-11-29",
+					},
+				},
+				OrganisationUUID: "a4528fc9-0615-4bfa-bc99-596ea1ddec28",
+				PersonUUID:       "973509c1-5238-4c83-9a7d-89009e839ff8",
+				IsDeprecated:     true,
+			},
+		},
+	}
+
+	c, tid, err := svc.GetConcordedConcept("28090964-9997-4bc2-9638-7a11135aaf10")
+	sort.Strings(c.Aliases)
+	sort.Strings(expectedConcept.Aliases)
+	assert.NoError(t, err)
+	assert.Equal(t, "tid_456", tid)
+	assert.Equal(t, expectedConcept, c)
+}
+
 func TestAggregateService_GetConcordedConcept_FinancialInstrument(t *testing.T) {
 	svc, _, _, _, _ := setupTestService(200, payload)
 	expectedConcept := ConcordedConcept{
-		PrefUUID:  "6562674e-dbfa-4cb0-85b2-41b0948b7cc2",
-		PrefLabel: "Some random finanial instrument",
-		Type:      "FinancialInstrument",
-		Aliases:   []string{"Some random finanial instrument"},
-		FigiCode:  "BBG000Y1HJT8",
-		IssuedBy:  "4e484678-cf47-4168-b844-6adb47f8eb58",
+		PrefUUID:     "6562674e-dbfa-4cb0-85b2-41b0948b7cc2",
+		PrefLabel:    "Some random finanial instrument",
+		Type:         "FinancialInstrument",
+		Aliases:      []string{"Some random finanial instrument"},
+		FigiCode:     "BBG000Y1HJT8",
+		IssuedBy:     "4e484678-cf47-4168-b844-6adb47f8eb58",
 		IsDeprecated: false,
 		SourceRepresentations: []s3.Concept{
 			{
@@ -756,6 +828,46 @@ func setupTestService(httpError int, writerResponse string) (Service, *mockS3Cli
 					IsDeprecated: true,
 				},
 			},
+			"28090964-9997-4bc2-9638-7a11135aaf10": {
+				transactionID: "tid_456",
+				concept: s3.Concept{
+					UUID:          "28090964-9997-4bc2-9638-7a11135aaf10",
+					PrefLabel:     "Root Concept",
+					Authority:     "Smartlogic",
+					AuthValue:     "28090964-9997-4bc2-9638-7a11135aaf10",
+					Type:          "Person",
+					FacebookPage:  "facebook/smartlogicPerson",
+					TwitterHandle: "@FtSmartlogicPerson",
+					ScopeNote:     "This note is in scope",
+					EmailAddress:  "person123@ft.com",
+					ShortLabel:    "Concept",
+					MembershipRoles: []s3.MembershipRole{
+						{
+							RoleUUID:        "ccdff192-4d6c-4539-bbe8-7e24e81ed49e",
+							InceptionDate:   "2002-06-01",
+							TerminationDate: "2011-11-29",
+						},
+					},
+					OrganisationUUID: "a4528fc9-0615-4bfa-bc99-596ea1ddec28",
+					PersonUUID:       "973509c1-5238-4c83-9a7d-89009e839ff8",
+					InceptionDate:    "2002-06-01",
+					TerminationDate:  "2011-11-29",
+					FigiCode:         "BBG000Y1HJT8",
+					IssuedBy:         "613b1f72-cc74-4d8f-9406-28fc91b82a2a",
+					IsDeprecated:     true,
+				},
+			},
+			"34a571fb-d779-4610-a7ba-2e127676db4e": {
+				transactionID: "tid_789",
+				concept: s3.Concept{
+					UUID:         "34a571fb-d779-4610-a7ba-2e127676db4e",
+					PrefLabel:    "TME Concept",
+					Authority:    "TME",
+					AuthValue:    "TME-123",
+					Type:         "Person",
+					IsDeprecated: false,
+				},
+			},
 			"c9d3a92a-da84-11e7-a121-0401beb96201": {
 				transactionID: "tid_629",
 				concept: s3.Concept{
@@ -894,6 +1006,16 @@ func setupTestService(httpError int, writerResponse string) (Service, *mockS3Cli
 				},
 				concordances.ConcordanceRecord{
 					UUID:      "34a571fb-d779-4610-a7ba-2e127676db4d",
+					Authority: "FT-TME",
+				},
+			},
+			"28090964-9997-4bc2-9638-7a11135aaf10": []concordances.ConcordanceRecord{
+				concordances.ConcordanceRecord{
+					UUID:      "28090964-9997-4bc2-9638-7a11135aaf10",
+					Authority: "Smartlogic",
+				},
+				concordances.ConcordanceRecord{
+					UUID:      "34a571fb-d779-4610-a7ba-2e127676db4e",
 					Authority: "FT-TME",
 				},
 			},
