@@ -496,7 +496,7 @@ func sendToWriter(client httpClient, baseUrl string, urlParam string, conceptUUI
 	request.Header.Set("X-Request-Id", tid)
 	resp, err := client.Do(request)
 	if err != nil {
-		logger.WithError(err).WithTransactionID(tid).WithUUID(conceptUUID).Errorf("Request to %s returned status: %d", reqUrl, resp.StatusCode)
+		logger.WithError(err).WithTransactionID(tid).WithUUID(conceptUUID).Errorf("Request to %s returned error", reqUrl)
 	}
 
 	defer resp.Body.Close()
