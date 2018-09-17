@@ -531,6 +531,32 @@ func TestAggregateService_GetConcordedConcept_BoardRole(t *testing.T) {
 	assert.Equal(t, expectedConcept, c)
 }
 
+func TestAggregateService_GetConcordedConcept_LoneTME(t *testing.T) {
+	svc, _, _, _, _ := setupTestService(200, payload)
+	expectedConcept := ConcordedConcept{
+		PrefUUID:  "99309d51-8969-4a1e-8346-d51f1981479b",
+		PrefLabel: "Lone TME Concept",
+		Type:      "Person",
+		Aliases:   []string{"Lone TME Concept"},
+		SourceRepresentations: []s3.Concept{
+			{
+				UUID:      "99309d51-8969-4a1e-8346-d51f1981479b",
+				PrefLabel: "Lone TME Concept",
+				Authority: "TME",
+				AuthValue: "TME-qwe",
+				Type:      "Person",
+			},
+		},
+	}
+
+	c, tid, err := svc.GetConcordedConcept("99309d51-8969-4a1e-8346-d51f1981479b")
+	sort.Strings(c.Aliases)
+	sort.Strings(expectedConcept.Aliases)
+	assert.NoError(t, err)
+	assert.Equal(t, "tid_439", tid)
+	assert.Equal(t, expectedConcept, c)
+}
+
 func TestAggregateService_GetConcordedConcept_Memberships(t *testing.T) {
 	svc, _, _, _, _ := setupTestService(200, payload)
 	expectedConcept := ConcordedConcept{
@@ -763,7 +789,7 @@ func TestAggregateService_ProcessMessage_S3CanonicalNotFound(t *testing.T) {
 	svc, _, _, _, _ := setupTestService(200, payload)
 	err := svc.ProcessMessage("45f278ef-91b2-45f7-9545-fbc79c1b4004")
 	assert.Error(t, err)
-	assert.Equal(t, "Canonical concept 45f278ef-91b2-45f7-9545-fbc79c1b4004 not found in S3", err.Error())
+	assert.Equal(t, "canonical concept 45f278ef-91b2-45f7-9545-fbc79c1b4004 not found in S3", err.Error())
 }
 
 func TestAggregateService_ProcessMessage_WriterReturnsNoUuids(t *testing.T) {
@@ -980,6 +1006,16 @@ func setupTestService(httpError int, writerResponse string) (Service, *mockS3Cli
 					Type:      "Person",
 				},
 			},
+			"99309d51-8969-4a1e-8346-d51f1981479b": {
+				transactionID: "tid_439",
+				concept: s3.Concept{
+					UUID:      "99309d51-8969-4a1e-8346-d51f1981479b",
+					PrefLabel: "Lone TME Concept",
+					Authority: "TME",
+					AuthValue: "TME-qwe",
+					Type:      "Person",
+				},
+			},
 			"6562674e-dbfa-4cb0-85b2-41b0948b7cc2": {
 				transactionID: "tid_630",
 				concept: s3.Concept{
@@ -1149,6 +1185,12 @@ func setupTestService(httpError int, writerResponse string) (Service, *mockS3Cli
 				concordances.ConcordanceRecord{
 					UUID:      "c28fa0b4-4245-11e8-842f-0ed5f89f718b",
 					Authority: "FACTSET",
+				},
+			},
+			"99309d51-8969-4a1e-8346-d51f1981479b": []concordances.ConcordanceRecord{
+				concordances.ConcordanceRecord{
+					UUID:      "99309d51-8969-4a1e-8346-d51f1981479b",
+					Authority: "TME",
 				},
 			},
 		},

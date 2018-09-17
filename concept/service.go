@@ -223,17 +223,11 @@ func bucketConcordances(concordanceRecords []concordances.ConcordanceRecord) (ma
 			Error("Error grouping concordance records")
 		return nil, "", err
 	}
-	if primaryAuthority == "" {
-		err = fmt.Errorf("no primary authority")
-		logger.WithError(err).
-			WithField("alert_tag", "AggregateConceptTransformerNoPrimaryAuthority").
-			Error("Error grouping concordance records")
-		return nil, "", err
-	}
 	return bucketedConcordances, primaryAuthority, nil
 }
 
 func (s *AggregateService) GetConcordedConcept(UUID string) (ConcordedConcept, string, error) {
+	var transactionID string
 	concordedConcept := ConcordedConcept{}
 	concordedRecords, err := s.concordances.GetConcordance(UUID)
 	if err != nil {
@@ -252,7 +246,9 @@ func (s *AggregateService) GetConcordedConcept(UUID string) (ConcordedConcept, s
 			continue
 		}
 		for _, conc := range concordanceRecords {
-			found, sourceConcept, _, err := s.s3.GetConceptAndTransactionId(conc.UUID)
+			var found bool
+			var sourceConcept s3.Concept
+			found, sourceConcept, transactionID, err = s.s3.GetConceptAndTransactionId(conc.UUID)
 			if err != nil {
 				return ConcordedConcept{}, "", err
 			}
@@ -270,18 +266,20 @@ func (s *AggregateService) GetConcordedConcept(UUID string) (ConcordedConcept, s
 		}
 	}
 
-	canonicalConcept := bucketedConcordances[primaryAuthority][0]
-
-	found, primaryConcept, transactionID, err := s.s3.GetConceptAndTransactionId(canonicalConcept.UUID)
-	if err != nil {
-		return ConcordedConcept{}, "", err
-	} else if !found {
-		err := fmt.Errorf("Canonical concept %s not found in S3", canonicalConcept.UUID)
-		logger.WithField("UUID", UUID).Error(err.Error())
-		return ConcordedConcept{}, "", err
+	if primaryAuthority != "" {
+		canonicalConcept := bucketedConcordances[primaryAuthority][0]
+		var found bool
+		var primaryConcept s3.Concept
+		found, primaryConcept, transactionID, err = s.s3.GetConceptAndTransactionId(canonicalConcept.UUID)
+		if err != nil {
+			return ConcordedConcept{}, "", err
+		} else if !found {
+			err := fmt.Errorf("canonical concept %s not found in S3", canonicalConcept.UUID)
+			logger.WithField("UUID", UUID).Error(err.Error())
+			return ConcordedConcept{}, "", err
+		}
+		concordedConcept = mergeCanonicalInformation(concordedConcept, primaryConcept)
 	}
-
-	concordedConcept = mergeCanonicalInformation(concordedConcept, primaryConcept)
 	concordedConcept.Aliases = deduplicateAndSkipEmptyAliases(concordedConcept.Aliases)
 
 	return concordedConcept, transactionID, nil

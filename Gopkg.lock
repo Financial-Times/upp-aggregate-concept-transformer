@@ -2,40 +2,51 @@
 
 
 [[projects]]
+  digest = "1:0e3c30694c9f3c284136c22a733cd119f6d7144a1e436eadfd1e5b9cdbeeefdf"
   name = "github.com/Financial-Times/go-fthealth"
   packages = ["v1_1"]
+  pruneopts = "UT"
   revision = "1b007e2b37b7936dfb6671fa17e5a29fd35a08ea"
   version = "0.4.0"
 
 [[projects]]
+  digest = "1:19246f2b1639555b28c883481c228f65164d13300d99b45feaed34f3d410be81"
   name = "github.com/Financial-Times/go-logger"
   packages = ["."]
+  pruneopts = "UT"
   revision = "ec38b420999cfcbc86816afb47f365dad510450c"
   version = "0.0.3"
 
 [[projects]]
+  digest = "1:92da547d0414ad8a3f1a405503ee9b103cb87f5beabc52ef907f712f2ee1caf2"
   name = "github.com/Financial-Times/http-handlers-go"
   packages = ["httphandlers"]
+  pruneopts = "UT"
   revision = "229ac16f1d9ec9bca485d2dafb9ec14dc7e9ba24"
   version = "0.1.1"
 
 [[projects]]
+  digest = "1:79842a99b682a84375be78f0c6ba316d784eb347f8db2354c3a68fee39a497da"
   name = "github.com/Financial-Times/service-status-go"
   packages = [
     "buildinfo",
     "gtg",
-    "httphandlers"
+    "httphandlers",
   ]
+  pruneopts = "UT"
   revision = "3f5199736a3d7ae52394c63aac36834786825e21"
   version = "0.1.0"
 
 [[projects]]
+  digest = "1:3ee48edc69d7152ce46d205ef4b47e7a2e83425a8120d62cd82492e89cb609fd"
   name = "github.com/Financial-Times/transactionid-utils-go"
   packages = ["."]
+  pruneopts = "UT"
   revision = "a2b1163e7c2f6c77add74ca2c7fc7422323a2d78"
   version = "v0.1.0"
 
 [[projects]]
+  digest = "1:d5ee4c093a4f0afc4ce5435b744d5cc2ccc53bea2858453825a0b353457320db"
   name = "github.com/aws/aws-sdk-go"
   packages = [
     "aws",
@@ -66,122 +77,182 @@
     "service/kinesis",
     "service/s3",
     "service/sqs",
-    "service/sts"
+    "service/sts",
   ]
+  pruneopts = "UT"
   revision = "aa827991a3c164e7d129a20edf80028605195eef"
 
 [[projects]]
+  digest = "1:a2c1d0e43bd3baaa071d1b9ed72c27d78169b2b269f71c105ac4ba34b1be4a39"
   name = "github.com/davecgh/go-spew"
   packages = ["spew"]
+  pruneopts = "UT"
   revision = "346938d642f2ec3594ed81d874461961cd0faa76"
   version = "v1.1.0"
 
 [[projects]]
+  digest = "1:ad12727c184fc7e33768f5fe239d8f767a3b60264541067ac2f23b9aca013e06"
   name = "github.com/go-ini/ini"
   packages = ["."]
+  pruneopts = "UT"
   revision = "ace140f73450505f33e8b8418216792275ae82a7"
   version = "v1.35.0"
 
 [[projects]]
   branch = "master"
+  digest = "1:c79fb010be38a59d657c48c6ba1d003a8aa651fa56b579d959d74573b7dff8e1"
   name = "github.com/gorilla/context"
   packages = ["."]
+  pruneopts = "UT"
   revision = "08b5f424b9271eedf6f9f0ce86cb9396ed337a42"
 
 [[projects]]
+  digest = "1:8d6527d915a5b5146500e1d4cb5a5c35ff29a8ee08e89fcc18dfdfdeb4a3eb8a"
   name = "github.com/gorilla/handlers"
   packages = ["."]
+  pruneopts = "UT"
   revision = "a5775781a543af3c6b9f5baf10995e4d14168950"
 
 [[projects]]
+  digest = "1:708ca7f70df972672d96e0a205bf6b2025cb35872d04a250c65cdb9632a851dc"
   name = "github.com/gorilla/mux"
   packages = ["."]
+  pruneopts = "UT"
   revision = "757bef944d0f21880861c2dd9c871ca543023cba"
 
 [[projects]]
+  digest = "1:1eb704daeeda0a1113e3f626ab40d702e5bc4062ec3d421013f23d918ee5aaf1"
   name = "github.com/hashicorp/go-version"
   packages = ["."]
+  pruneopts = "UT"
   revision = "e96d3840402619007766590ecea8dd7af1292276"
 
 [[projects]]
+  digest = "1:0bbc979cbe2bd7bbad6fa6db6464d66d458e1610235dcc8b66fb3b1254eae7c2"
   name = "github.com/jawher/mow.cli"
   packages = ["."]
+  pruneopts = "UT"
   revision = "0de3d3b4ed00f261460d12ecde4efa90fbfcd8ed"
 
 [[projects]]
+  digest = "1:b87714e57a511d88f307aba7d5b63522da12bed0a050889c81272fc50f71100e"
   name = "github.com/jmespath/go-jmespath"
   packages = ["."]
+  pruneopts = "UT"
   revision = "3433f3ea46d9f8019119e7dd41274e112a2359a9"
   version = "0.2.2"
 
 [[projects]]
+  digest = "1:c2fe356e9b860d68b677d61827607040eb2dcba82b11b6c0ea9413d9a12ed82f"
   name = "github.com/joho/godotenv"
   packages = [
     ".",
-    "autoload"
+    "autoload",
   ]
+  pruneopts = "UT"
   revision = "b01826f9569125401f5a25c97d62820184893c32"
 
 [[projects]]
+  digest = "1:0028cb19b2e4c3112225cd871870f2d9cf49b9b4276531f03438a88e94be86fe"
   name = "github.com/pmezard/go-difflib"
   packages = ["difflib"]
+  pruneopts = "UT"
   revision = "792786c7400a136282c1664665ae0a8db921c6c2"
   version = "v1.0.0"
 
 [[projects]]
+  digest = "1:166d5400333156c32e5ae39062e75bf455882007797f45fdcf8079e6634489f6"
   name = "github.com/rcrowley/go-metrics"
   packages = ["."]
+  pruneopts = "UT"
   revision = "1f30fe9094a513ce4c700b9a54458bbb0c96996c"
 
 [[projects]]
+  digest = "1:9e9193aa51197513b3abcb108970d831fbcf40ef96aa845c4f03276e1fa316d2"
   name = "github.com/sirupsen/logrus"
   packages = ["."]
+  pruneopts = "UT"
   revision = "c155da19408a8799da419ed3eeb0cb5db0ad5dbc"
   version = "v1.0.5"
 
 [[projects]]
+  digest = "1:1bc4a5bd879ce6b44fdaa2e8e1144921c145604764e92220009b951c1f2439f5"
   name = "github.com/stretchr/objx"
   packages = ["."]
+  pruneopts = "UT"
   revision = "facf9a85c22f48d2f52f2380e4efce1768749a89"
   version = "v0.1"
 
 [[projects]]
+  digest = "1:e441c680fdcf4770c92e8b132555231dfe645fd8e8222dd152ec615a582a3353"
   name = "github.com/stretchr/testify"
   packages = [
     "assert",
     "mock",
     "require",
-    "suite"
+    "suite",
   ]
+  pruneopts = "UT"
   revision = "b89eecf5ca5db6d3ba60b237ffe3df7bafb7662f"
 
 [[projects]]
+  digest = "1:624a05c7c6ed502bf77364cd3d54631383dafc169982fddd8ee77b53c3d9cccf"
   name = "golang.org/x/crypto"
   packages = ["ssh/terminal"]
+  pruneopts = "UT"
   revision = "81e90905daefcd6fd217b62423c0908922eadb30"
 
 [[projects]]
+  digest = "1:041166c169a282ba0a651bf107ac5395fef8b98fdca38cb3e4ed4cac15761c56"
   name = "golang.org/x/net"
   packages = ["context"]
+  pruneopts = "UT"
   revision = "f2499483f923065a842d38eb4c7f1927e6fc6e6d"
 
 [[projects]]
+  digest = "1:105645ed366a17f9ed1007059f0d3506e73e2098f2a1e793ffa92917d6461060"
   name = "golang.org/x/sys"
   packages = [
     "unix",
-    "windows"
+    "windows",
   ]
+  pruneopts = "UT"
   revision = "7c87d13f8e835d2fb3a70a2912c811ed0c1d241b"
 
 [[projects]]
   branch = "v1"
+  digest = "1:50c58685e45772643e094991b7f3ab097b18eb3e1d8cbb7c032884cf1f59d134"
   name = "gopkg.in/jarcoal/httpmock.v1"
   packages = ["."]
+  pruneopts = "UT"
   revision = "61bcb58a07522fbdf76a4cb03c57f5a52683d636"
 
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "f168944f930c76fbdc6c4041b894ab327486e893f0e6bcc136647713e37b7810"
+  input-imports = [
+    "github.com/Financial-Times/go-fthealth/v1_1",
+    "github.com/Financial-Times/go-logger",
+    "github.com/Financial-Times/http-handlers-go/httphandlers",
+    "github.com/Financial-Times/service-status-go/gtg",
+    "github.com/Financial-Times/service-status-go/httphandlers",
+    "github.com/aws/aws-sdk-go/aws",
+    "github.com/aws/aws-sdk-go/aws/awserr",
+    "github.com/aws/aws-sdk-go/aws/credentials/stscreds",
+    "github.com/aws/aws-sdk-go/aws/session",
+    "github.com/aws/aws-sdk-go/service/kinesis",
+    "github.com/aws/aws-sdk-go/service/s3",
+    "github.com/aws/aws-sdk-go/service/sqs",
+    "github.com/gorilla/handlers",
+    "github.com/gorilla/mux",
+    "github.com/jawher/mow.cli",
+    "github.com/joho/godotenv/autoload",
+    "github.com/rcrowley/go-metrics",
+    "github.com/sirupsen/logrus",
+    "github.com/stretchr/testify/assert",
+    "github.com/stretchr/testify/mock",
+    "github.com/stretchr/testify/suite",
+    "gopkg.in/jarcoal/httpmock.v1",
+  ]
   solver-name = "gps-cdcl"
   solver-version = 1
