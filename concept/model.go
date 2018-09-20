@@ -16,17 +16,18 @@ type ConcordedConcept struct {
 	PrefLabel string `json:"prefLabel,omitempty"`
 	Type      string `json:"type,omitempty"`
 	// Additional fields
-	Aliases        []string `json:"aliases,omitempty"`
-	BroaderUUIDs   []string `json:"broaderUUIDs,omitempty"`
-	DescriptionXML string   `json:"descriptionXML,omitempty"`
-	EmailAddress   string   `json:"emailAddress,omitempty"`
-	FacebookPage   string   `json:"facebookPage,omitempty"`
-	ImageURL       string   `json:"_imageUrl,omitempty"`
-	ParentUUIDs    []string `json:"parentUUIDs,omitempty"`
-	RelatedUUIDs   []string `json:"relatedUUIDs,omitempty"`
-	ScopeNote      string   `json:"scopeNote,omitempty"`
-	ShortLabel     string   `json:"shortLabel,omitempty"`
-	TwitterHandle  string   `json:"twitterHandle,omitempty"`
+	Aliases           []string `json:"aliases,omitempty"`
+	ParentUUIDs       []string `json:"parentUUIDs,omitempty"`
+	BroaderUUIDs      []string `json:"broaderUUIDs,omitempty"`
+	RelatedUUIDs      []string `json:"relatedUUIDs,omitempty"`
+	SupersededByUUIDs []string `json:"supersededByUUIDs,omitempty"`
+	DescriptionXML    string   `json:"descriptionXML,omitempty"`
+	ImageURL          string   `json:"_imageUrl,omitempty"`
+	EmailAddress      string   `json:"emailAddress,omitempty"`
+	FacebookPage      string   `json:"facebookPage,omitempty"`
+	TwitterHandle     string   `json:"twitterHandle,omitempty"`
+	ScopeNote         string   `json:"scopeNote,omitempty"`
+	ShortLabel        string   `json:"shortLabel,omitempty"`
 	// Brand
 	Strapline string `json:"strapline,omitempty"`
 	// Person

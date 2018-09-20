@@ -349,6 +349,9 @@ func mergeCanonicalInformation(c ConcordedConcept, s s3.Concept) ConcordedConcep
 	if s.ShortLabel != "" {
 		c.ShortLabel = s.ShortLabel
 	}
+	if len(s.SupersededByUUIDs) > 0 {
+		c.SupersededByUUIDs = s.SupersededByUUIDs
+	}
 	if len(s.ParentUUIDs) > 0 {
 		c.ParentUUIDs = s.ParentUUIDs
 	}
@@ -491,7 +494,7 @@ func sendToWriter(client httpClient, baseUrl string, urlParam string, conceptUUI
 	request.Header.Set("X-Request-Id", tid)
 	resp, err := client.Do(request)
 	if err != nil {
-		logger.WithError(err).WithTransactionID(tid).WithUUID(conceptUUID).Errorf("Request to %s returned status: %d", reqUrl, resp.StatusCode)
+		logger.WithError(err).WithTransactionID(tid).WithUUID(conceptUUID).Errorf("Request to %s returned error", reqUrl)
 	}
 
 	defer resp.Body.Close()
