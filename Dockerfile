@@ -1,9 +1,11 @@
-FROM golang:1.10-alpine
+FROM golang:1.11-alpine
 
 ENV PROJECT=aggregate-concept-transformer
 COPY . /${PROJECT}-sources/
 
-RUN apk --no-cache --virtual .build-dependencies add git curl \
+RUN apk --no-cache --upgrade add ca-certificates \
+  && update-ca-certificates \
+  && apk --no-cache --virtual .build-dependencies add git curl \
   && ORG_PATH="github.com/Financial-Times" \
   && REPO_PATH="${ORG_PATH}/${PROJECT}" \
   && mkdir -p $GOPATH/src/${ORG_PATH} \
