@@ -213,7 +213,18 @@ func main() {
 			logger.WithError(err).Fatal("Error creating Kinesis client")
 		}
 
-		svc := concept.NewService(s3Client, conceptUpdatesSqsClient, eventsQueueURL, concordancesClient, kinesisClient, *neoWriterAddress, *elasticsearchWriterAddress, *varnishPurgerAddress, *typesToPurgeFromPublicEndpoints, defaultHTTPClient())
+		svc := concept.NewService(
+			s3Client,
+			conceptUpdatesSqsClient,
+			eventsQueueURL,
+			concordancesClient,
+			kinesisClient,
+			*neoWriterAddress,
+			*elasticsearchWriterAddress,
+			*varnishPurgerAddress,
+			*typesToPurgeFromPublicEndpoints,
+			defaultHTTPClient())
+
 		handler := concept.NewHandler(svc)
 		hs := concept.NewHealthService(svc, *appSystemCode, *appName, *port, appDescription)
 
@@ -234,11 +245,16 @@ func main() {
 func defaultHTTPClient() *http.Client {
 	return &http.Client{
 		Transport: &http.Transport{
-			MaxIdleConnsPerHost: 128,
-			Dial: (&net.Dialer{
+			DialContext: (&net.Dialer{
 				Timeout:   30 * time.Second,
 				KeepAlive: 30 * time.Second,
-			}).Dial,
+				DualStack: true,
+			}).DialContext,
+			MaxIdleConns:          128,
+			MaxIdleConnsPerHost:   128,
+			IdleConnTimeout:       90 * time.Second, // from DefaultTransport
+			TLSHandshakeTimeout:   10 * time.Second, // from DefaultTransport
+			ExpectContinueTimeout: 1 * time.Second,  // from DefaultTransport
 		},
 	}
 }
