@@ -41,10 +41,44 @@ var irregularConceptTypePaths = map[string]string{
 }
 
 type Service interface {
-	ListenForNotifications()
+	ListenForNotifications(workerId int)
 	ProcessMessage(UUID string) error
 	GetConcordedConcept(UUID string) (ConcordedConcept, string, error)
 	Healthchecks() []fthealth.Check
+}
+
+type systemHealth struct {
+	sync.RWMutex
+	healthy  bool
+	feedback <-chan bool
+	done     <-chan struct{}
+}
+
+func (r *systemHealth) isGood() bool {
+	r.RLock()
+	defer r.RUnlock()
+	return r.healthy
+}
+
+func (r *systemHealth) processChannel() {
+	for {
+		select {
+		case st := <-r.feedback:
+			r.Lock()
+			if st != r.healthy {
+				logger.Warnf("Changing healthy status to '%t'", st)
+				r.healthy = st
+			}
+			r.Unlock()
+		case <-r.done:
+			r.Lock()
+			r.healthy = false
+			r.Unlock()
+			return
+		default:
+			// noop
+		}
+	}
 }
 
 type AggregateService struct {
@@ -58,9 +92,28 @@ type AggregateService struct {
 	elasticsearchWriterAddress      string
 	httpClient                      httpClient
 	typesToPurgeFromPublicEndpoints []string
+	health                          *systemHealth
 }
 
-func NewService(S3Client s3.Client, conceptUpdatesSQSClient sqs.Client, eventsSQSClient sqs.Client, concordancesClient concordances.Client, kinesisClient kinesis.Client, neoAddress string, elasticsearchAddress string, varnishPurgerAddress string, typesToPurgeFromPublicEndpoints []string, httpClient httpClient) Service {
+func NewService(
+	S3Client s3.Client,
+	conceptUpdatesSQSClient sqs.Client,
+	eventsSQSClient sqs.Client,
+	concordancesClient concordances.Client,
+	kinesisClient kinesis.Client,
+	neoAddress string,
+	elasticsearchAddress string,
+	varnishPurgerAddress string,
+	typesToPurgeFromPublicEndpoints []string,
+	httpClient httpClient,
+	feedback <-chan bool) Service {
+
+	health := &systemHealth{
+		healthy:  false, // Set to false. Once health check passes app will read from SQS
+		feedback: feedback,
+	}
+	go health.processChannel()
+
 	return &AggregateService{
 		s3:                              S3Client,
 		concordances:                    concordancesClient,
@@ -72,30 +125,35 @@ func NewService(S3Client s3.Client, conceptUpdatesSQSClient sqs.Client, eventsSQ
 		varnishPurgerAddress:            varnishPurgerAddress,
 		httpClient:                      httpClient,
 		typesToPurgeFromPublicEndpoints: typesToPurgeFromPublicEndpoints,
+		health:                          health,
 	}
 }
 
-func (s *AggregateService) ListenForNotifications() {
+func (s *AggregateService) ListenForNotifications(workerId int) {
 	for {
-		notifications := s.conceptUpdatesSqs.ListenAndServeQueue()
-		if len(notifications) > 0 {
-			var wg sync.WaitGroup
-			wg.Add(len(notifications))
-			for _, n := range notifications {
-				go func(n sqs.ConceptUpdate) {
-					defer wg.Done()
-					err := s.ProcessMessage(n.UUID)
-					if err != nil {
-						logger.WithError(err).WithUUID(n.UUID).Error("Error processing message.")
-						return
-					}
-					err = s.conceptUpdatesSqs.RemoveMessageFromQueue(n.ReceiptHandle)
-					if err != nil {
-						logger.WithError(err).WithUUID(n.UUID).Error("Error removing message from SQS.")
-					}
-				}(n)
+		if s.health.isGood() {
+			notifications := s.conceptUpdatesSqs.ListenAndServeQueue()
+			nslen := len(notifications)
+			if nslen > 0 {
+				logger.Infof("Worker %d processing notifications", workerId)
+				var wg sync.WaitGroup
+				wg.Add(nslen)
+				for _, n := range notifications {
+					go func(n sqs.ConceptUpdate) {
+						defer wg.Done()
+						err := s.ProcessMessage(n.UUID)
+						if err != nil {
+							logger.WithError(err).WithUUID(n.UUID).Error("Error processing message.")
+							return
+						}
+						err = s.conceptUpdatesSqs.RemoveMessageFromQueue(n.ReceiptHandle)
+						if err != nil {
+							logger.WithError(err).WithUUID(n.UUID).Error("Error removing message from SQS.")
+						}
+					}(n)
+				}
+				wg.Wait()
 			}
-			wg.Wait()
 		}
 	}
 }

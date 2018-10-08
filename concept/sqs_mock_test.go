@@ -2,6 +2,7 @@ package concept
 
 import (
 	"errors"
+	"github.com/stretchr/testify/mock"
 	"sync"
 
 	"github.com/Financial-Times/aggregate-concept-transformer/sqs"
@@ -9,6 +10,7 @@ import (
 )
 
 type mockSQSClient struct {
+	mock.Mock
 	conceptsQueue map[string]string
 	eventList     []sqs.Event
 	s             sync.RWMutex
@@ -18,6 +20,7 @@ type mockSQSClient struct {
 func (c *mockSQSClient) ListenAndServeQueue() []sqs.ConceptUpdate {
 	c.s.Lock()
 	defer c.s.Unlock()
+	c.Called()
 	q := c.conceptsQueue
 	notifications := []sqs.ConceptUpdate{}
 	for msgTag, UUID := range q {

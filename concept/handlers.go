@@ -76,11 +76,19 @@ func (h *AggregateConceptHandler) RegisterHandlers(router *mux.Router) {
 	router.Handle("/concept/{uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}}/send", sh)
 }
 
-func (h *AggregateConceptHandler) RegisterAdminHandlers(router *mux.Router, healthService *HealthService, requestLoggingEnabled bool) http.Handler {
+func (h *AggregateConceptHandler) RegisterAdminHandlers(router *mux.Router, healthService *HealthService, requestLoggingEnabled bool, fb chan bool) http.Handler {
 	logger.Info("Registering admin handlers")
 
-	hc := fthealth.HealthCheck{SystemCode: healthService.config.appSystemCode, Name: healthService.config.appName, Description: healthService.config.description, Checks: healthService.Checks}
-	router.HandleFunc("/__health", fthealth.Handler(fthealth.TimedHealthCheck{HealthCheck: hc, Timeout: 10 * time.Second}))
+	hc := fthealth.HealthCheck{
+		SystemCode: healthService.config.appSystemCode,
+		Name: healthService.config.appName,
+		Description: healthService.config.description,
+		Checks: healthService.Checks,
+	}
+
+	thc := fthealth.TimedHealthCheck{HealthCheck: hc, Timeout: 10 * time.Second}
+
+	router.HandleFunc("/__health", fthealth.Handler(fthealth.NewFeedbackHealthCheck(thc, fb)))
 	router.HandleFunc(status.GTGPath, status.NewGoodToGoHandler(healthService.GTG))
 	router.HandleFunc(status.BuildInfoPath, status.BuildInfoHandler)
 

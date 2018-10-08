@@ -14,11 +14,11 @@ type HealthService struct {
 type config struct {
 	appSystemCode string
 	appName       string
-	port          string
+	port          int
 	description   string
 }
 
-func NewHealthService(svc Service, appSystemCode string, appName string, port string, description string) *HealthService {
+func NewHealthService(svc Service, appSystemCode string, appName string, port int, description string) *HealthService {
 	service := &HealthService{
 		config: &config{
 			appSystemCode: appSystemCode,
