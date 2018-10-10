@@ -277,7 +277,7 @@ func main() {
 		}()
 
 		c := make(chan os.Signal, 1)
-		log.Info("shutting down")
+		logger.Info("shutting down")
 		// We'll accept graceful shutdowns when quit via SIGINT (Ctrl+C)
 		// or SIGTERM (Ctrl+/).
 		// SIGKILL or SIGQUIT will not be caught.
@@ -287,7 +287,7 @@ func main() {
 		<-c
 		// Send done signal to service
 		done <- struct{}{}
-		log.Info("waiting for workers to stop")
+		logger.Info("waiting for workers to stop")
 		listenForNotificationsWG.Wait()
 		// Create a deadline to wait for.
 		ctx, cancel := context.WithTimeout(context.Background(), time.Duration(*waitTime)*time.Second)
@@ -295,9 +295,9 @@ func main() {
 
 		// Doesn't block if no connections, but will otherwise wait
 		// until the timeout deadline.
-		log.Info("shutting down server")
+		logger.Info("shutting down server")
 		srv.Shutdown(ctx)
-		log.Info("exiting application")
+		logger.Info("exiting application")
 		cli.Exit(0)
 	}
 	app.Run(os.Args)
