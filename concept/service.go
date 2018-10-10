@@ -553,6 +553,7 @@ func sendToWriter(client httpClient, baseUrl string, urlParam string, conceptUUI
 	resp, err := client.Do(request)
 	if err != nil {
 		logger.WithError(err).WithTransactionID(tid).WithUUID(conceptUUID).Errorf("Request to %s returned error", reqUrl)
+		return updatedConcepts, err
 	}
 
 	defer resp.Body.Close()
