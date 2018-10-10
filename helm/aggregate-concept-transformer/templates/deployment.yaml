@@ -8,7 +8,7 @@ metadata:
     visualize: "true" 
     app: {{ .Values.service.name }} 
 spec:
-  replicas: {{ .Values.replicaCount }} 
+  replicas: {{ .Values.replicaCount }}
   selector: 
     matchLabels:
       app: {{ .Values.service.name }}
@@ -28,6 +28,7 @@ spec:
                 values:
                 - {{ .Values.service.name }}
             topologyKey: "kubernetes.io/hostname"
+      terminationGracePeriodSeconds: {{ .Values.waitTime | mul 2 }}
       containers: 
       - name: {{ .Values.service.name }} 
         image: "{{ .Values.image.repository }}:{{ .Chart.Version }}"
@@ -51,7 +52,7 @@ spec:
         - name: VISIBILITY_TIMEOUT
           value: "30"
         - name: WAIT_TIME
-          value: "20"
+          value: "{{ .Values.waitTime }}"
         - name: AWS_ACCESS_KEY_ID
           valueFrom:
             secretKeyRef:

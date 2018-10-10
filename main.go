@@ -1,8 +1,14 @@
 package main
 
 import (
+	"context"
+	"fmt"
 	"net/http"
 	"os"
+	"os/signal"
+	"runtime"
+	"sync"
+	"syscall"
 
 	"net"
 	"time"
@@ -36,9 +42,9 @@ func main() {
 		Desc:   "Application name",
 		EnvVar: "APP_NAME",
 	})
-	port := app.String(cli.StringOpt{
+	port := app.Int(cli.IntOpt{
 		Name:   "port",
-		Value:  "8080",
+		Value:  8080,
 		Desc:   "Port to listen on",
 		EnvVar: "APP_PORT",
 	})
@@ -146,7 +152,7 @@ func main() {
 		EnvVar: "LOG_LEVEL",
 	})
 
-	app.Action = func() {
+	app.Before = func() {
 
 		logger.InitLogger(*appSystemCode, *logLevel)
 
@@ -187,6 +193,9 @@ func main() {
 		if *concordancesReaderAddress == "" {
 			logger.Fatal("Concordances reader address not set")
 		}
+	}
+
+	app.Action = func() {
 
 		s3Client, err := s3.NewClient(*bucketName, *bucketRegion)
 		if err != nil {
@@ -213,32 +222,100 @@ func main() {
 			logger.WithError(err).Fatal("Error creating Kinesis client")
 		}
 
-		svc := concept.NewService(s3Client, conceptUpdatesSqsClient, eventsQueueURL, concordancesClient, kinesisClient, *neoWriterAddress, *elasticsearchWriterAddress, *varnishPurgerAddress, *typesToPurgeFromPublicEndpoints, defaultHTTPClient())
+		feedback := make(chan bool)
+		done := make(chan struct{})
+
+		maxWorkers := runtime.GOMAXPROCS(0) + 1
+
+		svc := concept.NewService(
+			s3Client,
+			conceptUpdatesSqsClient,
+			eventsQueueURL,
+			concordancesClient,
+			kinesisClient,
+			*neoWriterAddress,
+			*elasticsearchWriterAddress,
+			*varnishPurgerAddress,
+			*typesToPurgeFromPublicEndpoints,
+			defaultHTTPClient(maxWorkers),
+			feedback,
+			done)
+
 		handler := concept.NewHandler(svc)
 		hs := concept.NewHealthService(svc, *appSystemCode, *appName, *port, appDescription)
 
 		router := mux.NewRouter()
 		handler.RegisterHandlers(router)
-		r := handler.RegisterAdminHandlers(router, hs, *requestLoggingOn)
+		r := handler.RegisterAdminHandlers(router, hs, *requestLoggingOn, feedback)
 
-		go svc.ListenForNotifications()
+		logger.Infof("Running %d ListenForNotifications", maxWorkers)
+		var listenForNotificationsWG sync.WaitGroup
+		listenForNotificationsWG.Add(maxWorkers)
+		for i := 0; i < maxWorkers; i++ {
+			go func(workerId int) {
+				logger.Infof("Starting ListenForNotifications worker %d", workerId)
+				svc.ListenForNotifications(workerId)
+				listenForNotificationsWG.Done()
+			}(i)
+		}
 
 		logger.Infof("Listening on port %v", *port)
-		if err := http.ListenAndServe(":"+*port, r); err != nil {
-			logger.Fatalf("Unable to start server: %v", err)
+		srv := &http.Server{
+			Addr: fmt.Sprintf(":%d", *port),
+			// Good practice to set timeouts to avoid Slowloris attacks.
+			WriteTimeout: time.Second * 15,
+			ReadTimeout:  time.Second * 15,
+			IdleTimeout:  time.Second * 60,
+			Handler:      r, // Pass our instance of gorilla/mux in.
 		}
+
+		// Run our server in a goroutine so that it doesn't block.
+		go func() {
+			if err := srv.ListenAndServe(); err != nil {
+				logger.Fatalf("Unable to start server: %v", err)
+			}
+		}()
+
+		c := make(chan os.Signal, 1)
+		logger.Info("shutting down")
+		// We'll accept graceful shutdowns when quit via SIGINT (Ctrl+C)
+		// or SIGTERM (Ctrl+/).
+		// SIGKILL or SIGQUIT will not be caught.
+		signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
+
+		// Block until we receive our signal.
+		<-c
+		// Send done signal to service
+		done <- struct{}{}
+		logger.Info("waiting for workers to stop")
+		listenForNotificationsWG.Wait()
+		// Create a deadline to wait for.
+		ctx, cancel := context.WithTimeout(context.Background(), time.Duration(*waitTime)*time.Second)
+		defer cancel()
+
+		// Doesn't block if no connections, but will otherwise wait
+		// until the timeout deadline.
+		logger.Info("shutting down server")
+		srv.Shutdown(ctx)
+		logger.Info("exiting application")
+		cli.Exit(0)
 	}
 	app.Run(os.Args)
 }
 
-func defaultHTTPClient() *http.Client {
+func defaultHTTPClient(maxWorkers int) *http.Client {
 	return &http.Client{
 		Transport: &http.Transport{
-			MaxIdleConnsPerHost: 128,
-			Dial: (&net.Dialer{
-				Timeout:   30 * time.Second,
-				KeepAlive: 30 * time.Second,
-			}).Dial,
+			DialContext: (&net.Dialer{
+				Timeout:   90 * time.Second,
+				KeepAlive: 60 * time.Second,
+				DualStack: true,
+			}).DialContext,
+			MaxIdleConns:          128,
+			MaxIdleConnsPerHost:   maxWorkers + 1,   // one more than needed
+			IdleConnTimeout:       90 * time.Second, // from DefaultTransport
+			TLSHandshakeTimeout:   10 * time.Second, // from DefaultTransport
+			ExpectContinueTimeout: 1 * time.Second,  // from DefaultTransport
 		},
 	}
 }

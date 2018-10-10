@@ -121,11 +121,12 @@ func TestHandlers(t *testing.T) {
 
 	for _, d := range testCases {
 		t.Run(d.name, func(t *testing.T) {
+			fb := make(chan bool)
 			mockService := NewMockService(d.concepts, d.notifications, d.healthchecks, d.err)
 			handler := NewHandler(mockService)
 			m := mux.NewRouter()
 			handler.RegisterHandlers(m)
-			handler.RegisterAdminHandlers(m, NewHealthService(mockService, "system-code", "app-name", "8080", "description"), true)
+			handler.RegisterAdminHandlers(m, NewHealthService(mockService, "system-code", "app-name", 8080, "description"), true, fb)
 
 			req, _ := http.NewRequest(d.method, d.url, bytes.NewBufferString(d.requestBody))
 			rr := httptest.NewRecorder()
@@ -159,7 +160,7 @@ func NewMockService(concepts map[string]ConcordedConcept, notifications []sqs.Co
 	}
 }
 
-func (s *MockService) ListenForNotifications() {
+func (s *MockService) ListenForNotifications(workerId int) {
 	for _, n := range s.notifications {
 		s.ProcessMessage(n.UUID)
 	}
