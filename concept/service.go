@@ -50,6 +50,7 @@ type Service interface {
 type systemHealth struct {
 	sync.RWMutex
 	healthy  bool
+	shutdown bool
 	feedback <-chan bool
 	done     <-chan struct{}
 }
@@ -58,6 +59,12 @@ func (r *systemHealth) isGood() bool {
 	r.RLock()
 	defer r.RUnlock()
 	return r.healthy
+}
+
+func (r *systemHealth) isShuttingDown() bool {
+	r.RLock()
+	defer r.RUnlock()
+	return r.shutdown
 }
 
 func (r *systemHealth) processChannel() {
@@ -72,11 +79,9 @@ func (r *systemHealth) processChannel() {
 			r.Unlock()
 		case <-r.done:
 			r.Lock()
-			r.healthy = false
+			logger.Warn("Changing shutdown status to 'true'")
+			r.shutdown = true
 			r.Unlock()
-			return
-		default:
-			// noop
 		}
 	}
 }
@@ -106,11 +111,14 @@ func NewService(
 	varnishPurgerAddress string,
 	typesToPurgeFromPublicEndpoints []string,
 	httpClient httpClient,
-	feedback <-chan bool) Service {
+	feedback <-chan bool,
+	done <-chan struct{}) Service {
 
 	health := &systemHealth{
 		healthy:  false, // Set to false. Once health check passes app will read from SQS
+		shutdown: false,
 		feedback: feedback,
+		done:     done,
 	}
 	go health.processChannel()
 
@@ -131,6 +139,12 @@ func NewService(
 
 func (s *AggregateService) ListenForNotifications(workerId int) {
 	for {
+
+		if s.health.isShuttingDown() {
+			logger.Infof("Stopping worker %d", workerId)
+			return
+		}
+
 		if s.health.isGood() {
 			notifications := s.conceptUpdatesSqs.ListenAndServeQueue()
 			nslen := len(notifications)

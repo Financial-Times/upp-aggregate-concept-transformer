@@ -1,10 +1,14 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"os"
+	"os/signal"
 	"runtime"
+	"sync"
+	"syscall"
 
 	"net"
 	"time"
@@ -219,6 +223,7 @@ func main() {
 		}
 
 		feedback := make(chan bool)
+		done := make(chan struct{})
 
 		maxWorkers := runtime.GOMAXPROCS(0) + 1
 
@@ -233,7 +238,8 @@ func main() {
 			*varnishPurgerAddress,
 			*typesToPurgeFromPublicEndpoints,
 			defaultHTTPClient(maxWorkers),
-			feedback)
+			feedback,
+			done)
 
 		handler := concept.NewHandler(svc)
 		hs := concept.NewHealthService(svc, *appSystemCode, *appName, *port, appDescription)
@@ -243,10 +249,13 @@ func main() {
 		r := handler.RegisterAdminHandlers(router, hs, *requestLoggingOn, feedback)
 
 		logger.Infof("Running %d ListenForNotifications", maxWorkers)
+		var listenForNotificationsWG sync.WaitGroup
+		listenForNotificationsWG.Add(maxWorkers)
 		for i := 0; i < maxWorkers; i++ {
 			go func(workerId int) {
 				logger.Infof("Starting ListenForNotifications worker %d", workerId)
 				svc.ListenForNotifications(workerId)
+				listenForNotificationsWG.Done()
 			}(i)
 		}
 
@@ -261,11 +270,35 @@ func main() {
 		}
 
 		// Run our server in a goroutine so that it doesn't block.
-		//go func() {
-		if err := srv.ListenAndServe(); err != nil {
-			logger.Fatalf("Unable to start server: %v", err)
-		}
-		//}()
+		go func() {
+			if err := srv.ListenAndServe(); err != nil {
+				logger.Fatalf("Unable to start server: %v", err)
+			}
+		}()
+
+		c := make(chan os.Signal, 1)
+		log.Info("shutting down")
+		// We'll accept graceful shutdowns when quit via SIGINT (Ctrl+C)
+		// or SIGTERM (Ctrl+/).
+		// SIGKILL or SIGQUIT will not be caught.
+		signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
+
+		// Block until we receive our signal.
+		<-c
+		// Send done signal to service
+		done <- struct{}{}
+		log.Info("waiting for workers to stop")
+		listenForNotificationsWG.Wait()
+		// Create a deadline to wait for.
+		ctx, cancel := context.WithTimeout(context.Background(), time.Duration(*waitTime)*time.Second)
+		defer cancel()
+
+		// Doesn't block if no connections, but will otherwise wait
+		// until the timeout deadline.
+		log.Info("shutting down server")
+		srv.Shutdown(ctx)
+		log.Info("exiting application")
+		cli.Exit(0)
 	}
 	app.Run(os.Args)
 }
@@ -274,7 +307,7 @@ func defaultHTTPClient(maxWorkers int) *http.Client {
 	return &http.Client{
 		Transport: &http.Transport{
 			DialContext: (&net.Dialer{
-				Timeout:   60 * time.Second,
+				Timeout:   90 * time.Second,
 				KeepAlive: 60 * time.Second,
 				DualStack: true,
 			}).DialContext,

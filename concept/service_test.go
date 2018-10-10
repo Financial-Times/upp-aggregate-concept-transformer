@@ -74,12 +74,12 @@ const (
 )
 
 func TestNewService(t *testing.T) {
-	svc, _, _, _, _, _ := setupTestService(200, payload)
+	svc, _, _, _, _, _, _ := setupTestService(200, payload)
 	assert.Equal(t, 7, len(svc.Healthchecks()))
 }
 
 func TestAggregateService_ListenForNotifications(t *testing.T) {
-	svc, _, mockSqsClient, _, _, _ := setupTestService(200, payload)
+	svc, _, mockSqsClient, _, _, _, _ := setupTestService(200, payload)
 	mockSqsClient.On("ListenAndServeQueue").Return([]sqs.ConceptUpdate{})
 	go svc.ListenForNotifications(1)
 	time.Sleep(2 * time.Second)
@@ -87,7 +87,7 @@ func TestAggregateService_ListenForNotifications(t *testing.T) {
 }
 
 func TestAggregateService_ListenForNotifications_ProcessNoneIfNotHealthy(t *testing.T) {
-	svc, _, mockSqsClient, _, _, fb := setupTestService(200, payload)
+	svc, _, mockSqsClient, _, _, fb, _ := setupTestService(200, payload)
 	mockSqsClient.On("ListenAndServeQueue").Return([]sqs.ConceptUpdate{})
 	fb <- false
 	for len(fb) > 0 {
@@ -101,7 +101,7 @@ func TestAggregateService_ListenForNotifications_ProcessNoneIfNotHealthy(t *test
 }
 
 func TestAggregateService_ListenForNotifications_ProcessConceptNotInS3(t *testing.T) {
-	svc, _, mockSqsClient, _, _, _ := setupTestService(200, payload)
+	svc, _, mockSqsClient, _, _, _, _ := setupTestService(200, payload)
 	mockSqsClient.On("ListenAndServeQueue").Return([]sqs.ConceptUpdate{})
 	var receiptHandle = "1"
 	var nonExistingConcept = "99247059-04ec-3abb-8693-a0b8951fdcab"
@@ -117,7 +117,7 @@ func TestAggregateService_ListenForNotifications_ProcessConceptNotInS3(t *testin
 }
 
 func TestAggregateService_ListenForNotifications_CannotProcessRemoveMessageNotPresentOnQueue(t *testing.T) {
-	svc, _, mockSqsClient, _, _, _ := setupTestService(200, payload)
+	svc, _, mockSqsClient, _, _, _, _ := setupTestService(200, payload)
 	mockSqsClient.On("ListenAndServeQueue").Return([]sqs.ConceptUpdate{})
 	var receiptHandle = "2"
 	go svc.ListenForNotifications(1)
@@ -127,7 +127,7 @@ func TestAggregateService_ListenForNotifications_CannotProcessRemoveMessageNotPr
 }
 
 func TestAggregateService_GetConcordedConcept_NoConcordance(t *testing.T) {
-	svc, _, _, _, _, _ := setupTestService(200, payload)
+	svc, _, _, _, _, _, _ := setupTestService(200, payload)
 
 	c, tid, err := svc.GetConcordedConcept("99247059-04ec-3abb-8693-a0b8951fdcab")
 	assert.NoError(t, err)
@@ -138,7 +138,7 @@ func TestAggregateService_GetConcordedConcept_NoConcordance(t *testing.T) {
 }
 
 func TestAggregateService_GetConcordedConcept_TMEConcordance(t *testing.T) {
-	svc, _, _, _, _, _ := setupTestService(200, payload)
+	svc, _, _, _, _, _, _ := setupTestService(200, payload)
 	expectedConcept := ConcordedConcept{
 		PrefUUID:        "28090964-9997-4bc2-9638-7a11135aaff9",
 		PrefLabel:       "Root Concept",
@@ -209,7 +209,7 @@ func TestAggregateService_GetConcordedConcept_TMEConcordance(t *testing.T) {
 }
 
 func TestAggregateService_GetConcordedConcept_DeprecatedSmartlogic(t *testing.T) {
-	svc, _, _, _, _, _ := setupTestService(200, payload)
+	svc, _, _, _, _, _, _ := setupTestService(200, payload)
 	expectedConcept := ConcordedConcept{
 		PrefUUID:        "28090964-9997-4bc2-9638-7a11135aaf10",
 		PrefLabel:       "Root Concept",
@@ -281,7 +281,7 @@ func TestAggregateService_GetConcordedConcept_DeprecatedSmartlogic(t *testing.T)
 }
 
 func TestAggregateService_GetConcordedConcept_SupersededConcept(t *testing.T) {
-	svc, _, _, _, _, _ := setupTestService(200, payload)
+	svc, _, _, _, _, _, _ := setupTestService(200, payload)
 	expectedConcept := ConcordedConcept{
 		PrefUUID:        "28090964-9997-4bc2-9638-7a11135aaf11",
 		PrefLabel:       "Root Concept",
@@ -351,7 +351,7 @@ func TestAggregateService_GetConcordedConcept_SupersededConcept(t *testing.T) {
 }
 
 func TestAggregateService_GetConcordedConcept_FinancialInstrument(t *testing.T) {
-	svc, _, _, _, _, _ := setupTestService(200, payload)
+	svc, _, _, _, _, _, _ := setupTestService(200, payload)
 	expectedConcept := ConcordedConcept{
 		PrefUUID:     "6562674e-dbfa-4cb0-85b2-41b0948b7cc2",
 		PrefLabel:    "Some random finanial instrument",
@@ -382,7 +382,7 @@ func TestAggregateService_GetConcordedConcept_FinancialInstrument(t *testing.T) 
 }
 
 func TestAggregateService_GetConcordedConcept_Organisation(t *testing.T) {
-	svc, _, _, _, _, _ := setupTestService(200, payload)
+	svc, _, _, _, _, _, _ := setupTestService(200, payload)
 	expectedConcept := ConcordedConcept{
 		PrefUUID:   "c28fa0b4-4245-11e8-842f-0ed5f89f718b",
 		Type:       "PublicCompany",
@@ -449,7 +449,7 @@ func TestAggregateService_GetConcordedConcept_Organisation(t *testing.T) {
 }
 
 func TestAggregateService_GetConcordedConcept_PublicCompany(t *testing.T) {
-	svc, _, _, _, _, _ := setupTestService(200, payload)
+	svc, _, _, _, _, _, _ := setupTestService(200, payload)
 	expectedConcept := ConcordedConcept{
 		PrefUUID:   "a141f50f-31d7-4f89-8143-eec971e54ba8",
 		Type:       "PublicCompany",
@@ -524,7 +524,7 @@ func TestAggregateService_GetConcordedConcept_PublicCompany(t *testing.T) {
 }
 
 func TestAggregateService_GetConcordedConcept_BoardRole(t *testing.T) {
-	svc, _, _, _, _, _ := setupTestService(200, payload)
+	svc, _, _, _, _, _, _ := setupTestService(200, payload)
 	expectedConcept := ConcordedConcept{
 		PrefUUID:  "344fdb1d-0585-31f7-814f-b478e54dbe1f",
 		PrefLabel: "Director/Board Member",
@@ -550,7 +550,7 @@ func TestAggregateService_GetConcordedConcept_BoardRole(t *testing.T) {
 }
 
 func TestAggregateService_GetConcordedConcept_LoneTME(t *testing.T) {
-	svc, _, _, _, _, _ := setupTestService(200, payload)
+	svc, _, _, _, _, _, _ := setupTestService(200, payload)
 	expectedConcept := ConcordedConcept{
 		PrefUUID:  "99309d51-8969-4a1e-8346-d51f1981479b",
 		PrefLabel: "Lone TME Concept",
@@ -576,7 +576,7 @@ func TestAggregateService_GetConcordedConcept_LoneTME(t *testing.T) {
 }
 
 func TestAggregateService_GetConcordedConcept_Memberships(t *testing.T) {
-	svc, _, _, _, _, _ := setupTestService(200, payload)
+	svc, _, _, _, _, _, _ := setupTestService(200, payload)
 	expectedConcept := ConcordedConcept{
 		PrefUUID:         "87cda39a-e354-3dfb-b28a-b9a04887577b",
 		PrefLabel:        "Independent Non-Executive Director",
@@ -636,7 +636,7 @@ func TestAggregateService_GetConcordedConcept_Memberships(t *testing.T) {
 }
 
 func TestAggregateService_ProcessMessage_Success(t *testing.T) {
-	svc, _, _, eventQueue, _, _ := setupTestService(200, payload)
+	svc, _, _, eventQueue, _, _, _ := setupTestService(200, payload)
 	err := svc.ProcessMessage("28090964-9997-4bc2-9638-7a11135aaff9")
 	mockWriter := svc.(*AggregateService).httpClient.(*mockHTTPClient)
 	assert.Equal(t, []string{
@@ -654,7 +654,7 @@ func TestAggregateService_ProcessMessage_Success(t *testing.T) {
 }
 
 func TestAggregateService_ProcessMessage_NoElasticSuccess(t *testing.T) {
-	svc, _, _, eventQueue, _, _ := setupTestService(200, payload)
+	svc, _, _, eventQueue, _, _, _ := setupTestService(200, payload)
 	err := svc.ProcessMessage("6562674e-dbfa-4cb0-85b2-41b0948b7cc2")
 	mockWriter := svc.(*AggregateService).httpClient.(*mockHTTPClient)
 	assert.Equal(t, []string{
@@ -672,7 +672,7 @@ func TestAggregateService_ProcessMessage_NoElasticSuccess(t *testing.T) {
 }
 
 func TestAggregateService_ProcessMessage_Success_PurgeOnBrands(t *testing.T) {
-	svc, _, _, _, _, _ := setupTestService(200, payload)
+	svc, _, _, _, _, _, _ := setupTestService(200, payload)
 	err := svc.ProcessMessage("781bb463-dc53-4d3e-9d49-c48dc4cf6d55")
 	mockWriter := svc.(*AggregateService).httpClient.(*mockHTTPClient)
 	assert.Equal(t, []string{
@@ -689,7 +689,7 @@ func TestAggregateService_ProcessMessage_Success_PurgeOnBrands(t *testing.T) {
 }
 
 func TestAggregateService_ProcessMessage_Success_PurgeOnOrgs(t *testing.T) {
-	svc, _, _, _, _, _ := setupTestService(200, payload)
+	svc, _, _, _, _, _, _ := setupTestService(200, payload)
 	err := svc.ProcessMessage("94659314-7eb0-423a-8030-c4abf3d6458e")
 	mockWriter := svc.(*AggregateService).httpClient.(*mockHTTPClient)
 	assert.Equal(t, []string{
@@ -706,7 +706,7 @@ func TestAggregateService_ProcessMessage_Success_PurgeOnOrgs(t *testing.T) {
 }
 
 func TestAggregateService_ProcessMessage_Success_PurgeOnPublicCompany(t *testing.T) {
-	svc, _, _, _, _, _ := setupTestService(200, payload)
+	svc, _, _, _, _, _, _ := setupTestService(200, payload)
 	err := svc.ProcessMessage("e8251dab-c6d4-42d0-a4f6-430a0c565a83")
 	mockWriter := svc.(*AggregateService).httpClient.(*mockHTTPClient)
 	assert.Equal(t, []string{
@@ -723,7 +723,7 @@ func TestAggregateService_ProcessMessage_Success_PurgeOnPublicCompany(t *testing
 }
 
 func TestAggregateService_ProcessMessage_Success_PurgeOnMembership(t *testing.T) {
-	svc, _, _, _, _, _ := setupTestService(200, membershipPayload)
+	svc, _, _, _, _, _, _ := setupTestService(200, membershipPayload)
 	err := svc.ProcessMessage("ce922022-8114-11e8-8f42-da24cd01f044")
 	mockWriter := svc.(*AggregateService).httpClient.(*mockHTTPClient)
 	assert.Equal(t, []string{
@@ -738,7 +738,7 @@ func TestAggregateService_ProcessMessage_Success_PurgeOnMembership(t *testing.T)
 }
 
 func TestAggregateService_ProcessMessage_GenericS3Error(t *testing.T) {
-	svc, mockS3Client, _, _, _, _ := setupTestService(200, payload)
+	svc, mockS3Client, _, _, _, _, _ := setupTestService(200, payload)
 	mockS3Client.err = errors.New("Error retrieving concept from S3")
 	err := svc.ProcessMessage("28090964-9997-4bc2-9638-7a11135aaff9")
 	assert.Error(t, err)
@@ -746,7 +746,7 @@ func TestAggregateService_ProcessMessage_GenericS3Error(t *testing.T) {
 }
 
 func TestAggregateService_ProcessMessage_GenericWriterError(t *testing.T) {
-	svc, _, _, _, _, _ := setupTestService(503, payload)
+	svc, _, _, _, _, _, _ := setupTestService(503, payload)
 
 	err := svc.ProcessMessage("28090964-9997-4bc2-9638-7a11135aaff9")
 	assert.Error(t, err)
@@ -754,7 +754,7 @@ func TestAggregateService_ProcessMessage_GenericWriterError(t *testing.T) {
 }
 
 func TestAggregateService_ProcessMessage_GenericSqsError(t *testing.T) {
-	svc, _, _, mockEventQueue, _, _ := setupTestService(200, payload)
+	svc, _, _, mockEventQueue, _, _, _ := setupTestService(200, payload)
 	mockEventQueue.err = errors.New("could not connect to SQS")
 
 	err := svc.ProcessMessage("28090964-9997-4bc2-9638-7a11135aaff9")
@@ -763,7 +763,7 @@ func TestAggregateService_ProcessMessage_GenericSqsError(t *testing.T) {
 }
 
 func TestAggregateService_ProcessMessage_GenericKinesisError(t *testing.T) {
-	svc, _, _, _, mockKinesisClient, _ := setupTestService(200, payload)
+	svc, _, _, _, mockKinesisClient, _, _ := setupTestService(200, payload)
 	mockKinesisClient.err = errors.New("Failed to add record to stream")
 
 	err := svc.ProcessMessage("28090964-9997-4bc2-9638-7a11135aaff9")
@@ -772,7 +772,7 @@ func TestAggregateService_ProcessMessage_GenericKinesisError(t *testing.T) {
 }
 
 func TestAggregateService_ProcessMessage_S3SourceNotFoundStillWrittenAsThing(t *testing.T) {
-	svc, _, _, _, _, _ := setupTestService(200, payload)
+	svc, _, _, _, _, _, _ := setupTestService(200, payload)
 	testUUID := "c9d3a92a-da84-11e7-a121-0401beb96201"
 	err := svc.ProcessMessage(testUUID)
 	assert.NoError(t, err)
@@ -804,21 +804,21 @@ func TestAggregateService_ProcessMessage_S3SourceNotFoundStillWrittenAsThing(t *
 }
 
 func TestAggregateService_ProcessMessage_S3CanonicalNotFound(t *testing.T) {
-	svc, _, _, _, _, _ := setupTestService(200, payload)
+	svc, _, _, _, _, _, _ := setupTestService(200, payload)
 	err := svc.ProcessMessage("45f278ef-91b2-45f7-9545-fbc79c1b4004")
 	assert.Error(t, err)
 	assert.Equal(t, "canonical concept 45f278ef-91b2-45f7-9545-fbc79c1b4004 not found in S3", err.Error())
 }
 
 func TestAggregateService_ProcessMessage_WriterReturnsNoUuids(t *testing.T) {
-	svc, _, _, _, _, _ := setupTestService(200, emptyPayload)
+	svc, _, _, _, _, _, _ := setupTestService(200, emptyPayload)
 
 	err := svc.ProcessMessage("28090964-9997-4bc2-9638-7a11135aaff9")
 	assert.NoError(t, err)
 }
 
 func TestAggregateService_Healthchecks(t *testing.T) {
-	svc, _, _, _, _, _ := setupTestService(200, payload)
+	svc, _, _, _, _, _, _ := setupTestService(200, payload)
 	healthchecks := svc.Healthchecks()
 
 	for _, v := range healthchecks {
@@ -854,7 +854,7 @@ func TestResolveConceptType(t *testing.T) {
 	assert.Equal(t, "organisations", company)
 }
 
-func setupTestService(httpError int, writerResponse string) (Service, *mockS3Client, *mockSQSClient, *mockSQSClient, *mockKinesisStreamClient, chan bool) {
+func setupTestService(httpError int, writerResponse string) (Service, *mockS3Client, *mockSQSClient, *mockSQSClient, *mockKinesisStreamClient, chan bool, chan struct{}) {
 	s3mock := &mockS3Client{
 		concepts: map[string]struct {
 			transactionID string
@@ -1216,6 +1216,7 @@ func setupTestService(httpError int, writerResponse string) (Service, *mockS3Cli
 
 	kinesis := &mockKinesisStreamClient{}
 	feedback := make(chan bool)
+	done := make(chan struct{})
 
 	svc := NewService(s3mock, conceptsQueue, eventsQueue, concordClient, kinesis,
 		neo4jUrl,
@@ -1229,11 +1230,12 @@ func setupTestService(httpError int, writerResponse string) (Service, *mockS3Cli
 			called:     []string{},
 		},
 		feedback,
+		done,
 	)
 
 	feedback <- true
 	for len(feedback) > 0 {
 		time.Sleep(100 * time.Nanosecond)
 	}
-	return svc, s3mock, conceptsQueue, eventsQueue, kinesis, feedback
+	return svc, s3mock, conceptsQueue, eventsQueue, kinesis, feedback, done
 }
