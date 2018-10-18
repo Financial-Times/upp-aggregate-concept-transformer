@@ -33,18 +33,19 @@ type ConceptChanges struct {
 }
 
 type Event struct {
-	ConceptType  string      `json:"conceptType"`
-	ConceptUUID  string      `json:"conceptUUID"`
+	ConceptType  string      `json:"type"`
+	ConceptUUID  string      `json:"uuid"`
 	AggregateHash string 	 `json:"aggregateHash"`
+	TransactionID string     `json:"transactionID"`
 	EventDetails interface{} `json:"eventDetails"`
 }
 
 type ConceptEvent struct {
-	Type string `json:"type"`
+	Type string `json:"eventType"`
 }
 
 type ConcordanceEvent struct {
-	Type  string `json:"type"`
+	Type  string `json:"eventType"`
 	OldID string `json:"oldID"`
 	NewID string `json:"newID"`
 }
