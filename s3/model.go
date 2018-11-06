@@ -29,7 +29,6 @@ type Concept struct {
 	// Brand
 	Strapline string `json:"strapline,omitempty"`
 	// Person
-	IsAuthor   bool   `json:"isAuthor,omitempty"`
 	Salutation string `json:"salutation,omitempty"`
 	BirthYear  int    `json:"birthYear,omitempty"`
 	// Financial Instrument
