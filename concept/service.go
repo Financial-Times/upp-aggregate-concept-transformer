@@ -26,12 +26,6 @@ const (
 	conceptsAPIEnpoint       = "/concepts"
 )
 
-var conceptTypesNotAllowedInElastic = [...]string{
-	"Role",
-	"Membership",
-	"FinancialInstrument",
-}
-
 var irregularConceptTypePaths = map[string]string{
 	"AlphavilleSeries": "alphaville-series",
 	"BoardRole":        "membership-roles",
@@ -207,28 +201,25 @@ func (s *AggregateService) ProcessMessage(UUID string) error {
 
 	// Purge concept URLs in varnish
 	// Always purge top level concept
-	err = sendToPurger(s.httpClient, s.varnishPurgerAddress, updateRecord.UpdatedIds, concordedConcept.Type, s.typesToPurgeFromPublicEndpoints, transactionID)
-	if err != nil {
+	if err := sendToPurger(s.httpClient, s.varnishPurgerAddress, updateRecord.UpdatedIds, concordedConcept.Type, s.typesToPurgeFromPublicEndpoints, transactionID); err != nil {
 		logger.WithTransactionID(transactionID).WithUUID(concordedConcept.PrefUUID).Errorf("Concept couldn't be purged from Varnish cache")
 	}
 
 	//optionally purge other affected concepts
 	if concordedConcept.Type == "FinancialInstrument" {
-		err = sendToPurger(s.httpClient, s.varnishPurgerAddress, []string{concordedConcept.SourceRepresentations[0].IssuedBy}, "Organisation", s.typesToPurgeFromPublicEndpoints, transactionID)
-	}
-	if err != nil {
-		logger.WithTransactionID(transactionID).WithUUID(concordedConcept.SourceRepresentations[0].IssuedBy).Errorf("Concept couldn't be purged from Varnish cache")
+		if err := sendToPurger(s.httpClient, s.varnishPurgerAddress, []string{concordedConcept.SourceRepresentations[0].IssuedBy}, "Organisation", s.typesToPurgeFromPublicEndpoints, transactionID); err != nil {
+			logger.WithTransactionID(transactionID).WithUUID(concordedConcept.SourceRepresentations[0].IssuedBy).Errorf("Concept couldn't be purged from Varnish cache")
+		}
 	}
 
 	if concordedConcept.Type == "Membership" {
-		err = sendToPurger(s.httpClient, s.varnishPurgerAddress, []string{concordedConcept.PersonUUID}, "Person", s.typesToPurgeFromPublicEndpoints, transactionID)
-	}
-	if err != nil {
-		logger.WithTransactionID(transactionID).WithUUID(concordedConcept.PersonUUID).Errorf("Concept couldn't be purged from Varnish cache")
+		if err := sendToPurger(s.httpClient, s.varnishPurgerAddress, []string{concordedConcept.PersonUUID}, "Person", s.typesToPurgeFromPublicEndpoints, transactionID); err != nil {
+			logger.WithTransactionID(transactionID).WithUUID(concordedConcept.PersonUUID).Errorf("Concept couldn't be purged from Varnish cache")
+		}
 	}
 
 	// Write to Elasticsearch
-	if isTypeAllowedInElastic(concordedConcept.Type) {
+	if isTypeAllowedInElastic(concordedConcept) {
 		logger.WithTransactionID(transactionID).WithUUID(concordedConcept.PrefUUID).Debug("Writing concept to elastic search")
 		if _, err = sendToWriter(s.httpClient, s.elasticsearchWriterAddress, resolveConceptType(concordedConcept.Type), concordedConcept.PrefUUID, concordedConcept, transactionID); err != nil {
 			return err
@@ -461,9 +452,6 @@ func mergeCanonicalInformation(c ConcordedConcept, s s3.Concept) ConcordedConcep
 	if s.LeiCode != "" {
 		c.LeiCode = s.LeiCode
 	}
-	if s.IsAuthor {
-		c.IsAuthor = s.IsAuthor
-	}
 	if s.BirthYear > 0 {
 		c.BirthYear = s.BirthYear
 	}
@@ -584,7 +572,7 @@ func sendToWriter(client httpClient, baseUrl string, urlParam string, conceptUUI
 		logger.WithTransactionID(tid).WithUUID(conceptUUID).Debugf("Elastic search rw cannot handle concept: %s, because it has an unsupported type %s; skipping record", conceptUUID, concept.Type)
 		return updatedConcepts, nil
 	}
-	if resp.StatusCode != 200 {
+	if resp.StatusCode != 200 && resp.StatusCode != 304 {
 		err := errors.New("Request to " + reqUrl + " returned status: " + strconv.Itoa(resp.StatusCode) + "; skipping " + conceptUUID)
 		logger.WithTransactionID(tid).WithUUID(conceptUUID).Errorf("Request to %s returned status: %d", reqUrl, resp.StatusCode)
 		return updatedConcepts, err
@@ -700,12 +688,22 @@ func (s *AggregateService) RWElasticsearchHealthCheck() fthealth.Check {
 	}
 }
 
-func isTypeAllowedInElastic(conceptType string) bool {
-	for _, ct := range conceptTypesNotAllowedInElastic {
-		if ct == conceptType {
-			return false
+func isTypeAllowedInElastic(concordedConcept ConcordedConcept) bool {
+	switch concordedConcept.Type {
+	case "FinancialInstrument"://, "MembershipRole", "BoardRole":
+		return false
+	case "MembershipRole":
+		return false
+	case "BoardRole":
+		return false
+	case "Membership":
+		for _, sr := range concordedConcept.SourceRepresentations {
+			//Allow smartlogic curated memberships through to elasticsearch as we will use them to discover authors
+			if sr.Authority == "Smartlogic" {
+				return true
+			}
 		}
+		return false
 	}
-
 	return true
 }

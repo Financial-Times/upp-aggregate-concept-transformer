@@ -653,7 +653,7 @@ func TestAggregateService_ProcessMessage_Success(t *testing.T) {
 	assert.Equal(t, 3, len(eventQueue.eventList))
 }
 
-func TestAggregateService_ProcessMessage_NoElasticSuccess(t *testing.T) {
+func TestAggregateService_ProcessMessage_FinancialInstrumentsNotSentToEs(t *testing.T) {
 	svc, _, _, eventQueue, _, _, _ := setupTestService(200, payload)
 	err := svc.ProcessMessage("6562674e-dbfa-4cb0-85b2-41b0948b7cc2")
 	mockWriter := svc.(*AggregateService).httpClient.(*mockHTTPClient)
@@ -666,6 +666,67 @@ func TestAggregateService_ProcessMessage_NoElasticSuccess(t *testing.T) {
 		"varnish-purger/purge?target=%2Fthings%2F4e484678-cf47-4168-b844-6adb47f8eb58" +
 			"&target=%2Fconcepts%2F4e484678-cf47-4168-b844-6adb47f8eb58" +
 			"&target=%2Forganisations%2F4e484678-cf47-4168-b844-6adb47f8eb58",
+	}, mockWriter.called)
+	assert.NoError(t, err)
+	assert.Equal(t, 3, len(eventQueue.eventList))
+}
+
+func TestAggregateService_ProcessMessage_MembershipRolesNotSentToEs(t *testing.T) {
+	svc, _, _, eventQueue, _, _, _ := setupTestService(200, payload)
+	err := svc.ProcessMessage("01e284c2-7d77-4df6-8df7-57ec006194a4")
+	mockWriter := svc.(*AggregateService).httpClient.(*mockHTTPClient)
+	assert.Equal(t, []string{
+		"concepts-rw-neo4j/membership-roles/01e284c2-7d77-4df6-8df7-57ec006194a4",
+		"varnish-purger/purge?target=%2Fthings%2F28090964-9997-4bc2-9638-7a11135aaff9&target=%2" +
+			"Fconcepts%2F28090964-9997-4bc2-9638-7a11135aaff9&target=%2Fthings%2F" +
+			"34a571fb-d779-4610-a7ba-2e127676db4d&target=%2Fconcepts%2F34a571fb-d779-4610-a7ba-2e127676db4d",
+	}, mockWriter.called)
+	assert.NoError(t, err)
+	assert.Equal(t, 3, len(eventQueue.eventList))
+}
+
+func TestAggregateService_ProcessMessage_BoardRolesNotSentToEs(t *testing.T) {
+	svc, _, _, eventQueue, _, _, _ := setupTestService(200, payload)
+	err := svc.ProcessMessage("344fdb1d-0585-31f7-814f-b478e54dbe1f")
+	mockWriter := svc.(*AggregateService).httpClient.(*mockHTTPClient)
+	assert.Equal(t, []string{
+		"concepts-rw-neo4j/membership-roles/344fdb1d-0585-31f7-814f-b478e54dbe1f",
+		"varnish-purger/purge?target=%2Fthings%2F28090964-9997-4bc2-9638-7a11135aaff9&target=%2" +
+			"Fconcepts%2F28090964-9997-4bc2-9638-7a11135aaff9&target=%2Fthings%2F" +
+			"34a571fb-d779-4610-a7ba-2e127676db4d&target=%2Fconcepts%2F34a571fb-d779-4610-a7ba-2e127676db4d",
+	}, mockWriter.called)
+	assert.NoError(t, err)
+	assert.Equal(t, 3, len(eventQueue.eventList))
+}
+
+func TestAggregateService_ProcessMessage_FactsetMembershipNotSentToEs(t *testing.T) {
+	svc, _, _, eventQueue, _, _, _ := setupTestService(200, payload)
+	err := svc.ProcessMessage("f784be91-601a-42db-ac57-e1d5da8b4866")
+	mockWriter := svc.(*AggregateService).httpClient.(*mockHTTPClient)
+	assert.Equal(t, []string{
+		"concepts-rw-neo4j/memberships/f784be91-601a-42db-ac57-e1d5da8b4866",
+		"varnish-purger/purge?target=%2Fthings%2F28090964-9997-4bc2-9638-7a11135aaff9" +
+			"&target=%2Fconcepts%2F28090964-9997-4bc2-9638-7a11135aaff9&target=%2Fthings" +
+			"%2F34a571fb-d779-4610-a7ba-2e127676db4d&target=%2Fconcepts%2F34a571fb-d779-4610-a7ba-2e127676db4d",
+		"varnish-purger/purge?target=%2Fthings%2F99309d51-8969-4a1e-8346-d51f1981479b&target=%2F" +
+			"concepts%2F99309d51-8969-4a1e-8346-d51f1981479b&target=%2Fpeople%2F99309d51-8969-4a1e-8346-d51f1981479b",
+	}, mockWriter.called)
+	assert.NoError(t, err)
+	assert.Equal(t, 3, len(eventQueue.eventList))
+}
+
+func TestAggregateService_ProcessMessage_SmartlogicMembershipSentToEs(t *testing.T) {
+	svc, _, _, eventQueue, _, _, _ := setupTestService(200, payload)
+	err := svc.ProcessMessage("ddacda04-b7cd-4d2e-86b1-7dfef0ff56a2")
+	mockWriter := svc.(*AggregateService).httpClient.(*mockHTTPClient)
+	assert.Equal(t, []string{
+		"concepts-rw-neo4j/memberships/ddacda04-b7cd-4d2e-86b1-7dfef0ff56a2",
+		"varnish-purger/purge?target=%2Fthings%2F28090964-9997-4bc2-9638-7a11135aaff9&target=%2Fconcepts" +
+			"%2F28090964-9997-4bc2-9638-7a11135aaff9&target=%2Fthings%2F34a571fb-d779-4610-a7ba-2e127676db4d" +
+			"&target=%2Fconcepts%2F34a571fb-d779-4610-a7ba-2e127676db4d",
+		"varnish-purger/purge?target=%2Fthings%2F63ffa4d3-d7cc-4939-9bec-9ed46a78389e&target=%2Fconcepts" +
+			"%2F63ffa4d3-d7cc-4939-9bec-9ed46a78389e&target=%2Fpeople%2F63ffa4d3-d7cc-4939-9bec-9ed46a78389e",
+		"concept-rw-elasticsearch/memberships/ddacda04-b7cd-4d2e-86b1-7dfef0ff56a2",
 	}, mockWriter.called)
 	assert.NoError(t, err)
 	assert.Equal(t, 3, len(eventQueue.eventList))
@@ -854,7 +915,7 @@ func TestResolveConceptType(t *testing.T) {
 	assert.Equal(t, "organisations", company)
 }
 
-func setupTestService(httpError int, writerResponse string) (Service, *mockS3Client, *mockSQSClient, *mockSQSClient, *mockKinesisStreamClient, chan bool, chan struct{}) {
+func setupTestService(clientStatusCode int, writerResponse string) (Service, *mockS3Client, *mockSQSClient, *mockSQSClient, *mockKinesisStreamClient, chan bool, chan struct{}) {
 	s3mock := &mockS3Client{
 		concepts: map[string]struct {
 			transactionID string
@@ -1091,6 +1152,12 @@ func setupTestService(httpError int, writerResponse string) (Service, *mockS3Cli
 					Authority: "Smartlogic",
 					AuthValue: "781bb463-dc53-4d3e-9d49-c48dc4cf6d55",
 					Type:      "Brand",
+					DescriptionXML: "<body>The best brand</body>",
+					Strapline: "The Best Brand",
+					ImageURL: "localhost:8080/12345",
+					ParentUUIDs: []string{"ec467314-63cf-4976-a124-77175d10423d"},
+					BroaderUUIDs: []string{"575a2223-6307-4000-8882-935c27f4e8bb"},
+					RelatedUUIDs: []string{"b73e632c-9b8d-477d-bb45-aaf574bc015c"},
 				},
 			},
 			"94659314-7eb0-423a-8030-c4abf3d6458e": {
@@ -1141,6 +1208,50 @@ func setupTestService(httpError int, writerResponse string) (Service, *mockS3Cli
 							RoleUUID:        "344fdb1d-0585-31f7-814f-b478e54dbe1f",
 							InceptionDate:   "2000-01-01",
 							TerminationDate: "2009-12-31",
+						},
+					},
+				},
+			},
+			"01e284c2-7d77-4df6-8df7-57ec006194a4": {
+				transactionID: "tid_854",
+				concept: s3.Concept{
+					UUID:      "01e284c2-7d77-4df6-8df7-57ec006194a4",
+					PrefLabel: "Czar of the Universe",
+					Authority: "FACTSET",
+					AuthValue: "CZR",
+					Type:      "MembershipRole",
+				},
+			},
+			"f784be91-601a-42db-ac57-e1d5da8b4866": {
+				transactionID: "tid_824",
+				concept: s3.Concept{
+					UUID:      "f784be91-601a-42db-ac57-e1d5da8b4866",
+					PrefLabel: "Supreme Ruler",
+					Authority: "FACTSET",
+					AuthValue: "46987235",
+					Type:      "Membership",
+					OrganisationUUID: "a141f50f-31d7-4f89-8143-eec971e54ba8",
+					PersonUUID: "99309d51-8969-4a1e-8346-d51f1981479b",
+					MembershipRoles: []s3.MembershipRole{
+						{
+							RoleUUID: "01e284c2-7d77-4df6-8df7-57ec006194a4",
+						},
+					},
+				},
+			},
+			"ddacda04-b7cd-4d2e-86b1-7dfef0ff56a2": {
+				transactionID: "tid_771",
+				concept: s3.Concept{
+					UUID:      "ddacda04-b7cd-4d2e-86b1-7dfef0ff56a2",
+					PrefLabel: "Author McAuthorface",
+					Authority: "Smartlogic",
+					AuthValue: "ddacda04-b7cd-4d2e-86b1-7dfef0ff56a2",
+					Type:      "Membership",
+					OrganisationUUID: "9d4be817-dab9-4292-acf8-32416ebe9e94",
+					PersonUUID: "63ffa4d3-d7cc-4939-9bec-9ed46a78389e",
+					MembershipRoles: []s3.MembershipRole{
+						{
+							RoleUUID:        "8e8a8be0-be14-4c57-860e-f3ea35d68249",
 						},
 					},
 				},
@@ -1225,7 +1336,7 @@ func setupTestService(httpError int, writerResponse string) (Service, *mockS3Cli
 		[]string{"Person", "Brand", "PublicCompany", "Organisation"},
 		&mockHTTPClient{
 			resp:       writerResponse,
-			statusCode: httpError,
+			statusCode: clientStatusCode,
 			err:        nil,
 			called:     []string{},
 		},
