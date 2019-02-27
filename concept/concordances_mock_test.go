@@ -10,7 +10,7 @@ type mockConcordancesClient struct {
 	err          error
 }
 
-func (d *mockConcordancesClient) GetConcordance(uuid string) ([]concordances.ConcordanceRecord, error) {
+func (d *mockConcordancesClient) GetConcordance(uuid string, bookmark string) ([]concordances.ConcordanceRecord, error) {
 	if cons, ok := d.concordances[uuid]; ok {
 		return cons, d.err
 	}

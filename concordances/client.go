@@ -15,7 +15,7 @@ import (
 )
 
 type Client interface {
-	GetConcordance(uuid string) ([]ConcordanceRecord, error)
+	GetConcordance(uuid string, bookmark string) ([]ConcordanceRecord, error)
 	Healthcheck() fthealth.Check
 }
 
@@ -25,20 +25,20 @@ type RWClient struct {
 }
 
 func NewClient(address string) (Client, error) {
-	url, err := url.Parse(address)
+	parsedAddr, err := url.Parse(address)
 	if err != nil {
 		return nil, err
 	}
 	return &RWClient{
-		address: url,
+		address: parsedAddr,
 		httpClient: &http.Client{
 			Timeout: time.Second * 5,
 		},
 	}, nil
 }
 
-func (c *RWClient) GetConcordance(uuid string) ([]ConcordanceRecord, error) {
-	respBody, status, err := c.makeRequest("GET", fmt.Sprintf("/concordances/%s", uuid), nil)
+func (c *RWClient) GetConcordance(uuid string, bookmark string) ([]ConcordanceRecord, error) {
+	respBody, status, err := c.makeRequest("GET", fmt.Sprintf("/concordances/%s", uuid), nil, bookmark)
 	if err != nil {
 		logger.WithError(err).Error("Could not get concordances")
 		return nil, err
@@ -80,7 +80,7 @@ func (c *RWClient) Healthcheck() fthealth.Check {
 			"the service is up.",
 		Timeout: 10 * time.Second,
 		Checker: func() (string, error) {
-			_, status, err := c.makeRequest("GET", "/__gtg", nil)
+			_, status, err := c.makeRequest("GET", "/__gtg", nil, "")
 			if err != nil {
 				errMsg := "failed to request gtg from concordances-rw-neo4j"
 				return errMsg, errors.New(errMsg)
@@ -94,7 +94,7 @@ func (c *RWClient) Healthcheck() fthealth.Check {
 	}
 }
 
-func (c *RWClient) makeRequest(method string, path string, body []byte) ([]byte, int, error) {
+func (c *RWClient) makeRequest(method string, path string, body []byte, bookmark string) ([]byte, int, error) {
 	finalURL := *c.address
 	finalURL.Path = path
 
@@ -103,12 +103,21 @@ func (c *RWClient) makeRequest(method string, path string, body []byte) ([]byte,
 		return nil, 0, err
 	}
 
+	if bookmark != "" {
+		req.Header.Add("bookmark", bookmark)
+	}
+
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return nil, 0, err
 	}
 
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			logger.WithError(err).Error("Could not close body..")
+		}
+	}()
+
 	respBody, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return nil, 0, err

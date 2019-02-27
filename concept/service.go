@@ -36,8 +36,8 @@ var irregularConceptTypePaths = map[string]string{
 
 type Service interface {
 	ListenForNotifications(workerId int)
-	ProcessMessage(UUID string) error
-	GetConcordedConcept(UUID string) (ConcordedConcept, string, error)
+	ProcessMessage(UUID string, bookmark string) error
+	GetConcordedConcept(UUID string, bookmark string) (ConcordedConcept, string, error)
 	Healthchecks() []fthealth.Check
 }
 
@@ -149,7 +149,7 @@ func (s *AggregateService) ListenForNotifications(workerId int) {
 				for _, n := range notifications {
 					go func(n sqs.ConceptUpdate) {
 						defer wg.Done()
-						err := s.ProcessMessage(n.UUID)
+						err := s.ProcessMessage(n.UUID, n.Bookmark)
 						if err != nil {
 							logger.WithError(err).WithUUID(n.UUID).Error("Error processing message.")
 							return
@@ -166,9 +166,9 @@ func (s *AggregateService) ListenForNotifications(workerId int) {
 	}
 }
 
-func (s *AggregateService) ProcessMessage(UUID string) error {
+func (s *AggregateService) ProcessMessage(UUID string, bookmark string) error {
 	// Get the concorded concept
-	concordedConcept, transactionID, err := s.GetConcordedConcept(UUID)
+	concordedConcept, transactionID, err := s.GetConcordedConcept(UUID, bookmark)
 	if err != nil {
 		return err
 	}
@@ -289,10 +289,10 @@ func bucketConcordances(concordanceRecords []concordances.ConcordanceRecord) (ma
 	return bucketedConcordances, primaryAuthority, nil
 }
 
-func (s *AggregateService) GetConcordedConcept(UUID string) (ConcordedConcept, string, error) {
+func (s *AggregateService) GetConcordedConcept(UUID string, bookmark string) (ConcordedConcept, string, error) {
 	var transactionID string
 	concordedConcept := ConcordedConcept{}
-	concordedRecords, err := s.concordances.GetConcordance(UUID)
+	concordedRecords, err := s.concordances.GetConcordance(UUID, bookmark)
 	if err != nil {
 		return ConcordedConcept{}, "", err
 	}

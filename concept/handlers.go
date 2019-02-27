@@ -36,7 +36,7 @@ func (h *AggregateConceptHandler) GetHandler(w http.ResponseWriter, r *http.Requ
 	UUID := vars["uuid"]
 	w.Header().Set("Content-Type", "application/json")
 
-	concordedConcept, transactionID, err := h.svc.GetConcordedConcept(UUID)
+	concordedConcept, transactionID, err := h.svc.GetConcordedConcept(UUID, "")
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		fmt.Fprintln(w, fmt.Sprintf("{\"message\": \"%s\"}", err.Error()))
@@ -53,7 +53,7 @@ func (h *AggregateConceptHandler) SendHandler(w http.ResponseWriter, r *http.Req
 	UUID := vars["uuid"]
 	w.Header().Set("Content-Type", "application/json")
 
-	err := h.svc.ProcessMessage(UUID)
+	err := h.svc.ProcessMessage(UUID, "")
 
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)

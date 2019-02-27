@@ -26,6 +26,7 @@ func (c *mockSQSClient) ListenAndServeQueue() []sqs.ConceptUpdate {
 	for msgTag, UUID := range q {
 		notifications = append(notifications, sqs.ConceptUpdate{
 			UUID:          UUID,
+			Bookmark:      "",
 			ReceiptHandle: &msgTag,
 		})
 	}

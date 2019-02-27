@@ -146,8 +146,11 @@ func getNotificationsFromMessages(messages []*sqs.Message) []ConceptUpdate {
 			continue
 		}
 
+		bookmark := msgRecord.Records[0].Bookmark
+
 		notifications = append(notifications, ConceptUpdate{
 			UUID:          strings.Replace(key, "/", "-", 4),
+			Bookmark: 	   bookmark, //no need to verify via regex, because neo4j might change the pattern..
 			ReceiptHandle: receiptHandle,
 		})
 	}

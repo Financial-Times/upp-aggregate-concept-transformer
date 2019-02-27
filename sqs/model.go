@@ -2,6 +2,7 @@ package sqs
 
 type ConceptUpdate struct {
 	UUID          string
+	Bookmark	  string
 	ReceiptHandle *string
 }
 
@@ -16,6 +17,7 @@ type Message struct {
 
 type Record struct {
 	S3 s3 `json:"s3"`
+	Bookmark string `json:"bookmark"`
 }
 
 type s3 struct {
