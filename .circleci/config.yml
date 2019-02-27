@@ -27,13 +27,15 @@ jobs:
           name: Go build
           command: go build -v
       - run:
-          name: Run tests
-          command: 
-            go test -race -cover -coverprofile=${CIRCLE_COVERAGE_REPORT}/coverage.out ./... | go-junit-report > ${CIRCLE_TEST_REPORTS}/junit.xml
-            sed -i "/_mock/d" ${CIRCLE_COVERAGE_REPORT}/coverage.out
+          name: Run Tests
+          command: |
+            go test -race -v ./... | /go/bin/go-junit-report > ${CIRCLE_TEST_REPORTS}/main.xml
+            goverage -covermode=atomic -race -coverprofile=${CIRCLE_COVERAGE_REPORT}/coverage.out ./...
       - run:
-          name: Upload coverage
-          command: goveralls -coverprofile=${CIRCLE_COVERAGE_REPORT}/coverage.out -service=circle-ci -repotoken=${COVERALLS_TOKEN}
+          name: Upload Coverage
+          command: |
+            cat ${CIRCLE_COVERAGE_REPORT}/coverage.out | grep -v _mock >> coverage.txt;
+            /go/bin/goveralls -coverprofile=${CIRCLE_COVERAGE_REPORT}/coverage.out -service=circle-ci -repotoken=$COVERALLS_TOKEN
       - store_test_results:
           path: /tmp/test-results
   dockerfile:
