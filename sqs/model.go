@@ -2,7 +2,7 @@ package sqs
 
 type ConceptUpdate struct {
 	UUID          string
-	Bookmark	  string
+	Bookmark      string
 	ReceiptHandle *string
 }
 
@@ -16,7 +16,7 @@ type Message struct {
 }
 
 type Record struct {
-	S3 s3 `json:"s3"`
+	S3       s3     `json:"s3"`
 	Bookmark string `json:"bookmark"`
 }
 
@@ -35,11 +35,11 @@ type ConceptChanges struct {
 }
 
 type Event struct {
-	ConceptType  string      `json:"type"`
-	ConceptUUID  string      `json:"uuid"`
-	AggregateHash string 	 `json:"aggregateHash"`
-	TransactionID string     `json:"transactionID"`
-	EventDetails interface{} `json:"eventDetails"`
+	ConceptType   string      `json:"type"`
+	ConceptUUID   string      `json:"uuid"`
+	AggregateHash string      `json:"aggregateHash"`
+	TransactionID string      `json:"transactionID"`
+	EventDetails  interface{} `json:"eventDetails"`
 }
 
 type ConceptEvent struct {
