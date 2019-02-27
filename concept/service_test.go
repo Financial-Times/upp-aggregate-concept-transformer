@@ -101,20 +101,21 @@ func TestAggregateService_ListenForNotifications_ProcessNoneIfNotHealthy(t *test
 }
 
 func TestAggregateService_ListenForNotifications_ProcessConceptNotInS3(t *testing.T) {
-	svc, _, mockSqsClient, _, _, _, _ := setupTestService(200, payload)
+	svc, s3mock, mockSqsClient, _, _, _, _ := setupTestService(200, payload)
 	mockSqsClient.On("ListenAndServeQueue").Return([]sqs.ConceptUpdate{})
 	var receiptHandle = "1"
-	var nonExistingConcept = "99247059-04ec-3abb-8693-a0b8951fdcab"
+	var nonExistingConcept = "99247059-04ec-3abb-8693-a0b8951fdkor"
 	mockSqsClient.conceptsQueue[receiptHandle] = nonExistingConcept
-	var expectedMap = make(map[string]string)
-	expectedMap[receiptHandle] = nonExistingConcept
 	go svc.ListenForNotifications(1)
-	time.Sleep(50 * time.Microsecond)
-	assert.Equal(t, expectedMap, mockSqsClient.conceptsQueue)
-	assert.Equal(t, 1, len(mockSqsClient.Queue()))
-	err := mockSqsClient.RemoveMessageFromQueue(&receiptHandle)
+	time.Sleep(500 * time.Microsecond)
+	hasIt, _, _, err := s3mock.GetConceptAndTransactionId(nonExistingConcept)
+	assert.Equal(t, hasIt, false)
+	assert.NoError(t, err)
+	err = mockSqsClient.RemoveMessageFromQueue(&receiptHandle)
+	assert.Equal(t, 0, len(mockSqsClient.Queue()))
 	assert.NoError(t, err)
 }
+
 
 func TestAggregateService_ListenForNotifications_CannotProcessRemoveMessageNotPresentOnQueue(t *testing.T) {
 	svc, _, mockSqsClient, _, _, _, _ := setupTestService(200, payload)
