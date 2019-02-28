@@ -138,6 +138,39 @@ func TestAggregateService_GetConcordedConcept_NoConcordance(t *testing.T) {
 	assert.Equal(t, 2018, c.BirthYear)
 }
 
+func TestAggregateService_GetConcordedConcept_Location(t *testing.T) {
+	svc, _, _, _, _, _, _ := setupTestService(200, payload)
+	expectedConcept := ConcordedConcept{
+		PrefUUID:  "f8024a12-2d71-4f0e-996d-bcbc07df3921",
+		PrefLabel: "Paris",
+		Type:      "Location",
+		Aliases:   []string{"Paris", "Paris, Texas"},
+		ScopeNote: "Paris, Texas",
+		SourceRepresentations: []s3.Concept{
+			{
+				UUID:      "900dd202-fccc-3280-b053-d46c234dcbe2",
+				PrefLabel: "Paris, Texas",
+				Authority: "TME",
+				AuthValue: "UGFyaXMsIFRleGFz-R0w=",
+				Type:      "Location",
+			},
+			{
+				UUID:      "f8024a12-2d71-4f0e-996d-bcbc07df3921",
+				PrefLabel: "Paris",
+				Authority: "Smartlogic",
+				AuthValue: "f8024a12-2d71-4f0e-996d-bcbc07df3921",
+				Type:      "Location",
+			},
+		},
+	}
+	c, tid, err := svc.GetConcordedConcept("f8024a12-2d71-4f0e-996d-bcbc07df3921", "")
+	sort.Strings(c.Aliases)
+	sort.Strings(expectedConcept.Aliases)
+	assert.NoError(t, err)
+	assert.Equal(t, "tid_999", tid)
+	assert.Equal(t, expectedConcept, c)
+}
+
 func TestAggregateService_GetConcordedConcept_TMEConcordance(t *testing.T) {
 	svc, _, _, _, _, _, _ := setupTestService(200, payload)
 	expectedConcept := ConcordedConcept{
@@ -1148,17 +1181,17 @@ func setupTestService(clientStatusCode int, writerResponse string) (Service, *mo
 			"781bb463-dc53-4d3e-9d49-c48dc4cf6d55": {
 				transactionID: "tid_633",
 				concept: s3.Concept{
-					UUID:      "781bb463-dc53-4d3e-9d49-c48dc4cf6d55",
-					PrefLabel: "Test FT Brand",
-					Authority: "Smartlogic",
-					AuthValue: "781bb463-dc53-4d3e-9d49-c48dc4cf6d55",
-					Type:      "Brand",
+					UUID:           "781bb463-dc53-4d3e-9d49-c48dc4cf6d55",
+					PrefLabel:      "Test FT Brand",
+					Authority:      "Smartlogic",
+					AuthValue:      "781bb463-dc53-4d3e-9d49-c48dc4cf6d55",
+					Type:           "Brand",
 					DescriptionXML: "<body>The best brand</body>",
-					Strapline: "The Best Brand",
-					ImageURL: "localhost:8080/12345",
-					ParentUUIDs: []string{"ec467314-63cf-4976-a124-77175d10423d"},
-					BroaderUUIDs: []string{"575a2223-6307-4000-8882-935c27f4e8bb"},
-					RelatedUUIDs: []string{"b73e632c-9b8d-477d-bb45-aaf574bc015c"},
+					Strapline:      "The Best Brand",
+					ImageURL:       "localhost:8080/12345",
+					ParentUUIDs:    []string{"ec467314-63cf-4976-a124-77175d10423d"},
+					BroaderUUIDs:   []string{"575a2223-6307-4000-8882-935c27f4e8bb"},
+					RelatedUUIDs:   []string{"b73e632c-9b8d-477d-bb45-aaf574bc015c"},
 				},
 			},
 			"94659314-7eb0-423a-8030-c4abf3d6458e": {
@@ -1226,13 +1259,13 @@ func setupTestService(clientStatusCode int, writerResponse string) (Service, *mo
 			"f784be91-601a-42db-ac57-e1d5da8b4866": {
 				transactionID: "tid_824",
 				concept: s3.Concept{
-					UUID:      "f784be91-601a-42db-ac57-e1d5da8b4866",
-					PrefLabel: "Supreme Ruler",
-					Authority: "FACTSET",
-					AuthValue: "46987235",
-					Type:      "Membership",
+					UUID:             "f784be91-601a-42db-ac57-e1d5da8b4866",
+					PrefLabel:        "Supreme Ruler",
+					Authority:        "FACTSET",
+					AuthValue:        "46987235",
+					Type:             "Membership",
 					OrganisationUUID: "a141f50f-31d7-4f89-8143-eec971e54ba8",
-					PersonUUID: "99309d51-8969-4a1e-8346-d51f1981479b",
+					PersonUUID:       "99309d51-8969-4a1e-8346-d51f1981479b",
 					MembershipRoles: []s3.MembershipRole{
 						{
 							RoleUUID: "01e284c2-7d77-4df6-8df7-57ec006194a4",
@@ -1243,18 +1276,38 @@ func setupTestService(clientStatusCode int, writerResponse string) (Service, *mo
 			"ddacda04-b7cd-4d2e-86b1-7dfef0ff56a2": {
 				transactionID: "tid_771",
 				concept: s3.Concept{
-					UUID:      "ddacda04-b7cd-4d2e-86b1-7dfef0ff56a2",
-					PrefLabel: "Author McAuthorface",
-					Authority: "Smartlogic",
-					AuthValue: "ddacda04-b7cd-4d2e-86b1-7dfef0ff56a2",
-					Type:      "Membership",
+					UUID:             "ddacda04-b7cd-4d2e-86b1-7dfef0ff56a2",
+					PrefLabel:        "Author McAuthorface",
+					Authority:        "Smartlogic",
+					AuthValue:        "ddacda04-b7cd-4d2e-86b1-7dfef0ff56a2",
+					Type:             "Membership",
 					OrganisationUUID: "9d4be817-dab9-4292-acf8-32416ebe9e94",
-					PersonUUID: "63ffa4d3-d7cc-4939-9bec-9ed46a78389e",
+					PersonUUID:       "63ffa4d3-d7cc-4939-9bec-9ed46a78389e",
 					MembershipRoles: []s3.MembershipRole{
 						{
-							RoleUUID:        "8e8a8be0-be14-4c57-860e-f3ea35d68249",
+							RoleUUID: "8e8a8be0-be14-4c57-860e-f3ea35d68249",
 						},
 					},
+				},
+			},
+			"f8024a12-2d71-4f0e-996d-bcbc07df3921": {
+				transactionID: "tid_999",
+				concept: s3.Concept{
+					UUID:      "f8024a12-2d71-4f0e-996d-bcbc07df3921",
+					PrefLabel: "Paris",
+					Authority: "Smartlogic",
+					AuthValue: "f8024a12-2d71-4f0e-996d-bcbc07df3921",
+					Type:      "Location",
+				},
+			},
+			"900dd202-fccc-3280-b053-d46c234dcbe2": {
+				transactionID: "tid_999_1",
+				concept: s3.Concept{
+					UUID:      "900dd202-fccc-3280-b053-d46c234dcbe2",
+					PrefLabel: "Paris, Texas",
+					Authority: "TME",
+					AuthValue: "UGFyaXMsIFRleGFz-R0w=",
+					Type:      "Location",
 				},
 			},
 		},
@@ -1267,6 +1320,16 @@ func setupTestService(clientStatusCode int, writerResponse string) (Service, *mo
 	eventsQueue := &mockSQSClient{}
 	concordClient := &mockConcordancesClient{
 		concordances: map[string][]concordances.ConcordanceRecord{
+			"f8024a12-2d71-4f0e-996d-bcbc07df3921": {
+				{
+					UUID:      "f8024a12-2d71-4f0e-996d-bcbc07df3921",
+					Authority: "Smartlogic",
+				},
+				{
+					UUID:      "900dd202-fccc-3280-b053-d46c234dcbe2",
+					Authority: "TME",
+				},
+			},
 			"28090964-9997-4bc2-9638-7a11135aaff9": []concordances.ConcordanceRecord{
 				concordances.ConcordanceRecord{
 					UUID:      "28090964-9997-4bc2-9638-7a11135aaff9",

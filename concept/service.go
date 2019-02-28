@@ -289,7 +289,9 @@ func bucketConcordances(concordanceRecords []concordances.ConcordanceRecord) (ma
 	return bucketedConcordances, primaryAuthority, nil
 }
 
+
 func (s *AggregateService) GetConcordedConcept(UUID string, bookmark string) (ConcordedConcept, string, error) {
+	var scopeNoteOptions = map[string][]string{}
 	var transactionID string
 	concordedConcept := ConcordedConcept{}
 	concordedRecords, err := s.concordances.GetConcordance(UUID, bookmark)
@@ -325,7 +327,7 @@ func (s *AggregateService) GetConcordedConcept(UUID string, bookmark string) (Co
 				sourceConcept.Type = "Thing"
 			}
 
-			concordedConcept = mergeCanonicalInformation(concordedConcept, sourceConcept)
+			concordedConcept = mergeCanonicalInformation(concordedConcept, sourceConcept, scopeNoteOptions)
 		}
 	}
 
@@ -341,11 +343,37 @@ func (s *AggregateService) GetConcordedConcept(UUID string, bookmark string) (Co
 			logger.WithField("UUID", UUID).Error(err.Error())
 			return ConcordedConcept{}, "", err
 		}
-		concordedConcept = mergeCanonicalInformation(concordedConcept, primaryConcept)
+		concordedConcept = mergeCanonicalInformation(concordedConcept, primaryConcept, scopeNoteOptions)
 	}
 	concordedConcept.Aliases = deduplicateAndSkipEmptyAliases(concordedConcept.Aliases)
+	concordedConcept.ScopeNote = chooseScopeNote(concordedConcept, scopeNoteOptions)
 
 	return concordedConcept, transactionID, nil
+}
+
+func chooseScopeNote(concept ConcordedConcept, scopeNoteOptions map[string][]string) string {
+	if sn, ok := scopeNoteOptions[smartlogicAuthority]; ok {
+		return strings.Join(removeMatchingEntries(sn, concept.PrefLabel), " | ")
+	}
+	if sn, ok := scopeNoteOptions["Wikidata"]; ok {
+		return strings.Join(removeMatchingEntries(sn, concept.PrefLabel), " | ")
+	}
+	if sn, ok := scopeNoteOptions["TME"]; ok {
+		if concept.Type == "Location" {
+			return strings.Join(removeMatchingEntries(sn, concept.PrefLabel), " | ")
+		}
+	}
+	return ""
+}
+
+func removeMatchingEntries(slice []string, matcher string) []string {
+	var newSlice []string
+	for _, k := range slice {
+		if k != matcher {
+			newSlice = append(newSlice, k)
+		}
+	}
+	return newSlice
 }
 
 func (s *AggregateService) Healthchecks() []fthealth.Check {
@@ -382,7 +410,19 @@ func getMoreSpecificType(existingType string, newType string) string {
 	return newType
 }
 
-func mergeCanonicalInformation(c ConcordedConcept, s s3.Concept) ConcordedConcept {
+func buildScopeNoteOptions(scopeNotes map[string][]string, s s3.Concept) {
+	var newScopeNote string
+	if s.Authority == "TME" {
+		newScopeNote = s.PrefLabel
+	} else {
+		newScopeNote = s.ScopeNote
+	}
+	if newScopeNote != "" {
+		scopeNotes[s.Authority] = append(scopeNotes[s.Authority], newScopeNote)
+	}
+}
+
+func mergeCanonicalInformation(c ConcordedConcept, s s3.Concept, scopeNoteOptions map[string][]string) ConcordedConcept {
 	c.PrefUUID = s.UUID
 	c.PrefLabel = s.PrefLabel
 	c.Type = getMoreSpecificType(c.Type, s.Type)
@@ -406,9 +446,7 @@ func mergeCanonicalInformation(c ConcordedConcept, s s3.Concept) ConcordedConcep
 	if s.TwitterHandle != "" {
 		c.TwitterHandle = s.TwitterHandle
 	}
-	if s.ScopeNote != "" {
-		c.ScopeNote = s.ScopeNote
-	}
+	buildScopeNoteOptions(scopeNoteOptions, s)
 	if s.ShortLabel != "" {
 		c.ShortLabel = s.ShortLabel
 	}
@@ -518,12 +556,9 @@ func sendToPurger(client httpClient, baseUrl string, conceptUUIDs []string, conc
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("Request was not successful, status code: %v", resp.StatusCode)
+		return fmt.Errorf("request was not successful, status code: %v", resp.StatusCode)
 	}
-
-	if err == nil {
-		logger.WithTransactionID(tid).Debugf("Concepts with ids %s successfully purged from varnish cache", conceptUUIDs)
-	}
+	logger.WithTransactionID(tid).Debugf("Concepts with ids %s successfully purged from varnish cache", conceptUUIDs)
 
 	return err
 }
@@ -690,7 +725,7 @@ func (s *AggregateService) RWElasticsearchHealthCheck() fthealth.Check {
 
 func isTypeAllowedInElastic(concordedConcept ConcordedConcept) bool {
 	switch concordedConcept.Type {
-	case "FinancialInstrument"://, "MembershipRole", "BoardRole":
+	case "FinancialInstrument": //, "MembershipRole", "BoardRole":
 		return false
 	case "MembershipRole":
 		return false

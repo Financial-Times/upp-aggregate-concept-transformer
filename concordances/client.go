@@ -25,12 +25,12 @@ type RWClient struct {
 }
 
 func NewClient(address string) (Client, error) {
-	parsedAddr, err := url.Parse(address)
+	parsedURL, err := url.Parse(address)
 	if err != nil {
 		return nil, err
 	}
 	return &RWClient{
-		address: parsedAddr,
+		address: parsedURL,
 		httpClient: &http.Client{
 			Timeout: time.Second * 5,
 		},
@@ -58,10 +58,10 @@ func (c *RWClient) GetConcordance(uuid string, bookmark string) ([]ConcordanceRe
 
 	if status != http.StatusOK {
 		logger.WithError(err).WithField("status", status).Error("Could not get concordances, invalid status")
-		return nil, errors.New("Invalid status response")
+		return nil, errors.New("invalid status response")
 	}
 
-	cons := []ConcordanceRecord{}
+	var cons []ConcordanceRecord
 	if err := json.Unmarshal(respBody, &cons); err != nil {
 		return nil, err
 	}
@@ -96,7 +96,7 @@ func (c *RWClient) Healthcheck() fthealth.Check {
 
 func (c *RWClient) makeRequest(method string, path string, body []byte, bookmark string) ([]byte, int, error) {
 	finalURL := *c.address
-	finalURL.Path = path
+	finalURL.Path = finalURL.Path + path
 
 	req, err := http.NewRequest(method, finalURL.String(), bytes.NewReader(body))
 	if err != nil {
