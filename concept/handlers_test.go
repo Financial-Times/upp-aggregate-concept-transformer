@@ -162,21 +162,18 @@ func NewMockService(concepts map[string]ConcordedConcept, notifications []sqs.Co
 
 func (s *MockService) ListenForNotifications(workerId int) {
 	for _, n := range s.notifications {
-		s.ProcessMessage(n.UUID)
+		s.ProcessMessage(n.UUID, n.Bookmark)
 	}
 }
 
-func (s *MockService) ProcessMessage(UUID string) error {
-	//s.m.Lock()
-	//defer s.m.Unlock()
-
-	if _, _, err := s.GetConcordedConcept(UUID); err != nil {
+func (s *MockService) ProcessMessage(UUID string, bookmark string) error {
+	if _, _, err := s.GetConcordedConcept(UUID, bookmark); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (s *MockService) GetConcordedConcept(UUID string) (ConcordedConcept, string, error) {
+func (s *MockService) GetConcordedConcept(UUID string, bookmark string) (ConcordedConcept, string, error) {
 	if s.err != nil {
 		return ConcordedConcept{}, "", s.err
 	}
