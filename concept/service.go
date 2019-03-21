@@ -289,7 +289,6 @@ func bucketConcordances(concordanceRecords []concordances.ConcordanceRecord) (ma
 	return bucketedConcordances, primaryAuthority, nil
 }
 
-
 func (s *AggregateService) GetConcordedConcept(UUID string, bookmark string) (ConcordedConcept, string, error) {
 	var scopeNoteOptions = map[string][]string{}
 	var transactionID string
@@ -404,6 +403,13 @@ func deduplicateAndSkipEmptyAliases(aliases []string) []string {
 }
 
 func getMoreSpecificType(existingType string, newType string) string {
+
+	// Thing type shouldn't wipe things.
+	if newType == "Thing" && existingType != "" {
+		return existingType
+	}
+
+	// If we've already called it a PublicCompany, keep that information.
 	if existingType == "PublicCompany" && (newType == "Organisation" || newType == "Company") {
 		return existingType
 	}
