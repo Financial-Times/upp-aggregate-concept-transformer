@@ -53,6 +53,8 @@ type ConcordedConcept struct {
 	ShortName              string   `json:"shortName,omitempty"`
 	YearFounded            int      `json:"yearFounded,omitempty"`
 	IsDeprecated           bool     `json:"isDeprecated,omitempty"`
+	// Location
+	ISO31661 string `json:"iso-3166-1,omitempty"`
 	// Source representations
 	SourceRepresentations []s3.Concept `json:"sourceRepresentations,omitempty"`
 }

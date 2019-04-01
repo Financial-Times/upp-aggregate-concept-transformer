@@ -52,4 +52,6 @@ type Concept struct {
 	ShortName              string   `json:"shortName,omitempty"`
 	YearFounded            int      `json:"yearFounded,omitempty"`
 	IsDeprecated           bool     `json:"isDeprecated,omitempty"`
+	// Location
+	ISO31661 string `json:"iso-3166-1,omitempty"`
 }
