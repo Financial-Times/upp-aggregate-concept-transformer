@@ -53,5 +53,5 @@ type Concept struct {
 	YearFounded            int      `json:"yearFounded,omitempty"`
 	IsDeprecated           bool     `json:"isDeprecated,omitempty"`
 	// Location
-	ISO31661 string `json:"iso-3166-1,omitempty"`
+	ISO31661 string `json:"iso31661,omitempty"`
 }
