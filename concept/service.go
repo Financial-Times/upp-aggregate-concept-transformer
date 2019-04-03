@@ -16,7 +16,7 @@ import (
 	"github.com/Financial-Times/aggregate-concept-transformer/s3"
 	"github.com/Financial-Times/aggregate-concept-transformer/sqs"
 	fthealth "github.com/Financial-Times/go-fthealth/v1_1"
-	"github.com/Financial-Times/go-logger"
+	logger "github.com/Financial-Times/go-logger"
 )
 
 const (
@@ -501,6 +501,9 @@ func mergeCanonicalInformation(c ConcordedConcept, s s3.Concept, scopeNoteOption
 	}
 	if s.Salutation != "" {
 		c.Salutation = s.Salutation
+	}
+	if s.ISO31661 != "" {
+		c.ISO31661 = s.ISO31661
 	}
 
 	for _, mr := range s.MembershipRoles {
