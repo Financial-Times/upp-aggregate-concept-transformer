@@ -18,17 +18,16 @@ import (
 	"github.com/Financial-Times/aggregate-concept-transformer/kinesis"
 	"github.com/Financial-Times/aggregate-concept-transformer/s3"
 	"github.com/Financial-Times/aggregate-concept-transformer/sqs"
-	"github.com/Financial-Times/go-logger"
+	logger "github.com/Financial-Times/go-logger"
 	"github.com/gorilla/mux"
-	"github.com/jawher/mow.cli"
-	_ "github.com/joho/godotenv/autoload"
+	cli "github.com/jawher/mow.cli"
 	log "github.com/sirupsen/logrus"
 )
 
 const appDescription = "Service to aggregate concepts from different sources and produce a canonical view."
 
 func main() {
-	app := cli.App("aggregate-concept-service", "Aggregating and concording concepts in UPP.")
+	app := cli.App("aggregate-concept-service", "Aggregate and concord concepts in UPP")
 
 	appSystemCode := app.String(cli.StringOpt{
 		Name:   "app-system-code",
@@ -66,7 +65,7 @@ func main() {
 	})
 	conceptUpdatesQueueURL := app.String(cli.StringOpt{
 		Name:   "conceptUpdatesQueueURL",
-		Desc:   "Url of AWS sqs queue to listen for concept updates",
+		Desc:   "Url of AWS SQS queue to listen for concept updates",
 		EnvVar: "CONCEPTS_QUEUE_URL",
 	})
 	messagesToProcess := app.Int(cli.IntOpt{
@@ -131,18 +130,18 @@ func main() {
 	kinesisRegion := app.String(cli.StringOpt{
 		Name:   "kinesisRegion",
 		Value:  "eu-west-1",
-		Desc:   "AWS region the kinesis stream is located",
+		Desc:   "AWS region the Kinesis stream is located",
 		EnvVar: "KINESIS_REGION",
 	})
 	eventsQueueURL := app.String(cli.StringOpt{
 		Name:   "eventsQueueURL",
-		Desc:   "Url of AWS sqs queue to send concept notifications to",
+		Desc:   "Url of AWS SQS queue to send concept notifications to",
 		EnvVar: "EVENTS_QUEUE_URL",
 	})
 	requestLoggingOn := app.Bool(cli.BoolOpt{
 		Name:   "requestLoggingOn",
 		Value:  true,
-		Desc:   "Whether to log http requests or not",
+		Desc:   "Whether to log HTTP requests or not",
 		EnvVar: "REQUEST_LOGGING_ON",
 	})
 	logLevel := app.String(cli.StringOpt{
@@ -175,7 +174,7 @@ func main() {
 		}
 
 		if *conceptUpdatesQueueURL == "" {
-			logger.Fatal("Concept update SQS queue url not set")
+			logger.Fatal("Concept update SQS queue URL not set")
 		}
 
 		if *bucketRegion == "" {

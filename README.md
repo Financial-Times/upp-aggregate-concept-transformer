@@ -1,6 +1,6 @@
 # Aggregate Concept Transformer (aggregate-concept-transformer)
 
-[![Circle CI](https://circleci.com/gh/Financial-Times/aggregate-concept-transformer/tree/master.png?style=shield)](https://circleci.com/gh/Financial-Times/aggregate-concept-transformer/tree/master)
+[![Circle CI](https://circleci.com/gh/Financial-Times/aggregate-concept-transformer/tree/master.svg?style=svg&circle-token=4261ac7039418a1ee77491ba404c680082d7f01e)](https://circleci.com/gh/Financial-Times/aggregate-concept-transformer/tree/master)
 [![Go Report Card](https://goreportcard.com/badge/github.com/Financial-Times/aggregate-concept-transformer)](https://goreportcard.com/report/github.com/Financial-Times/aggregate-concept-transformer)
 [![Coverage Status](https://coveralls.io/repos/github/Financial-Times/aggregate-concept-transformer/badge.svg)](https://coveralls.io/github/Financial-Times/aggregate-concept-transformer)
 
@@ -8,22 +8,17 @@ __A service which gets notified via SQS of updates to source concepts in an Amaz
 
 # Installation
 
-For the first time:
-
-`go get github.com/Financial-Times/aggregate-concept-transformer`
-
-or update:
-
-`go get -u github.com/Financial-Times/aggregate-concept-transformer`
-
-`dep ensure -v`
+	go get -u github.com/Financial-Times/aggregate-concept-transformer
+	cd $GOPATH/src/github.com/Financial-Times/aggregate-concept-transformer
+	dep ensure -v -vendor-only
+	go build
 
 # Running
 
 ```
-Usage: aggregate-concept-service [OPTIONS]
+Usage: aggregate-concept-transformer [OPTIONS]
 
-Aggregating and concording concepts in UPP.
+Aggregate and concord concepts in UPP.
 
 Options:
   --app-system-code="aggregate-concept-transformer"       System Code of the application ($APP_SYSTEM_CODE)
@@ -32,19 +27,20 @@ Options:
   --bucketRegion="eu-west-1"                              AWS Region in which the S3 bucket is located ($BUCKET_REGION)
   --sqsRegion=""                                          AWS Region in which the SQS queue is located ($SQS_REGION)
   --bucketName=""                                         Bucket to read concepts from. ($BUCKET_NAME)
-  --conceptUpdatesQueueURL=""                             Url of AWS sqs queue to listen to with concept updates ($CONCEPTS_QUEUE_URL)
+  --conceptUpdatesQueueURL=""                             Url of AWS SQS queue to listen to with concept updates ($CONCEPTS_QUEUE_URL)
   --messagesToProcess=10                                  Maximum number or messages to concurrently read off of queue and process ($MAX_MESSAGES)
   --visibilityTimeout=30                                  Duration(seconds) that messages will be ignored by subsequent requests after initial response ($VISIBILITY_TIMEOUT)
   --waitTime=20                                           Duration(seconds) to wait on queue for messages until returning. Will be shorter if messages arrive ($WAIT_TIME)
   --neo4jWriterAddress="http://localhost:8080/"           Address for the Neo4J Concept Writer ($NEO_WRITER_ADDRESS)
   --varnishPurgerAddress="http://localhost:8080/"         Address for the Varnish Purger Application ($VARNISH_PURGER_ADDRESS)  
+  --typesToPurgeFromPublicEndpoints=""                    Concept types that need purging from the public endpoints ($TYPES_TO_PURGE_FROM_PUBLIC_ENDPOINTS)  
   --concordancesReaderAddress="http://localhost:8080/"    Address for the Neo4J Concept Writer ($CONCORDANCES_RW_ADDRESS)
   --elasticsearchWriterAddress="http://localhost:8080/"   Address for the Elasticsearch Concept Writer ($ES_WRITER_ADDRESS)
   --crossAccountRoleARN                                   ARN for cross account role ($CROSS_ACCOUNT_ARN)
   --kinesisStreamName=""                                  AWS Kinesis stream name ($KINESIS_STREAM_NAME)
-  --kinesisRegion="eu-west-1"                             AWS region the kinesis stream is located ($KINESIS_REGION)
+  --kinesisRegion="eu-west-1"                             AWS region the Kinesis stream is located ($KINESIS_REGION)
   --eventsQueueURL=""                                     Queue to send concept events to ($EVENTS_QUEUE_URL)
-  --requestLoggingOn=true                                 Whether to log http requests or not ($REQUEST_LOGGING_ON)
+  --requestLoggingOn=true                                 Whether to log HTTP requests or not ($REQUEST_LOGGING_ON)
   --logLevel="info"                                       App log level ($LOG_LEVEL)
 ```
 
