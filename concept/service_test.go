@@ -1,17 +1,16 @@
 package concept
 
 import (
+	"encoding/json"
 	"errors"
-	"github.com/Financial-Times/aggregate-concept-transformer/sqs"
+	"io/ioutil"
 	"sort"
 	"testing"
 	"time"
 
-	"encoding/json"
-	"io/ioutil"
-
 	"github.com/Financial-Times/aggregate-concept-transformer/concordances"
 	"github.com/Financial-Times/aggregate-concept-transformer/s3"
+	"github.com/Financial-Times/aggregate-concept-transformer/sqs"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -116,7 +115,6 @@ func TestAggregateService_ListenForNotifications_ProcessConceptNotInS3(t *testin
 	assert.NoError(t, err)
 }
 
-
 func TestAggregateService_ListenForNotifications_CannotProcessRemoveMessageNotPresentOnQueue(t *testing.T) {
 	svc, _, mockSqsClient, _, _, _, _ := setupTestService(200, payload)
 	mockSqsClient.On("ListenAndServeQueue").Return([]sqs.ConceptUpdate{})
@@ -130,7 +128,7 @@ func TestAggregateService_ListenForNotifications_CannotProcessRemoveMessageNotPr
 func TestAggregateService_GetConcordedConcept_NoConcordance(t *testing.T) {
 	svc, _, _, _, _, _, _ := setupTestService(200, payload)
 
-	c, tid, err := svc.GetConcordedConcept("99247059-04ec-3abb-8693-a0b8951fdcab","")
+	c, tid, err := svc.GetConcordedConcept("99247059-04ec-3abb-8693-a0b8951fdcab", "")
 	assert.NoError(t, err)
 	assert.Equal(t, "tid_123", tid)
 	assert.Equal(t, "Test Concept", c.PrefLabel)
@@ -168,6 +166,93 @@ func TestAggregateService_GetConcordedConcept_Location(t *testing.T) {
 	sort.Strings(expectedConcept.Aliases)
 	assert.NoError(t, err)
 	assert.Equal(t, "tid_999", tid)
+	assert.Equal(t, expectedConcept, c)
+}
+
+func TestAggregateService_GetConcordedConcept_ManagedLocationCountry(t *testing.T) {
+	svc, _, _, _, _, _, _ := setupTestService(200, payload)
+	expectedConcept := ConcordedConcept{
+		PrefUUID:  "FR_ML_UUID",
+		PrefLabel: "France",
+		Type:      "Location",
+		Aliases:   []string{"France", "French Republic"},
+		ScopeNote: "French Republic",
+		ISO31661:  "FR",
+		SourceRepresentations: []s3.Concept{
+			{
+				UUID:      "FR_TME_UUID",
+				PrefLabel: "French Republic",
+				Authority: "TME",
+				AuthValue: "FR_TME_AUTH_VALUE",
+				Type:      "Location",
+			},
+			{
+				UUID:      "FR_ML_UUID",
+				PrefLabel: "France",
+				Authority: "ManagedLocation",
+				AuthValue: "FR_ML_UUID",
+				Type:      "Location",
+				ISO31661:  "FR",
+			},
+		},
+	}
+
+	c, tid, err := svc.GetConcordedConcept("FR_ML_UUID", "")
+	sort.Strings(c.Aliases)
+	sort.Strings(expectedConcept.Aliases)
+	assert.NoError(t, err)
+	assert.Equal(t, "tid_112", tid)
+	assert.Equal(t, expectedConcept, c)
+}
+
+func TestAggregateService_GetConcordedConcept_SmartlogicCountry(t *testing.T) {
+	svc, _, _, _, _, _, _ := setupTestService(200, payload)
+	expectedConcept := ConcordedConcept{
+		PrefUUID:  "BE_SL_UUID",
+		PrefLabel: "Belgium",
+		Type:      "Location",
+		Aliases:   []string{"Belgium", "Kingdom of Belgium", "Royaume de Belgique"},
+		ScopeNote: "Royaume de Belgique",
+		ISO31661:  "BE",
+		SourceRepresentations: []s3.Concept{
+			{
+				UUID:      "BE_ML_UUID",
+				PrefLabel: "Kingdom of Belgium",
+				Authority: "ManagedLocation",
+				AuthValue: "BE_ML_UUID",
+				Type:      "Location",
+				ISO31661:  "BE",
+			},
+			{
+				UUID:      "BE_TME_UUID",
+				PrefLabel: "Royaume de Belgique",
+				Authority: "TME",
+				AuthValue: "BE_TME_AUTH_VALUE",
+				Type:      "Location",
+			},
+			{
+				UUID:      "BE_SL_UUID",
+				PrefLabel: "Belgium",
+				Authority: "Smartlogic",
+				AuthValue: "BE_SL_UUID",
+				Type:      "Location",
+			},
+		},
+	}
+
+	c, tid, err := svc.GetConcordedConcept("BE_SL_UUID", "")
+
+	sort.Strings(c.Aliases)
+	sort.Strings(expectedConcept.Aliases)
+	sort.Slice(c.SourceRepresentations, func(i, j int) bool {
+		return c.SourceRepresentations[i].UUID < c.SourceRepresentations[j].UUID
+	})
+	sort.Slice(expectedConcept.SourceRepresentations, func(i, j int) bool {
+		return expectedConcept.SourceRepresentations[i].UUID < expectedConcept.SourceRepresentations[j].UUID
+	})
+
+	assert.NoError(t, err)
+	assert.Equal(t, "tid_358", tid)
 	assert.Equal(t, expectedConcept, c)
 }
 
@@ -234,7 +319,7 @@ func TestAggregateService_GetConcordedConcept_TMEConcordance(t *testing.T) {
 		},
 	}
 
-	c, tid, err := svc.GetConcordedConcept("28090964-9997-4bc2-9638-7a11135aaff9","")
+	c, tid, err := svc.GetConcordedConcept("28090964-9997-4bc2-9638-7a11135aaff9", "")
 	sort.Strings(c.Aliases)
 	sort.Strings(expectedConcept.Aliases)
 	assert.NoError(t, err)
@@ -1310,6 +1395,58 @@ func setupTestService(clientStatusCode int, writerResponse string) (Service, *mo
 					Type:      "Location",
 				},
 			},
+			"FR_ML_UUID": {
+				transactionID: "tid_112",
+				concept: s3.Concept{
+					UUID:      "FR_ML_UUID",
+					PrefLabel: "France",
+					Authority: "ManagedLocation",
+					AuthValue: "FR_ML_UUID",
+					Type:      "Location",
+					ISO31661:  "FR",
+				},
+			},
+			"FR_TME_UUID": {
+				transactionID: "tid_112_1",
+				concept: s3.Concept{
+					UUID:      "FR_TME_UUID",
+					PrefLabel: "French Republic",
+					Authority: "TME",
+					AuthValue: "FR_TME_AUTH_VALUE",
+					Type:      "Location",
+				},
+			},
+			"BE_SL_UUID": {
+				transactionID: "tid_358",
+				concept: s3.Concept{
+					UUID:      "BE_SL_UUID",
+					PrefLabel: "Belgium",
+					Authority: "Smartlogic",
+					AuthValue: "BE_SL_UUID",
+					Type:      "Location",
+				},
+			},
+			"BE_ML_UUID": {
+				transactionID: "tid_358_1",
+				concept: s3.Concept{
+					UUID:      "BE_ML_UUID",
+					PrefLabel: "Kingdom of Belgium",
+					Authority: "ManagedLocation",
+					AuthValue: "BE_ML_UUID",
+					Type:      "Location",
+					ISO31661:  "BE",
+				},
+			},
+			"BE_TME_UUID": {
+				transactionID: "tid_358_2",
+				concept: s3.Concept{
+					UUID:      "BE_TME_UUID",
+					PrefLabel: "Royaume de Belgique",
+					Authority: "TME",
+					AuthValue: "BE_TME_AUTH_VALUE",
+					Type:      "Location",
+				},
+			},
 		},
 	}
 	conceptsQueue := &mockSQSClient{
@@ -1327,6 +1464,30 @@ func setupTestService(clientStatusCode int, writerResponse string) (Service, *mo
 				},
 				{
 					UUID:      "900dd202-fccc-3280-b053-d46c234dcbe2",
+					Authority: "TME",
+				},
+			},
+			"FR_ML_UUID": {
+				{
+					UUID:      "FR_ML_UUID",
+					Authority: "ManagedLocation",
+				},
+				{
+					UUID:      "FR_TME_UUID",
+					Authority: "TME",
+				},
+			},
+			"BE_SL_UUID": {
+				{
+					UUID:      "BE_SL_UUID",
+					Authority: "Smartlogic",
+				},
+				{
+					UUID:      "BE_ML_UUID",
+					Authority: "ManagedLocation",
+				},
+				{
+					UUID:      "BE_TME_UUID",
 					Authority: "TME",
 				},
 			},
