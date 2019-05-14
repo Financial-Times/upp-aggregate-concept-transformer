@@ -1,6 +1,6 @@
 # Aggregate Concept Transformer (aggregate-concept-transformer)
 
-[![Circle CI](https://circleci.com/gh/Financial-Times/aggregate-concept-transformer/tree/master.svg?style=svg&circle-token=4261ac7039418a1ee77491ba404c680082d7f01e)](https://circleci.com/gh/Financial-Times/aggregate-concept-transformer/tree/master)
+[![CircleCI](https://circleci.com/gh/Financial-Times/aggregate-concept-transformer/tree/master.svg?style=svg&circle-token=0451900a8e881ac5f8ec2079ae89cdf68eb0bd1d)](https://circleci.com/gh/Financial-Times/aggregate-concept-transformer/tree/master)
 [![Go Report Card](https://goreportcard.com/badge/github.com/Financial-Times/aggregate-concept-transformer)](https://goreportcard.com/report/github.com/Financial-Times/aggregate-concept-transformer)
 [![Coverage Status](https://coveralls.io/repos/github/Financial-Times/aggregate-concept-transformer/badge.svg)](https://coveralls.io/github/Financial-Times/aggregate-concept-transformer)
 
