@@ -43,21 +43,16 @@ type ConcordedConcept struct {
 	PersonUUID       string           `json:"personUUID,omitempty"`
 	TerminationDate  string           `json:"terminationDate,omitempty"`
 	// Organisation
-	CountryCode                string   `json:"countryCode,omitempty"`
-	CountryOfRisk              string   `json:"countryOfRisk,omitempty"`
-	CountryOfIncorporation     string   `json:"countryOfIncorporation,omitempty"`
-	CountryOfOperations        string   `json:"countryOfOperations,omitempty"`
-	CountryOfRiskUUID          string   `json:"countryOfRiskUUID,omitempty"`
-	CountryOfIncorporationUUID string   `json:"countryOfIncorporationUUID,omitempty"`
-	CountryOfOperationsUUID    string   `json:"countryOfOperationsUUID,omitempty"`
-	FormerNames                []string `json:"formerNames,omitempty"`
-	TradeNames                 []string `json:"tradeNames,omitempty"`
-	LeiCode                    string   `json:"leiCode,omitempty"`
-	PostalCode                 string   `json:"postalCode,omitempty"`
-	ProperName                 string   `json:"properName,omitempty"`
-	ShortName                  string   `json:"shortName,omitempty"`
-	YearFounded                int      `json:"yearFounded,omitempty"`
-	IsDeprecated               bool     `json:"isDeprecated,omitempty"`
+	CountryCode            string   `json:"countryCode,omitempty"`
+	CountryOfIncorporation string   `json:"countryOfIncorporation,omitempty"`
+	FormerNames            []string `json:"formerNames,omitempty"`
+	TradeNames             []string `json:"tradeNames,omitempty"`
+	LeiCode                string   `json:"leiCode,omitempty"`
+	PostalCode             string   `json:"postalCode,omitempty"`
+	ProperName             string   `json:"properName,omitempty"`
+	ShortName              string   `json:"shortName,omitempty"`
+	YearFounded            int      `json:"yearFounded,omitempty"`
+	IsDeprecated           bool     `json:"isDeprecated,omitempty"`
 	// Location
 	ISO31661 string `json:"iso31661,omitempty"`
 	// Source representations
