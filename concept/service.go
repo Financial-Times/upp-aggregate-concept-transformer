@@ -493,15 +493,6 @@ func mergeCanonicalInformation(c ConcordedConcept, s s3.Concept, scopeNoteOption
 	if s.CountryOfOperations != "" {
 		c.CountryOfOperations = s.CountryOfOperations
 	}
-	if s.CountryOfRiskUUID != "" {
-		c.CountryOfRiskUUID = s.CountryOfRiskUUID
-	}
-	if s.CountryOfIncorporationUUID != "" {
-		c.CountryOfIncorporationUUID = s.CountryOfIncorporationUUID
-	}
-	if s.CountryOfOperationsUUID != "" {
-		c.CountryOfOperationsUUID = s.CountryOfOperationsUUID
-	}
 	if s.PostalCode != "" {
 		c.PostalCode = s.PostalCode
 	}
