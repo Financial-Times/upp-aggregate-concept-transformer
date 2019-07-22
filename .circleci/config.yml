@@ -7,6 +7,7 @@ jobs:
         environment:
           CIRCLE_TEST_REPORTS: /tmp/test-results
           CIRCLE_COVERAGE_REPORT: /tmp/coverage-results
+          GO111MODULE: "on"
     steps:
       - checkout
       - run:
@@ -14,7 +15,6 @@ jobs:
           command: |
             go get -u github.com/mattn/goveralls
             go get -u github.com/jstemmer/go-junit-report
-            curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
             go get -u github.com/haya14busa/goverage
       - run:
           name: Make result folders
@@ -22,15 +22,12 @@ jobs:
             mkdir -p ${CIRCLE_TEST_REPORTS}
             mkdir -p ${CIRCLE_COVERAGE_REPORT}
       - run:
-          name: Download vendored dependancies
-          command: dep ensure -v -vendor-only
-      - run:
           name: Go build
-          command: go build -v
+          command: go build -mod=readonly -v
       - run:
           name: Run Tests
           command: |
-            go test -race -v ./... | /go/bin/go-junit-report > ${CIRCLE_TEST_REPORTS}/main.xml
+            go test -mod=readonly -race -v ./... | /go/bin/go-junit-report > ${CIRCLE_TEST_REPORTS}/main.xml
             goverage -covermode=atomic -race -coverprofile=${CIRCLE_COVERAGE_REPORT}/coverage.out ./...
       - run:
           name: Upload Coverage

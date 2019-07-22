@@ -21,9 +21,7 @@ RUN apk --no-cache --upgrade add ca-certificates \
   && LDFLAGS="-X '"${BUILDINFO_PACKAGE}$VERSION"' -X '"${BUILDINFO_PACKAGE}$DATETIME"' -X '"${BUILDINFO_PACKAGE}$REPOSITORY"' -X '"${BUILDINFO_PACKAGE}$REVISION"' -X '"${BUILDINFO_PACKAGE}$BUILDER"'" \
   && echo "Build flags: $LDFLAGS" \
   && echo "Fetching dependencies..." \
-  && curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh \
-  && $GOPATH/bin/dep ensure -vendor-only \
-  && go build -ldflags="${LDFLAGS}" \
+  && CGO_ENABLED=0 GO111MODULE=on go build -mod=readonly -ldflags="${LDFLAGS}" \
   && mv ${PROJECT} /${PROJECT} \
   && apk del .build-dependencies \
   && rm -rf $GOPATH /var/cache/apk/*
