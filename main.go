@@ -13,6 +13,8 @@ import (
 	"net"
 	"time"
 
+	_ "net/http/pprof"
+
 	"github.com/Financial-Times/aggregate-concept-transformer/concept"
 	"github.com/Financial-Times/aggregate-concept-transformer/concordances"
 	"github.com/Financial-Times/aggregate-concept-transformer/kinesis"
