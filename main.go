@@ -10,6 +10,8 @@ import (
 	"sync"
 	"syscall"
 
+	_ "net/http/pprof"
+
 	"net"
 	"time"
 
