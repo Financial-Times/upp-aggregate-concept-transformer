@@ -13,8 +13,6 @@ import (
 	"net"
 	"time"
 
-	"net/http/pprof"
-
 	"github.com/Financial-Times/aggregate-concept-transformer/concept"
 	"github.com/Financial-Times/aggregate-concept-transformer/concordances"
 	"github.com/Financial-Times/aggregate-concept-transformer/kinesis"
@@ -27,14 +25,6 @@ import (
 )
 
 const appDescription = "Service to aggregate concepts from different sources and produce a canonical view."
-
-func attachProfRoutes(router *mux.Router) {
-	router.HandleFunc("/debug/pprof/", pprof.Index)
-	router.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
-	router.HandleFunc("/debug/pprof/profile", pprof.Profile)
-	router.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
-	router.HandleFunc("/debug/pprof/trace", pprof.Trace)
-}
 
 func main() {
 	app := cli.App("aggregate-concept-service", "Aggregate and concord concepts in UPP")
@@ -255,7 +245,8 @@ func main() {
 
 		router := mux.NewRouter()
 		handler.RegisterHandlers(router)
-		attachProfRoutes(router)
+		router.PathPrefix("/debug/").Handler(http.DefaultServeMux)
+
 		r := handler.RegisterAdminHandlers(router, hs, *requestLoggingOn, feedback)
 
 		logger.Infof("Running %d ListenForNotifications", maxWorkers)
