@@ -13,10 +13,11 @@ jobs:
       - run:
           name: External dependencies
           command: |
-            GO111MODULE=off go get -u \
-            github.com/mattn/goveralls \
-            github.com/jstemmer/go-junit-report \
-            github.com/haya14busa/goverage \
+            GO111MODULE=off go get -u github.com/mattn/goveralls 
+            GO111MODULE=off go get -u github.com/jstemmer/go-junit-report 
+            GO111MODULE=off go get -u github.com/haya14busa/goverage
+            curl -sfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.18.0
+            git clone git@github.com:Financial-Times/upp-coding-standard.git
       - run:
           name: Make result folders
           command: |
@@ -25,6 +26,9 @@ jobs:
       - run:
           name: Go build
           command: go build -mod=readonly -v
+      - run:
+          name: Run linters
+          command: golangci-lint run --config upp-coding-standard/golangci-config/.golangci.yml --new-from-rev=master
       - run:
           name: Run Tests
           command: |
