@@ -1,6 +1,6 @@
 module github.com/Financial-Times/aggregate-concept-transformer
 
-go 1.12
+go 1.13
 
 require (
 	github.com/Financial-Times/go-fthealth v0.0.0-20181009114238-ca83ad65381f

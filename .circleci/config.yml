@@ -3,7 +3,7 @@ jobs:
   build:
     working_directory: /go/src/github.com/Financial-Times/aggregate-concept-transformer
     docker:
-      - image: circleci/golang:1.11
+      - image: golang:1
         environment:
           CIRCLE_TEST_REPORTS: /tmp/test-results
           CIRCLE_COVERAGE_REPORT: /tmp/coverage-results
@@ -13,9 +13,10 @@ jobs:
       - run:
           name: External dependencies
           command: |
-            go get -u github.com/mattn/goveralls
-            go get -u github.com/jstemmer/go-junit-report
-            go get -u github.com/haya14busa/goverage
+            GO111MODULE=off go get -u \
+            github.com/mattn/goveralls \
+            github.com/jstemmer/go-junit-report \
+            github.com/haya14busa/goverage \
       - run:
           name: Make result folders
           command: |
