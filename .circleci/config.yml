@@ -7,16 +7,15 @@ jobs:
         environment:
           CIRCLE_TEST_REPORTS: /tmp/test-results
           CIRCLE_COVERAGE_REPORT: /tmp/coverage-results
-          GO111MODULE: "on"
     steps:
       - checkout
       - run:
           name: External dependencies
           command: |
-            GO111MODULE=off go get -u \
-            github.com/mattn/goveralls \
-            github.com/jstemmer/go-junit-report \
-            github.com/haya14busa/goverage \
+            GO111MODULE=off go get github.com/mattn/goveralls
+            GO111MODULE=off go get github.com/jstemmer/go-junit-report
+            curl -sfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.18.0
+            wget https://raw.githubusercontent.com/Financial-Times/upp-coding-standard/v1.0.0/golangci-config/.golangci.yml
       - run:
           name: Make result folders
           command: |
@@ -26,15 +25,16 @@ jobs:
           name: Go build
           command: go build -mod=readonly -v
       - run:
-          name: Run Tests
+          name: Run linters
           command: |
-            go test -mod=readonly -race -v ./... | /go/bin/go-junit-report > ${CIRCLE_TEST_REPORTS}/main.xml
-            goverage -covermode=atomic -race -coverprofile=${CIRCLE_COVERAGE_REPORT}/coverage.out ./...
+            golangci-lint run --new-from-rev=master --config .golangci.yml
       - run:
-          name: Upload Coverage
-          command: |
-            cat ${CIRCLE_COVERAGE_REPORT}/coverage.out | grep -v _mock >> coverage.txt;
-            /go/bin/goveralls -coverprofile=${CIRCLE_COVERAGE_REPORT}/coverage.out -service=circle-ci -repotoken=$COVERALLS_TOKEN
+          name: Run tests
+          command: 
+            go test -mod=readonly -race -v -cover -coverprofile=${CIRCLE_COVERAGE_REPORT}/coverage.out ./... | go-junit-report > ${CIRCLE_TEST_REPORTS}/junit.xml
+      - run:
+          name: Upload coverage
+          command: goveralls -coverprofile=${CIRCLE_COVERAGE_REPORT}/coverage.out -service=circle-ci -repotoken=${COVERALLS_TOKEN}
       - store_test_results:
           path: /tmp/test-results
   dockerfile:
