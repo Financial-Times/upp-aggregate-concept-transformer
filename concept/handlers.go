@@ -1,6 +1,7 @@
 package concept
 
 import (
+	"context"
 	"net/http"
 
 	"encoding/json"
@@ -36,7 +37,7 @@ func (h *AggregateConceptHandler) GetHandler(w http.ResponseWriter, r *http.Requ
 	UUID := vars["uuid"]
 	w.Header().Set("Content-Type", "application/json")
 
-	concordedConcept, transactionID, err := h.svc.GetConcordedConcept(UUID, "")
+	concordedConcept, transactionID, err := h.svc.GetConcordedConcept(context.TODO(), UUID, "")
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		fmt.Fprintln(w, fmt.Sprintf("{\"message\": \"%s\"}", err.Error()))
@@ -53,7 +54,7 @@ func (h *AggregateConceptHandler) SendHandler(w http.ResponseWriter, r *http.Req
 	UUID := vars["uuid"]
 	w.Header().Set("Content-Type", "application/json")
 
-	err := h.svc.ProcessMessage(UUID, "")
+	err := h.svc.ProcessMessage(context.TODO(), UUID, "")
 
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -80,10 +81,10 @@ func (h *AggregateConceptHandler) RegisterAdminHandlers(router *mux.Router, heal
 	logger.Info("Registering admin handlers")
 
 	hc := fthealth.HealthCheck{
-		SystemCode: healthService.config.appSystemCode,
-		Name: healthService.config.appName,
+		SystemCode:  healthService.config.appSystemCode,
+		Name:        healthService.config.appName,
 		Description: healthService.config.description,
-		Checks: healthService.Checks,
+		Checks:      healthService.Checks,
 	}
 
 	thc := fthealth.TimedHealthCheck{HealthCheck: hc, Timeout: 10 * time.Second}
