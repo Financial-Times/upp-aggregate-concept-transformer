@@ -1,6 +1,7 @@
 package concept
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"io/ioutil"
@@ -107,7 +108,7 @@ func TestAggregateService_ListenForNotifications_ProcessConceptNotInS3(t *testin
 	mockSqsClient.conceptsQueue[receiptHandle] = nonExistingConcept
 	go svc.ListenForNotifications(1)
 	time.Sleep(500 * time.Microsecond)
-	hasIt, _, _, err := s3mock.GetConceptAndTransactionId(nonExistingConcept)
+	hasIt, _, _, err := s3mock.GetConceptAndTransactionID(context.TODO(), nonExistingConcept)
 	assert.Equal(t, hasIt, false)
 	assert.NoError(t, err)
 	err = mockSqsClient.RemoveMessageFromQueue(&receiptHandle)
