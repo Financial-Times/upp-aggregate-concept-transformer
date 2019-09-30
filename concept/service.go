@@ -141,7 +141,7 @@ func (s *AggregateService) ListenForNotifications(workerId int) {
 		}
 
 		if s.health.isGood() {
-			notifications := s.conceptUpdatesSqs.ListenAndServeQueue()
+			notifications := s.conceptUpdatesSqs.ListenAndServeQueue(context.TODO())
 			nslen := len(notifications)
 			if nslen > 0 {
 				logger.Infof("Worker %d processing notifications", workerId)
@@ -155,7 +155,7 @@ func (s *AggregateService) ListenForNotifications(workerId int) {
 							logger.WithError(err).WithUUID(n.UUID).Error("Error processing message.")
 							return
 						}
-						err = s.conceptUpdatesSqs.RemoveMessageFromQueue(n.ReceiptHandle)
+						err = s.conceptUpdatesSqs.RemoveMessageFromQueue(context.TODO(), n.ReceiptHandle)
 						if err != nil {
 							logger.WithError(err).WithUUID(n.UUID).Error("Error removing message from SQS.")
 						}
@@ -227,7 +227,7 @@ func (s *AggregateService) ProcessMessage(UUID string, bookmark string) error {
 		}
 	}
 
-	if err := s.eventsSqs.SendEvents(updateRecord.ChangedRecords); err != nil {
+	if err := s.eventsSqs.SendEvents(context.TODO(), updateRecord.ChangedRecords); err != nil {
 		logger.WithTransactionID(transactionID).WithUUID(concordedConcept.PersonUUID).Errorf("unable to send events: %v to Event Queue", updateRecord.ChangedRecords)
 		return err
 	}
