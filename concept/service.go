@@ -1,6 +1,7 @@
 package concept
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -293,7 +294,7 @@ func (s *AggregateService) GetConcordedConcept(UUID string, bookmark string) (Co
 	var scopeNoteOptions = map[string][]string{}
 	var transactionID string
 	concordedConcept := ConcordedConcept{}
-	concordedRecords, err := s.concordances.GetConcordance(UUID, bookmark)
+	concordedRecords, err := s.concordances.GetConcordance(context.TODO(), UUID, bookmark)
 	if err != nil {
 		return ConcordedConcept{}, "", err
 	}

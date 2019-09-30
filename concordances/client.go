@@ -2,6 +2,7 @@ package concordances
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -15,7 +16,7 @@ import (
 )
 
 type Client interface {
-	GetConcordance(uuid string, bookmark string) ([]ConcordanceRecord, error)
+	GetConcordance(ctx context.Context, uuid string, bookmark string) ([]ConcordanceRecord, error)
 	Healthcheck() fthealth.Check
 }
 
@@ -37,8 +38,8 @@ func NewClient(address string) (Client, error) {
 	}, nil
 }
 
-func (c *RWClient) GetConcordance(uuid string, bookmark string) ([]ConcordanceRecord, error) {
-	respBody, status, err := c.makeRequest("GET", fmt.Sprintf("/concordances/%s", uuid), nil, bookmark)
+func (c *RWClient) GetConcordance(ctx context.Context, uuid string, bookmark string) ([]ConcordanceRecord, error) {
+	respBody, status, err := c.makeRequest(ctx, "GET", fmt.Sprintf("/concordances/%s", uuid), nil, bookmark)
 	if err != nil {
 		logger.WithError(err).Error("Could not get concordances")
 		return nil, err
@@ -80,7 +81,9 @@ func (c *RWClient) Healthcheck() fthealth.Check {
 			"the service is up.",
 		Timeout: 10 * time.Second,
 		Checker: func() (string, error) {
-			_, status, err := c.makeRequest("GET", "/__gtg", nil, "")
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			_, status, err := c.makeRequest(ctx, "GET", "/__gtg", nil, "")
 			if err != nil {
 				errMsg := "failed to request gtg from concordances-rw-neo4j"
 				return errMsg, errors.New(errMsg)
@@ -94,11 +97,11 @@ func (c *RWClient) Healthcheck() fthealth.Check {
 	}
 }
 
-func (c *RWClient) makeRequest(method string, path string, body []byte, bookmark string) ([]byte, int, error) {
+func (c *RWClient) makeRequest(ctx context.Context, method string, path string, body []byte, bookmark string) ([]byte, int, error) {
 	finalURL := *c.address
 	finalURL.Path = finalURL.Path + path
 
-	req, err := http.NewRequest(method, finalURL.String(), bytes.NewReader(body))
+	req, err := http.NewRequestWithContext(ctx, method, finalURL.String(), bytes.NewReader(body))
 	if err != nil {
 		return nil, 0, err
 	}
@@ -113,7 +116,7 @@ func (c *RWClient) makeRequest(method string, path string, body []byte, bookmark
 	}
 
 	defer func() {
-		if err := resp.Body.Close(); err != nil {
+		if err = resp.Body.Close(); err != nil {
 			logger.WithError(err).Error("Could not close body..")
 		}
 	}()
