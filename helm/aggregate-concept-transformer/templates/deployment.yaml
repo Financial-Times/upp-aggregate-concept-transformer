@@ -53,6 +53,8 @@ spec:
           value: "30"
         - name: WAIT_TIME
           value: "{{ .Values.waitTime }}"
+        - name: HTTP_TIMEOUT
+          value: "{{ .Values.httpTimeout }}"
         - name: AWS_ACCESS_KEY_ID
           valueFrom:
             secretKeyRef:
