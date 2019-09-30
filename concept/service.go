@@ -313,7 +313,7 @@ func (s *AggregateService) GetConcordedConcept(UUID string, bookmark string) (Co
 		for _, conc := range concordanceRecords {
 			var found bool
 			var sourceConcept s3.Concept
-			found, sourceConcept, transactionID, err = s.s3.GetConceptAndTransactionId(conc.UUID)
+			found, sourceConcept, transactionID, err = s.s3.GetConceptAndTransactionID(context.TODO(), conc.UUID)
 			if err != nil {
 				return ConcordedConcept{}, "", err
 			}
@@ -335,7 +335,7 @@ func (s *AggregateService) GetConcordedConcept(UUID string, bookmark string) (Co
 		canonicalConcept := bucketedConcordances[primaryAuthority][0]
 		var found bool
 		var primaryConcept s3.Concept
-		found, primaryConcept, transactionID, err = s.s3.GetConceptAndTransactionId(canonicalConcept.UUID)
+		found, primaryConcept, transactionID, err = s.s3.GetConceptAndTransactionID(context.TODO(), canonicalConcept.UUID)
 		if err != nil {
 			return ConcordedConcept{}, "", err
 		} else if !found {
