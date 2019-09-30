@@ -1,12 +1,10 @@
 package concept
 
 import (
-	"net/http"
-
+	"context"
 	"encoding/json"
-
 	"fmt"
-
+	"net/http"
 	"time"
 
 	fthealth "github.com/Financial-Times/go-fthealth/v1_1"
@@ -36,7 +34,8 @@ func (h *AggregateConceptHandler) GetHandler(w http.ResponseWriter, r *http.Requ
 	UUID := vars["uuid"]
 	w.Header().Set("Content-Type", "application/json")
 
-	concordedConcept, transactionID, err := h.svc.GetConcordedConcept(UUID, "")
+	concept, transactionID, err := h.getConcordedConcept(ctx, UUID)
+
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		fmt.Fprintln(w, fmt.Sprintf("{\"message\": \"%s\"}", err.Error()))
@@ -45,7 +44,33 @@ func (h *AggregateConceptHandler) GetHandler(w http.ResponseWriter, r *http.Requ
 
 	w.Header().Set("X-Request-Id", transactionID)
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(concordedConcept)
+	//nolint:errcheck
+	json.NewEncoder(w).Encode(concept)
+}
+
+func (h *AggregateConceptHandler) getConcordedConcept(ctx context.Context, UUID string) (ConcordedConcept, string, error) {
+
+	type concordedTransaction struct {
+		Concept       ConcordedConcept
+		TransactionID string
+		Err           error
+	}
+
+	transaction := make(chan concordedTransaction)
+	var data concordedTransaction
+
+	go func() {
+		concordedConcept, transactionID, err := h.svc.GetConcordedConcept(ctx, UUID, "")
+		transaction <- concordedTransaction{Concept: concordedConcept, TransactionID: transactionID, Err: err}
+	}()
+
+	select {
+	case data = <-transaction:
+	case <-ctx.Done():
+		data.Err = ctx.Err()
+	}
+
+	return data.Concept, data.TransactionID, data.Err
 }
 
 func (h *AggregateConceptHandler) SendHandler(w http.ResponseWriter, r *http.Request) {
@@ -53,14 +78,26 @@ func (h *AggregateConceptHandler) SendHandler(w http.ResponseWriter, r *http.Req
 	UUID := vars["uuid"]
 	w.Header().Set("Content-Type", "application/json")
 
-	err := h.svc.ProcessMessage(UUID, "")
+	ctx, cancel := context.WithTimeout(r.Context(), h.requestTimeout)
+	defer cancel()
+	ch := make(chan error)
+	go func() {
+		err := h.svc.ProcessMessage(ctx, UUID, "")
+		ch <- err
+	}()
+	var err error
+	select {
+	case err = <-ch:
+	case <-ctx.Done():
+		err = ctx.Err()
+	}
 
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte("{\"message\":\"Could not process the concept.\"}"))
 		return
 	}
-
+	//nolint:errcheck
 	w.Write([]byte(fmt.Sprintf("{\"message\":\"Concept %s updated successfully.\"}", UUID)))
 }
 
@@ -80,10 +117,10 @@ func (h *AggregateConceptHandler) RegisterAdminHandlers(router *mux.Router, heal
 	logger.Info("Registering admin handlers")
 
 	hc := fthealth.HealthCheck{
-		SystemCode: healthService.config.appSystemCode,
-		Name: healthService.config.appName,
+		SystemCode:  healthService.config.appSystemCode,
+		Name:        healthService.config.appName,
 		Description: healthService.config.description,
-		Checks: healthService.Checks,
+		Checks:      healthService.Checks,
 	}
 
 	thc := fthealth.TimedHealthCheck{HealthCheck: hc, Timeout: 10 * time.Second}
