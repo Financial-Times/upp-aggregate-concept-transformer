@@ -21,23 +21,26 @@ import (
 )
 
 type AggregateConceptHandler struct {
-	svc Service
+	svc            Service
+	requestTimeout time.Duration
 }
 
 type httpClient interface {
 	Do(req *http.Request) (resp *http.Response, err error)
 }
 
-func NewHandler(svc Service) AggregateConceptHandler {
-	return AggregateConceptHandler{svc: svc}
+func NewHandler(svc Service, timeout time.Duration) AggregateConceptHandler {
+	return AggregateConceptHandler{svc: svc, requestTimeout: timeout}
 }
 
 func (h *AggregateConceptHandler) GetHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	UUID := vars["uuid"]
 	w.Header().Set("Content-Type", "application/json")
+	ctx, cancel := context.WithTimeout(r.Context(), h.requestTimeout)
+	defer cancel()
 
-	concordedConcept, transactionID, err := h.svc.GetConcordedConcept(context.TODO(), UUID, "")
+	concordedConcept, transactionID, err := h.svc.GetConcordedConcept(ctx, UUID, "")
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		fmt.Fprintln(w, fmt.Sprintf("{\"message\": \"%s\"}", err.Error()))
@@ -54,7 +57,10 @@ func (h *AggregateConceptHandler) SendHandler(w http.ResponseWriter, r *http.Req
 	UUID := vars["uuid"]
 	w.Header().Set("Content-Type", "application/json")
 
-	err := h.svc.ProcessMessage(context.TODO(), UUID, "")
+	ctx, cancel := context.WithTimeout(r.Context(), h.requestTimeout)
+	defer cancel()
+
+	err := h.svc.ProcessMessage(ctx, UUID, "")
 
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)

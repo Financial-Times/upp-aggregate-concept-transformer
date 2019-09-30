@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"sync"
 
@@ -124,7 +125,7 @@ func TestHandlers(t *testing.T) {
 		t.Run(d.name, func(t *testing.T) {
 			fb := make(chan bool)
 			mockService := NewMockService(d.concepts, d.notifications, d.healthchecks, d.err)
-			handler := NewHandler(mockService)
+			handler := NewHandler(mockService, time.Second*1)
 			m := mux.NewRouter()
 			handler.RegisterHandlers(m)
 			handler.RegisterAdminHandlers(m, NewHealthService(mockService, "system-code", "app-name", 8080, "description"), true, fb)
@@ -163,7 +164,7 @@ func NewMockService(concepts map[string]ConcordedConcept, notifications []sqs.Co
 
 func (s *MockService) ListenForNotifications(workerId int) {
 	for _, n := range s.notifications {
-		s.ProcessMessage(context.TODO(), n.UUID, n.Bookmark)
+		s.ProcessMessage(context.Background(), n.UUID, n.Bookmark)
 	}
 }
 
