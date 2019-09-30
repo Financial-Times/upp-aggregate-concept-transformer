@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/Financial-Times/aggregate-concept-transformer/concordances"
 	"github.com/Financial-Times/aggregate-concept-transformer/kinesis"
@@ -37,8 +38,8 @@ var irregularConceptTypePaths = map[string]string{
 
 type Service interface {
 	ListenForNotifications(workerId int)
-	ProcessMessage(UUID string, bookmark string) error
-	GetConcordedConcept(UUID string, bookmark string) (ConcordedConcept, string, error)
+	ProcessMessage(ctx context.Context, UUID string, bookmark string) error
+	GetConcordedConcept(ctx context.Context, UUID string, bookmark string) (ConcordedConcept, string, error)
 	Healthchecks() []fthealth.Check
 }
 
@@ -133,43 +134,63 @@ func NewService(
 }
 
 func (s *AggregateService) ListenForNotifications(workerId int) {
+	listenCtx, listenCancel := context.WithCancel(context.Background())
+	defer listenCancel()
 	for {
-
-		if s.health.isShuttingDown() {
+		select {
+		case <-listenCtx.Done():
 			logger.Infof("Stopping worker %d", workerId)
 			return
-		}
-
-		if s.health.isGood() {
-			notifications := s.conceptUpdatesSqs.ListenAndServeQueue(context.TODO())
-			nslen := len(notifications)
-			if nslen > 0 {
-				logger.Infof("Worker %d processing notifications", workerId)
-				var wg sync.WaitGroup
-				wg.Add(nslen)
-				for _, n := range notifications {
-					go func(n sqs.ConceptUpdate) {
-						defer wg.Done()
-						err := s.ProcessMessage(n.UUID, n.Bookmark)
-						if err != nil {
-							logger.WithError(err).WithUUID(n.UUID).Error("Error processing message.")
-							return
-						}
-						err = s.conceptUpdatesSqs.RemoveMessageFromQueue(context.TODO(), n.ReceiptHandle)
-						if err != nil {
-							logger.WithError(err).WithUUID(n.UUID).Error("Error removing message from SQS.")
-						}
-					}(n)
-				}
-				wg.Wait()
+		default:
+			if s.health.isShuttingDown() {
+				logger.Infof("Stopping worker %d", workerId)
+				return
 			}
+			if !s.health.isGood() {
+				continue
+			}
+			notifications := s.conceptUpdatesSqs.ListenAndServeQueue(listenCtx)
+			nslen := len(notifications)
+			if nslen <= 0 {
+				continue
+			}
+			logger.Infof("Worker %d processing notifications", workerId)
+			var wg sync.WaitGroup
+			wg.Add(nslen)
+			for _, n := range notifications {
+				go func(ctx context.Context, reqWG *sync.WaitGroup, update sqs.ConceptUpdate) {
+					timeoutCtx, timeoutCancel := context.WithTimeout(ctx, time.Second*3)
+					defer timeoutCancel()
+					defer reqWG.Done()
+					select {
+					case <-timeoutCtx.Done():
+						return
+					default:
+						s.processConceptUpdate(timeoutCtx, update)
+					}
+				}(listenCtx, &wg, n)
+			}
+			wg.Wait()
 		}
 	}
 }
 
-func (s *AggregateService) ProcessMessage(UUID string, bookmark string) error {
+func (s *AggregateService) processConceptUpdate(ctx context.Context, n sqs.ConceptUpdate) {
+
+	err := s.ProcessMessage(ctx, n.UUID, n.Bookmark)
+	if err != nil {
+		logger.WithError(err).WithUUID(n.UUID).Error("Error processing message.")
+		return
+	}
+	err = s.conceptUpdatesSqs.RemoveMessageFromQueue(ctx, n.ReceiptHandle)
+	if err != nil {
+		logger.WithError(err).WithUUID(n.UUID).Error("Error removing message from SQS.")
+	}
+}
+
+func (s *AggregateService) ProcessMessage(ctx context.Context, UUID string, bookmark string) error {
 	// Get the concorded concept
-	concordedConcept, transactionID, err := s.GetConcordedConcept(UUID, bookmark)
+	concordedConcept, transactionID, err := s.GetConcordedConcept(ctx, UUID, bookmark)
 	if err != nil {
 		return err
 	}
@@ -227,7 +248,7 @@ func (s *AggregateService) ProcessMessage(UUID string, bookmark string) error {
 		}
 	}
 
-	if err := s.eventsSqs.SendEvents(context.TODO(), updateRecord.ChangedRecords); err != nil {
+	if err := s.eventsSqs.SendEvents(ctx, updateRecord.ChangedRecords); err != nil {
 		logger.WithTransactionID(transactionID).WithUUID(concordedConcept.PersonUUID).Errorf("unable to send events: %v to Event Queue", updateRecord.ChangedRecords)
 		return err
 	}
@@ -239,7 +260,7 @@ func (s *AggregateService) ProcessMessage(UUID string, bookmark string) error {
 		return err
 	}
 	logger.WithTransactionID(transactionID).WithUUID(concordedConcept.PrefUUID).Debugf("sending notification of updated concepts to kinesis conceptsQueue: %v", conceptChanges)
-	if err = s.kinesis.AddRecordToStream(context.TODO(), rawIDList, concordedConcept.Type); err != nil {
+	if err = s.kinesis.AddRecordToStream(ctx, rawIDList, concordedConcept.Type); err != nil {
 		logger.WithError(err).WithTransactionID(transactionID).WithUUID(concordedConcept.PrefUUID).Errorf("Failed to update stream with notification record %v", conceptChanges)
 		return err
 	}
@@ -290,11 +311,11 @@ func bucketConcordances(concordanceRecords []concordances.ConcordanceRecord) (ma
 	return bucketedConcordances, primaryAuthority, nil
 }
 
-func (s *AggregateService) GetConcordedConcept(UUID string, bookmark string) (ConcordedConcept, string, error) {
+func (s *AggregateService) GetConcordedConcept(ctx context.Context, UUID string, bookmark string) (ConcordedConcept, string, error) {
 	var scopeNoteOptions = map[string][]string{}
 	var transactionID string
 	concordedConcept := ConcordedConcept{}
-	concordedRecords, err := s.concordances.GetConcordance(context.TODO(), UUID, bookmark)
+	concordedRecords, err := s.concordances.GetConcordance(ctx, UUID, bookmark)
 	if err != nil {
 		return ConcordedConcept{}, "", err
 	}
@@ -313,7 +334,7 @@ func (s *AggregateService) GetConcordedConcept(UUID string, bookmark string) (Co
 		for _, conc := range concordanceRecords {
 			var found bool
 			var sourceConcept s3.Concept
-			found, sourceConcept, transactionID, err = s.s3.GetConceptAndTransactionID(context.TODO(), conc.UUID)
+			found, sourceConcept, transactionID, err = s.s3.GetConceptAndTransactionID(ctx, conc.UUID)
 			if err != nil {
 				return ConcordedConcept{}, "", err
 			}
@@ -335,7 +356,7 @@ func (s *AggregateService) GetConcordedConcept(UUID string, bookmark string) (Co
 		canonicalConcept := bucketedConcordances[primaryAuthority][0]
 		var found bool
 		var primaryConcept s3.Concept
-		found, primaryConcept, transactionID, err = s.s3.GetConceptAndTransactionID(context.TODO(), canonicalConcept.UUID)
+		found, primaryConcept, transactionID, err = s.s3.GetConceptAndTransactionID(ctx, canonicalConcept.UUID)
 		if err != nil {
 			return ConcordedConcept{}, "", err
 		} else if !found {

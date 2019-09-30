@@ -2,6 +2,7 @@ package concept
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"io/ioutil"
 	"net/http"
@@ -162,18 +163,18 @@ func NewMockService(concepts map[string]ConcordedConcept, notifications []sqs.Co
 
 func (s *MockService) ListenForNotifications(workerId int) {
 	for _, n := range s.notifications {
-		s.ProcessMessage(n.UUID, n.Bookmark)
+		s.ProcessMessage(context.TODO(), n.UUID, n.Bookmark)
 	}
 }
 
-func (s *MockService) ProcessMessage(UUID string, bookmark string) error {
-	if _, _, err := s.GetConcordedConcept(UUID, bookmark); err != nil {
+func (s *MockService) ProcessMessage(ctx context.Context, UUID string, bookmark string) error {
+	if _, _, err := s.GetConcordedConcept(ctx, UUID, bookmark); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (s *MockService) GetConcordedConcept(UUID string, bookmark string) (ConcordedConcept, string, error) {
+func (s *MockService) GetConcordedConcept(ctx context.Context, UUID string, bookmark string) (ConcordedConcept, string, error) {
 	if s.err != nil {
 		return ConcordedConcept{}, "", s.err
 	}
