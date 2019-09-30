@@ -2,6 +2,7 @@ package concept
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"io/ioutil"
 	"net/http"
@@ -28,6 +29,7 @@ func TestHandlers(t *testing.T) {
 		concepts      map[string]ConcordedConcept
 		notifications []sqs.ConceptUpdate
 		healthchecks  []fthealth.Check
+		cancelContext bool
 	}{
 		{
 			"Get Concept - Success",
@@ -45,6 +47,7 @@ func TestHandlers(t *testing.T) {
 			},
 			[]sqs.ConceptUpdate{},
 			nil,
+			false,
 		},
 		{
 			"Get Concept - Not Found",
@@ -57,6 +60,7 @@ func TestHandlers(t *testing.T) {
 			map[string]ConcordedConcept{},
 			[]sqs.ConceptUpdate{},
 			nil,
+			false,
 		},
 		{
 			"Send Concept - Success",
@@ -74,6 +78,7 @@ func TestHandlers(t *testing.T) {
 			},
 			[]sqs.ConceptUpdate{},
 			nil,
+			false,
 		},
 		{
 			"Send Concept - Failure",
@@ -86,6 +91,7 @@ func TestHandlers(t *testing.T) {
 			map[string]ConcordedConcept{},
 			[]sqs.ConceptUpdate{},
 			nil,
+			false,
 		},
 		{
 			"GTG - Success",
@@ -98,6 +104,7 @@ func TestHandlers(t *testing.T) {
 			map[string]ConcordedConcept{},
 			[]sqs.ConceptUpdate{},
 			nil,
+			false,
 		},
 		{
 			"GTG - Failure",
@@ -116,6 +123,33 @@ func TestHandlers(t *testing.T) {
 					},
 				},
 			},
+			false,
+		},
+		{
+			"Get Concept - Context canceld",
+			"GET",
+			"/concept/f7fd05ea-9999-47c0-9be9-c99dd84d0097",
+			"",
+			500,
+			"{\"message\": \"context canceled\"}\n",
+			nil,
+			map[string]ConcordedConcept{},
+			[]sqs.ConceptUpdate{},
+			nil,
+			true,
+		},
+		{
+			"Send Concept - Context canceld",
+			"POST",
+			"/concept/f7fd05ea-9999-47c0-9be9-c99dd84d0097/send",
+			"",
+			500,
+			"{\"message\": \"context canceled\"}\n",
+			nil,
+			map[string]ConcordedConcept{},
+			[]sqs.ConceptUpdate{},
+			nil,
+			true,
 		},
 	}
 
@@ -128,8 +162,16 @@ func TestHandlers(t *testing.T) {
 			handler.RegisterHandlers(m)
 			handler.RegisterAdminHandlers(m, NewHealthService(mockService, "system-code", "app-name", 8080, "description"), true, fb)
 
-			req, _ := http.NewRequest(d.method, d.url, bytes.NewBufferString(d.requestBody))
+			ctx, cancel := context.WithCancel(context.Background())
+			if d.cancelContext {
+				cancel()
+			} else {
+				defer cancel()
+			}
+
+			req, _ := http.NewRequestWithContext(ctx, d.method, d.url, bytes.NewBufferString(d.requestBody))
 			rr := httptest.NewRecorder()
+
 			m.ServeHTTP(rr, req)
 
 			b, err := ioutil.ReadAll(rr.Body)
@@ -162,18 +204,18 @@ func NewMockService(concepts map[string]ConcordedConcept, notifications []sqs.Co
 
 func (s *MockService) ListenForNotifications(workerId int) {
 	for _, n := range s.notifications {
-		s.ProcessMessage(n.UUID, n.Bookmark)
+		s.ProcessMessage(context.TODO(), n.UUID, n.Bookmark)
 	}
 }
 
-func (s *MockService) ProcessMessage(UUID string, bookmark string) error {
-	if _, _, err := s.GetConcordedConcept(UUID, bookmark); err != nil {
+func (s *MockService) ProcessMessage(ctx context.Context, UUID string, bookmark string) error {
+	if _, _, err := s.GetConcordedConcept(ctx, UUID, bookmark); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (s *MockService) GetConcordedConcept(UUID string, bookmark string) (ConcordedConcept, string, error) {
+func (s *MockService) GetConcordedConcept(ctx context.Context, UUID string, bookmark string) (ConcordedConcept, string, error) {
 	if s.err != nil {
 		return ConcordedConcept{}, "", s.err
 	}
