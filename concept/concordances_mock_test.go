@@ -1,6 +1,8 @@
 package concept
 
 import (
+	"context"
+
 	"github.com/Financial-Times/aggregate-concept-transformer/concordances"
 	fthealth "github.com/Financial-Times/go-fthealth/v1_1"
 )
@@ -10,7 +12,7 @@ type mockConcordancesClient struct {
 	err          error
 }
 
-func (d *mockConcordancesClient) GetConcordance(uuid string, bookmark string) ([]concordances.ConcordanceRecord, error) {
+func (d *mockConcordancesClient) GetConcordance(ctx context.Context, uuid string, bookmark string) ([]concordances.ConcordanceRecord, error) {
 	if cons, ok := d.concordances[uuid]; ok {
 		return cons, d.err
 	}

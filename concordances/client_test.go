@@ -1,6 +1,7 @@
 package concordances
 
 import (
+	"context"
 	"testing"
 
 	"github.com/Financial-Times/go-logger"
@@ -31,7 +32,7 @@ func (suite *RWTestSuite) TestGetConcordance_Success() {
 		httpmock.NewStringResponder(200, `[{"uuid": "a"}, {"uuid": "b"}]`),
 	)
 
-	cs, err := suite.client.GetConcordance("a", "")
+	cs, err := suite.client.GetConcordance(context.Background(), "a", "")
 	suite.Nil(err)
 	suite.Len(cs, 2)
 	suite.Equal("a", cs[0].UUID)
@@ -45,7 +46,7 @@ func (suite *RWTestSuite) TestGetConcordance_FailOnStatus() {
 		httpmock.NewStringResponder(500, `[{"uuid": "a"}, {"uuid": "b"}]`),
 	)
 
-	cs, err := suite.client.GetConcordance("a", "")
+	cs, err := suite.client.GetConcordance(context.Background(), "a", "")
 	suite.Nil(cs)
 	suite.NotNil(err)
 }
@@ -57,7 +58,7 @@ func (suite *RWTestSuite) TestGetConcordance_FailOnInvalidJSON() {
 		httpmock.NewStringResponder(200, `...`),
 	)
 
-	cs, err := suite.client.GetConcordance("a","")
+	cs, err := suite.client.GetConcordance(context.Background(), "a", "")
 	suite.Nil(cs)
 	suite.NotNil(err)
 }
@@ -76,13 +77,13 @@ func (suite *RWTestSuite) TestGetConcordance_MissingConcordanceReturns404() {
 		},
 	}
 
-	cs, err := suite.client.GetConcordance("a","")
+	cs, err := suite.client.GetConcordance(context.Background(), "a", "")
 	suite.Equal(retCon, cs)
 	suite.Nil(err)
 }
 
 func (suite *RWTestSuite) TestGetConcordance_FailsOnClientError() {
-	cs, err := suite.client.GetConcordance("a","")
+	cs, err := suite.client.GetConcordance(context.Background(), "a", "")
 	suite.Nil(cs)
 	suite.NotNil(err)
 }
