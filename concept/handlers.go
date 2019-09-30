@@ -18,21 +18,24 @@ import (
 )
 
 type AggregateConceptHandler struct {
-	svc Service
+	svc            Service
+	requestTimeout time.Duration
 }
 
 type httpClient interface {
 	Do(req *http.Request) (resp *http.Response, err error)
 }
 
-func NewHandler(svc Service) AggregateConceptHandler {
-	return AggregateConceptHandler{svc: svc}
+func NewHandler(svc Service, timeout time.Duration) AggregateConceptHandler {
+	return AggregateConceptHandler{svc: svc, requestTimeout: timeout}
 }
 
 func (h *AggregateConceptHandler) GetHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	UUID := vars["uuid"]
 	w.Header().Set("Content-Type", "application/json")
+	ctx, cancel := context.WithTimeout(r.Context(), h.requestTimeout)
+	defer cancel()
 
 	concept, transactionID, err := h.getConcordedConcept(ctx, UUID)
 
@@ -80,6 +83,7 @@ func (h *AggregateConceptHandler) SendHandler(w http.ResponseWriter, r *http.Req
 
 	ctx, cancel := context.WithTimeout(r.Context(), h.requestTimeout)
 	defer cancel()
+
 	ch := make(chan error)
 	go func() {
 		err := h.svc.ProcessMessage(ctx, UUID, "")
@@ -94,7 +98,7 @@ func (h *AggregateConceptHandler) SendHandler(w http.ResponseWriter, r *http.Req
 
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte("{\"message\":\"Could not process the concept.\"}"))
+		fmt.Fprintln(w, fmt.Sprintf("{\"message\": \"%s\"}", err.Error()))
 		return
 	}
 	//nolint:errcheck

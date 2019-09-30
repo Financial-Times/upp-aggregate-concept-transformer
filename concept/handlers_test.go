@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"sync"
 
@@ -86,7 +87,7 @@ func TestHandlers(t *testing.T) {
 			"/concept/f7fd05ea-9999-47c0-9be9-c99dd84d0097/send",
 			"",
 			500,
-			"{\"message\":\"Could not process the concept.\"}",
+			"{\"message\": \"Could not process the concept.\"}\n",
 			errors.New("Could not process the concept."),
 			map[string]ConcordedConcept{},
 			[]sqs.ConceptUpdate{},
@@ -157,7 +158,7 @@ func TestHandlers(t *testing.T) {
 		t.Run(d.name, func(t *testing.T) {
 			fb := make(chan bool)
 			mockService := NewMockService(d.concepts, d.notifications, d.healthchecks, d.err)
-			handler := NewHandler(mockService)
+			handler := NewHandler(mockService, time.Second*1)
 			m := mux.NewRouter()
 			handler.RegisterHandlers(m)
 			handler.RegisterAdminHandlers(m, NewHealthService(mockService, "system-code", "app-name", 8080, "description"), true, fb)
