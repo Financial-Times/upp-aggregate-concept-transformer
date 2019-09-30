@@ -1,6 +1,8 @@
 package kinesis
 
 import (
+	"context"
+
 	fthealth "github.com/Financial-Times/go-fthealth/v1_1"
 	"github.com/Financial-Times/go-logger"
 	"github.com/aws/aws-sdk-go/aws"
@@ -10,7 +12,7 @@ import (
 )
 
 type Client interface {
-	AddRecordToStream(updatedConcept []byte, conceptType string) error
+	AddRecordToStream(ctx context.Context, updatedConcept []byte, conceptType string) error
 	Healthcheck() fthealth.Check
 }
 
@@ -40,14 +42,14 @@ func NewClient(streamName string, region string, arn string) (Client, error) {
 	}, nil
 }
 
-func (c *KinesisClient) AddRecordToStream(updatedConcept []byte, conceptType string) error {
+func (c *KinesisClient) AddRecordToStream(ctx context.Context, updatedConcept []byte, conceptType string) error {
 	putRecordInput := &kinesis.PutRecordInput{
 		Data:         updatedConcept,
 		StreamName:   aws.String(c.streamName),
 		PartitionKey: aws.String(conceptType),
 	}
 
-	if _, err := c.svc.PutRecord(putRecordInput); err != nil {
+	if _, err := c.svc.PutRecordWithContext(ctx, putRecordInput); err != nil {
 		return err
 	}
 	return nil

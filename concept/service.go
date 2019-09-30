@@ -239,7 +239,7 @@ func (s *AggregateService) ProcessMessage(UUID string, bookmark string) error {
 		return err
 	}
 	logger.WithTransactionID(transactionID).WithUUID(concordedConcept.PrefUUID).Debugf("sending notification of updated concepts to kinesis conceptsQueue: %v", conceptChanges)
-	if err = s.kinesis.AddRecordToStream(rawIDList, concordedConcept.Type); err != nil {
+	if err = s.kinesis.AddRecordToStream(context.TODO(), rawIDList, concordedConcept.Type); err != nil {
 		logger.WithError(err).WithTransactionID(transactionID).WithUUID(concordedConcept.PrefUUID).Errorf("Failed to update stream with notification record %v", conceptChanges)
 		return err
 	}
