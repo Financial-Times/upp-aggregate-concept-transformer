@@ -111,7 +111,7 @@ func TestAggregateService_ListenForNotifications_ProcessConceptNotInS3(t *testin
 	hasIt, _, _, err := s3mock.GetConceptAndTransactionID(context.TODO(), nonExistingConcept)
 	assert.Equal(t, hasIt, false)
 	assert.NoError(t, err)
-	err = mockSqsClient.RemoveMessageFromQueue(&receiptHandle)
+	err = mockSqsClient.RemoveMessageFromQueue(context.TODO(), &receiptHandle)
 	assert.Equal(t, 0, len(mockSqsClient.Queue()))
 	assert.NoError(t, err)
 }
@@ -121,7 +121,7 @@ func TestAggregateService_ListenForNotifications_CannotProcessRemoveMessageNotPr
 	mockSqsClient.On("ListenAndServeQueue").Return([]sqs.ConceptUpdate{})
 	var receiptHandle = "2"
 	go svc.ListenForNotifications(1)
-	err := mockSqsClient.RemoveMessageFromQueue(&receiptHandle)
+	err := mockSqsClient.RemoveMessageFromQueue(context.TODO(), &receiptHandle)
 	assert.Error(t, err)
 	assert.Equal(t, "Receipt handle not present on conceptsQueue", err.Error())
 }
