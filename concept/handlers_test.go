@@ -83,7 +83,7 @@ func TestHandlers(t *testing.T) {
 			"/concept/f7fd05ea-9999-47c0-9be9-c99dd84d0097/send",
 			"",
 			500,
-			"{\"message\":\"Could not process the concept.\"}",
+			"{\"message\": \"Could not process the concept.\"}\n",
 			errors.New("Could not process the concept."),
 			map[string]ConcordedConcept{},
 			[]sqs.ConceptUpdate{},
