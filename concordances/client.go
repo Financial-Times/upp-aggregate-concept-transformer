@@ -76,7 +76,7 @@ func (c *RWClient) Healthcheck() fthealth.Check {
 		BusinessImpact: "Concordances cannot be returned",
 		ID:             "concordance-store-rw-check",
 		Severity:       3,
-		PanicGuide:     "https://dewey.in.ft.com/view/system/aggregate-concept-transformer",
+		PanicGuide:     "https://runbooks.in.ft.com/aggregate-concept-transformer",
 		TechnicalSummary: "The concordances-rw-neo4j service is inaccessible.  Check that the address is correct and " +
 			"the service is up.",
 		Timeout: 10 * time.Second,
