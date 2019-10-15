@@ -59,7 +59,7 @@ func (c *KinesisClient) Healthcheck() fthealth.Check {
 	return fthealth.Check{
 		BusinessImpact:   "Editorial updates of concepts will not be written into UPP",
 		Name:             "Check connectivity to Kinesis stream",
-		PanicGuide:       "https://dewey.ft.com/aggregate-concept-transformer.html",
+		PanicGuide:       "https://runbooks.in.ft.com/aggregate-concept-transformer",
 		Severity:         3,
 		TechnicalSummary: `Cannot connect to Kinesis stream. If this check fails, check that Amazon Kinesis is available`,
 		Checker: func() (string, error) {

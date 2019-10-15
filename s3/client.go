@@ -100,7 +100,7 @@ func (c *ConceptClient) Healthcheck() fthealth.Check {
 	return fthealth.Check{
 		BusinessImpact:   "Editorial updates of concepts will not be written into UPP",
 		Name:             "Check connectivity to S3 bucket",
-		PanicGuide:       "https://dewey.ft.com/aggregate-concept-transformer.html",
+		PanicGuide:       "https://runbooks.in.ft.com/aggregate-concept-transformer",
 		Severity:         3,
 		TechnicalSummary: `Cannot connect to S3 bucket. If this check fails, check that Amazon S3 is available`,
 		Checker: func() (string, error) {
