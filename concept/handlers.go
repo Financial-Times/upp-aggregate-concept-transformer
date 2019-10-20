@@ -41,7 +41,7 @@ func (h *AggregateConceptHandler) GetHandler(w http.ResponseWriter, r *http.Requ
 
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		fmt.Fprintln(w, fmt.Sprintf("{\"message\": \"%s\"}", err.Error()))
+		fmt.Fprintf(w, "{\"message\":\"%v\"}", err)
 		return
 	}
 
@@ -98,7 +98,7 @@ func (h *AggregateConceptHandler) SendHandler(w http.ResponseWriter, r *http.Req
 
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		fmt.Fprintln(w, fmt.Sprintf("{\"message\": \"%s\"}", err.Error()))
+		fmt.Fprintf(w, "{\"message\":\"%v\"}", err)
 		return
 	}
 	//nolint:errcheck
