@@ -2,11 +2,13 @@ package concept
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"sync"
 
@@ -17,8 +19,7 @@ import (
 )
 
 func TestHandlers(t *testing.T) {
-	testCases := []struct {
-		name          string
+	testCases := map[string]struct {
 		method        string
 		url           string
 		requestBody   string
@@ -28,88 +29,58 @@ func TestHandlers(t *testing.T) {
 		concepts      map[string]ConcordedConcept
 		notifications []sqs.ConceptUpdate
 		healthchecks  []fthealth.Check
+		cancelContext bool
 	}{
-		{
-			"Get Concept - Success",
-			"GET",
-			"/concept/f7fd05ea-9999-47c0-9be9-c99dd84d0097",
-			"",
-			200,
-			"{\"prefUUID\":\"f7fd05ea-9999-47c0-9be9-c99dd84d0097\",\"prefLabel\":\"TestConcept\"}\n",
-			nil,
-			map[string]ConcordedConcept{
+		"Get Concept - Success": {
+			method:     "GET",
+			url:        "/concept/f7fd05ea-9999-47c0-9be9-c99dd84d0097",
+			resultCode: 200,
+			resultBody: "{\"prefUUID\":\"f7fd05ea-9999-47c0-9be9-c99dd84d0097\",\"prefLabel\":\"TestConcept\"}\n",
+			concepts: map[string]ConcordedConcept{
 				"f7fd05ea-9999-47c0-9be9-c99dd84d0097": {
 					PrefUUID:  "f7fd05ea-9999-47c0-9be9-c99dd84d0097",
 					PrefLabel: "TestConcept",
 				},
 			},
-			[]sqs.ConceptUpdate{},
-			nil,
 		},
-		{
-			"Get Concept - Not Found",
-			"GET",
-			"/concept/f7fd05ea-9999-47c0-9be9-c99dd84d0097",
-			"",
-			500,
-			"{\"message\": \"Canonical concept not found in S3\"}\n",
-			errors.New("Canonical concept not found in S3"),
-			map[string]ConcordedConcept{},
-			[]sqs.ConceptUpdate{},
-			nil,
+		"Get Concept - Not Found": {
+			method:     "GET",
+			url:        "/concept/f7fd05ea-9999-47c0-9be9-c99dd84d0097",
+			resultCode: 500,
+			resultBody: "{\"message\":\"Canonical concept not found in S3\"}",
+			err:        errors.New("Canonical concept not found in S3"),
 		},
-		{
-			"Send Concept - Success",
-			"POST",
-			"/concept/f7fd05ea-9999-47c0-9be9-c99dd84d0097/send",
-			"",
-			200,
-			"{\"message\":\"Concept f7fd05ea-9999-47c0-9be9-c99dd84d0097 updated successfully.\"}",
-			nil,
-			map[string]ConcordedConcept{
+		"Send Concept - Success": {
+			method:     "POST",
+			url:        "/concept/f7fd05ea-9999-47c0-9be9-c99dd84d0097/send",
+			resultCode: 200,
+			resultBody: "{\"message\":\"Concept f7fd05ea-9999-47c0-9be9-c99dd84d0097 updated successfully.\"}",
+			concepts: map[string]ConcordedConcept{
 				"f7fd05ea-9999-47c0-9be9-c99dd84d0097": {
 					PrefUUID:  "f7fd05ea-9999-47c0-9be9-c99dd84d0097",
 					PrefLabel: "TestConcept",
 				},
 			},
-			[]sqs.ConceptUpdate{},
-			nil,
 		},
-		{
-			"Send Concept - Failure",
-			"POST",
-			"/concept/f7fd05ea-9999-47c0-9be9-c99dd84d0097/send",
-			"",
-			500,
-			"{\"message\":\"Could not process the concept.\"}",
-			errors.New("Could not process the concept."),
-			map[string]ConcordedConcept{},
-			[]sqs.ConceptUpdate{},
-			nil,
+		"Send Concept - Failure": {
+			method:     "POST",
+			url:        "/concept/f7fd05ea-9999-47c0-9be9-c99dd84d0097/send",
+			resultCode: 500,
+			resultBody: "{\"message\":\"Could not process the concept.\"}",
+			err:        errors.New("Could not process the concept."),
 		},
-		{
-			"GTG - Success",
-			"GET",
-			"/__gtg",
-			"",
-			200,
-			"OK",
-			nil,
-			map[string]ConcordedConcept{},
-			[]sqs.ConceptUpdate{},
-			nil,
+		"GTG - Success": {
+			method:     "GET",
+			url:        "/__gtg",
+			resultCode: 200,
+			resultBody: "OK",
 		},
-		{
-			"GTG - Failure",
-			"GET",
-			"/__gtg",
-			"",
-			503,
-			"GTG fail error",
-			nil,
-			map[string]ConcordedConcept{},
-			[]sqs.ConceptUpdate{},
-			[]fthealth.Check{
+		"GTG - Failure": {
+			method:     "GET",
+			url:        "/__gtg",
+			resultCode: 503,
+			resultBody: "GTG fail error",
+			healthchecks: []fthealth.Check{
 				{
 					Checker: func() (string, error) {
 						return "", errors.New("GTG fail error")
@@ -117,27 +88,49 @@ func TestHandlers(t *testing.T) {
 				},
 			},
 		},
+		"Get Concept - Context cancelled": {
+			method:        "GET",
+			url:           "/concept/f7fd05ea-9999-47c0-9be9-c99dd84d0097",
+			resultCode:    500,
+			resultBody:    "{\"message\":\"context canceled\"}",
+			cancelContext: true,
+		},
+		"Send Concept - Context cancelled": {
+			method:        "POST",
+			url:           "/concept/f7fd05ea-9999-47c0-9be9-c99dd84d0097/send",
+			resultCode:    500,
+			resultBody:    "{\"message\":\"context canceled\"}",
+			cancelContext: true,
+		},
 	}
 
-	for _, d := range testCases {
-		t.Run(d.name, func(t *testing.T) {
+	for testName, d := range testCases {
+		t.Run(testName, func(t *testing.T) {
 			fb := make(chan bool)
 			mockService := NewMockService(d.concepts, d.notifications, d.healthchecks, d.err)
-			handler := NewHandler(mockService)
+			handler := NewHandler(mockService, time.Second*1)
 			m := mux.NewRouter()
 			handler.RegisterHandlers(m)
 			handler.RegisterAdminHandlers(m, NewHealthService(mockService, "system-code", "app-name", 8080, "description"), true, fb)
 
-			req, _ := http.NewRequest(d.method, d.url, bytes.NewBufferString(d.requestBody))
+			ctx, cancel := context.WithCancel(context.Background())
+			if d.cancelContext {
+				cancel()
+			} else {
+				defer cancel()
+			}
+
+			req, _ := http.NewRequestWithContext(ctx, d.method, d.url, bytes.NewBufferString(d.requestBody))
 			rr := httptest.NewRecorder()
+
 			m.ServeHTTP(rr, req)
 
 			b, err := ioutil.ReadAll(rr.Body)
 			assert.NoError(t, err)
 			body := string(b)
-			assert.Equal(t, d.resultCode, rr.Code, d.name)
+			assert.Equal(t, d.resultCode, rr.Code, testName)
 			if d.resultBody != "IGNORE" {
-				assert.Equal(t, d.resultBody, body, d.name)
+				assert.Equal(t, d.resultBody, body, testName)
 			}
 		})
 	}
@@ -162,18 +155,19 @@ func NewMockService(concepts map[string]ConcordedConcept, notifications []sqs.Co
 
 func (s *MockService) ListenForNotifications(workerId int) {
 	for _, n := range s.notifications {
-		s.ProcessMessage(n.UUID, n.Bookmark)
+		//nolint:errcheck
+		s.ProcessMessage(context.Background(), n.UUID, n.Bookmark)
 	}
 }
 
-func (s *MockService) ProcessMessage(UUID string, bookmark string) error {
-	if _, _, err := s.GetConcordedConcept(UUID, bookmark); err != nil {
+func (s *MockService) ProcessMessage(ctx context.Context, UUID string, bookmark string) error {
+	if _, _, err := s.GetConcordedConcept(ctx, UUID, bookmark); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (s *MockService) GetConcordedConcept(UUID string, bookmark string) (ConcordedConcept, string, error) {
+func (s *MockService) GetConcordedConcept(ctx context.Context, UUID string, bookmark string) (ConcordedConcept, string, error) {
 	if s.err != nil {
 		return ConcordedConcept{}, "", s.err
 	}

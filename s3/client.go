@@ -1,6 +1,7 @@
 package s3
 
 import (
+	"context"
 	"net"
 	"net/http"
 	"strings"
@@ -17,7 +18,7 @@ import (
 )
 
 type Client interface {
-	GetConceptAndTransactionId(UUID string) (bool, Concept, string, error)
+	GetConceptAndTransactionID(ctx context.Context, UUID string) (bool, Concept, string, error)
 	Healthcheck() fthealth.Check
 }
 
@@ -59,13 +60,13 @@ func NewClient(bucketName string, awsRegion string) (Client, error) {
 	}, err
 }
 
-func (c *ConceptClient) GetConceptAndTransactionId(UUID string) (bool, Concept, string, error) {
+func (c *ConceptClient) GetConceptAndTransactionID(ctx context.Context, UUID string) (bool, Concept, string, error) {
 	getObjectParams := &s3.GetObjectInput{
 		Bucket: aws.String(c.bucketName),
 		Key:    aws.String(getKey(UUID)),
 	}
 
-	resp, err := c.s3.GetObject(getObjectParams)
+	resp, err := c.s3.GetObjectWithContext(ctx, getObjectParams)
 	if err != nil {
 		e, ok := err.(awserr.Error)
 		if ok && e.Code() == "NoSuchKey" {
@@ -80,7 +81,7 @@ func (c *ConceptClient) GetConceptAndTransactionId(UUID string) (bool, Concept, 
 		Bucket: aws.String(c.bucketName),
 		Key:    aws.String(getKey(UUID)),
 	}
-	ho, err := c.s3.HeadObject(getHeadersParams)
+	ho, err := c.s3.HeadObjectWithContext(ctx, getHeadersParams)
 	if err != nil {
 		logger.WithError(err).WithUUID(UUID).Error("Cannot access S3 head object")
 		return false, Concept{}, "", err
@@ -99,7 +100,7 @@ func (c *ConceptClient) Healthcheck() fthealth.Check {
 	return fthealth.Check{
 		BusinessImpact:   "Editorial updates of concepts will not be written into UPP",
 		Name:             "Check connectivity to S3 bucket",
-		PanicGuide:       "https://dewey.ft.com/aggregate-concept-transformer.html",
+		PanicGuide:       "https://runbooks.in.ft.com/aggregate-concept-transformer",
 		Severity:         3,
 		TechnicalSummary: `Cannot connect to S3 bucket. If this check fails, check that Amazon S3 is available`,
 		Checker: func() (string, error) {

@@ -1,26 +1,28 @@
 package sqs
 
 import (
+	"context"
 	"encoding/json"
 	"regexp"
 	"strings"
 
 	"fmt"
+	"strconv"
+
 	fthealth "github.com/Financial-Times/go-fthealth/v1_1"
 	"github.com/Financial-Times/go-logger"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/sqs"
-	"strconv"
 )
 
 var keyMatcher = regexp.MustCompile("^[0-9a-f]{8}/[0-9a-f]{4}/[0-9a-f]{4}/[0-9a-f]{4}/[0-9a-f]{12}$")
 
 type Client interface {
-	ListenAndServeQueue() []ConceptUpdate
-	SendEvents(messages []Event) error
-	RemoveMessageFromQueue(receiptHandle *string) error
+	ListenAndServeQueue(ctx context.Context) []ConceptUpdate
+	SendEvents(ctx context.Context, messages []Event) error
+	RemoveMessageFromQueue(ctx context.Context, receiptHandle *string) error
 	Healthcheck() fthealth.Check
 }
 
@@ -60,15 +62,15 @@ func NewClient(awsRegion string, queueUrl string, messagesToProcess int, visibil
 	}, err
 }
 
-func (c *NotificationClient) ListenAndServeQueue() []ConceptUpdate {
-	messages, err := c.sqs.ReceiveMessage(&c.listenParams)
+func (c *NotificationClient) ListenAndServeQueue(ctx context.Context) []ConceptUpdate {
+	messages, err := c.sqs.ReceiveMessageWithContext(ctx, &c.listenParams)
 	if err != nil {
 		logger.WithError(err).Error("Error whilst listening for messages")
 	}
 	return getNotificationsFromMessages(messages.Messages)
 }
 
-func (c *NotificationClient) SendEvents(messages []Event) error {
+func (c *NotificationClient) SendEvents(ctx context.Context, messages []Event) error {
 	if c.queueUrl == "" {
 		return nil
 	}
@@ -89,7 +91,7 @@ func (c *NotificationClient) SendEvents(messages []Event) error {
 		Entries:  entries,
 	}
 
-	output, err := c.sqs.SendMessageBatch(input)
+	output, err := c.sqs.SendMessageBatchWithContext(ctx, input)
 	if err != nil {
 		if _, ok := err.(awserr.Error); ok {
 			// We've got an AWS error, so handle accordingly.
@@ -105,12 +107,12 @@ func (c *NotificationClient) SendEvents(messages []Event) error {
 	return nil
 }
 
-func (c *NotificationClient) RemoveMessageFromQueue(receiptHandle *string) error {
+func (c *NotificationClient) RemoveMessageFromQueue(ctx context.Context, receiptHandle *string) error {
 	deleteParams := sqs.DeleteMessageInput{
 		QueueUrl:      aws.String(c.queueUrl),
 		ReceiptHandle: receiptHandle,
 	}
-	if _, err := c.sqs.DeleteMessage(&deleteParams); err != nil {
+	if _, err := c.sqs.DeleteMessageWithContext(ctx, &deleteParams); err != nil {
 		logger.WithError(err).Error("Error deleting message from SQS")
 		return err
 	}
@@ -162,7 +164,7 @@ func (c *NotificationClient) Healthcheck() fthealth.Check {
 	return fthealth.Check{
 		BusinessImpact:   "Editorial updates of concepts will not be written into UPP",
 		Name:             "Check connectivity to SQS queue",
-		PanicGuide:       "https://dewey.ft.com/aggregate-concept-transformer.html",
+		PanicGuide:       "https://runbooks.in.ft.com/aggregate-concept-transformer",
 		Severity:         3,
 		TechnicalSummary: `Cannot connect to SQS queue. If this check fails, check that Amazon SQS is available`,
 		Checker: func() (string, error) {

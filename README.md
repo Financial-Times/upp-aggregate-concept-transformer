@@ -8,10 +8,9 @@ __A service which gets notified via SQS of updates to source concepts in an Amaz
 
 # Installation
 
-	go get -u github.com/Financial-Times/aggregate-concept-transformer
+	go get github.com/Financial-Times/aggregate-concept-transformer
 	cd $GOPATH/src/github.com/Financial-Times/aggregate-concept-transformer
-	dep ensure -v -vendor-only
-	go build
+	go build -mod=readonly
 
 # Running
 

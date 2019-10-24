@@ -80,6 +80,12 @@ func main() {
 		Desc:   "Duration(seconds) that messages will be ignored by subsequent requests after initial response",
 		EnvVar: "VISIBILITY_TIMEOUT",
 	})
+	httpTimeout := app.Int(cli.IntOpt{
+		Name:   "http-timeout",
+		Value:  15,
+		Desc:   "Duration(seconds) to wait before timing out a request",
+		EnvVar: "HTTP_TIMEOUT",
+	})
 	waitTime := app.Int(cli.IntOpt{
 		Name:   "waitTime",
 		Value:  20,
@@ -240,7 +246,7 @@ func main() {
 			feedback,
 			done)
 
-		handler := concept.NewHandler(svc)
+		handler := concept.NewHandler(svc, time.Second*time.Duration(*httpTimeout))
 		hs := concept.NewHealthService(svc, *appSystemCode, *appName, *port, appDescription)
 
 		router := mux.NewRouter()

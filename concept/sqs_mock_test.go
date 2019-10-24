@@ -1,9 +1,11 @@
 package concept
 
 import (
+	"context"
 	"errors"
-	"github.com/stretchr/testify/mock"
 	"sync"
+
+	"github.com/stretchr/testify/mock"
 
 	"github.com/Financial-Times/aggregate-concept-transformer/sqs"
 	fthealth "github.com/Financial-Times/go-fthealth/v1_1"
@@ -17,7 +19,7 @@ type mockSQSClient struct {
 	err           error
 }
 
-func (c *mockSQSClient) ListenAndServeQueue() []sqs.ConceptUpdate {
+func (c *mockSQSClient) ListenAndServeQueue(ctx context.Context) []sqs.ConceptUpdate {
 	c.s.Lock()
 	defer c.s.Unlock()
 	c.Called()
@@ -33,7 +35,7 @@ func (c *mockSQSClient) ListenAndServeQueue() []sqs.ConceptUpdate {
 	return notifications
 }
 
-func (c *mockSQSClient) RemoveMessageFromQueue(receiptHandle *string) error {
+func (c *mockSQSClient) RemoveMessageFromQueue(ctx context.Context, receiptHandle *string) error {
 	c.s.Lock()
 	defer c.s.Unlock()
 	if _, ok := c.conceptsQueue[*receiptHandle]; ok {
@@ -43,7 +45,7 @@ func (c *mockSQSClient) RemoveMessageFromQueue(receiptHandle *string) error {
 	return errors.New("Receipt handle not present on conceptsQueue")
 }
 
-func (c *mockSQSClient) SendEvents(messages []sqs.Event) error {
+func (c *mockSQSClient) SendEvents(ctx context.Context, messages []sqs.Event) error {
 	if c.err != nil {
 		return c.err
 	}

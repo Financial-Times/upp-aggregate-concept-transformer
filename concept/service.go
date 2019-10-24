@@ -1,6 +1,7 @@
 package concept
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -10,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/Financial-Times/aggregate-concept-transformer/concordances"
 	"github.com/Financial-Times/aggregate-concept-transformer/kinesis"
@@ -35,9 +37,9 @@ var irregularConceptTypePaths = map[string]string{
 }
 
 type Service interface {
-	ListenForNotifications(workerId int)
-	ProcessMessage(UUID string, bookmark string) error
-	GetConcordedConcept(UUID string, bookmark string) (ConcordedConcept, string, error)
+	ListenForNotifications(workerID int)
+	ProcessMessage(ctx context.Context, UUID string, bookmark string) error
+	GetConcordedConcept(ctx context.Context, UUID string, bookmark string) (ConcordedConcept, string, error)
 	Healthchecks() []fthealth.Check
 }
 
@@ -131,44 +133,71 @@ func NewService(
 	}
 }
 
-func (s *AggregateService) ListenForNotifications(workerId int) {
+func (s *AggregateService) ListenForNotifications(workerID int) {
+	listenCtx, listenCancel := context.WithCancel(context.Background())
+	defer listenCancel()
 	for {
-
-		if s.health.isShuttingDown() {
-			logger.Infof("Stopping worker %d", workerId)
+		select {
+		case <-listenCtx.Done():
+			logger.Infof("Stopping worker %d", workerID)
 			return
-		}
-
-		if s.health.isGood() {
-			notifications := s.conceptUpdatesSqs.ListenAndServeQueue()
-			nslen := len(notifications)
-			if nslen > 0 {
-				logger.Infof("Worker %d processing notifications", workerId)
-				var wg sync.WaitGroup
-				wg.Add(nslen)
-				for _, n := range notifications {
-					go func(n sqs.ConceptUpdate) {
-						defer wg.Done()
-						err := s.ProcessMessage(n.UUID, n.Bookmark)
-						if err != nil {
-							logger.WithError(err).WithUUID(n.UUID).Error("Error processing message.")
-							return
-						}
-						err = s.conceptUpdatesSqs.RemoveMessageFromQueue(n.ReceiptHandle)
-						if err != nil {
-							logger.WithError(err).WithUUID(n.UUID).Error("Error removing message from SQS.")
-						}
-					}(n)
-				}
-				wg.Wait()
+		default:
+			if s.health.isShuttingDown() {
+				logger.Infof("Stopping worker %d", workerID)
+				return
 			}
+			if !s.health.isGood() {
+				continue
+			}
+			notifications := s.conceptUpdatesSqs.ListenAndServeQueue(listenCtx)
+			nslen := len(notifications)
+			if nslen <= 0 {
+				continue
+			}
+			logger.Infof("Worker %d processing notifications", workerID)
+			var wg sync.WaitGroup
+			wg.Add(nslen)
+			for _, n := range notifications {
+				go func(ctx context.Context, reqWG *sync.WaitGroup, update sqs.ConceptUpdate) {
+					timeoutCtx, timeoutCancel := context.WithTimeout(ctx, time.Second*3)
+					defer timeoutCancel()
+					defer reqWG.Done()
+
+					ch := make(chan struct{})
+					go func() {
+						s.processConceptUpdate(timeoutCtx, update)
+						ch <- struct{}{}
+					}()
+
+					select {
+					case <-timeoutCtx.Done():
+						logger.WithError(timeoutCtx.Err()).WithUUID(update.UUID).Error("Error processing message.")
+						return
+					case <-ch:
+					}
+				}(listenCtx, &wg, n)
+			}
+			wg.Wait()
 		}
 	}
 }
 
-func (s *AggregateService) ProcessMessage(UUID string, bookmark string) error {
+func (s *AggregateService) processConceptUpdate(ctx context.Context, n sqs.ConceptUpdate) {
+
+	err := s.ProcessMessage(ctx, n.UUID, n.Bookmark)
+	if err != nil {
+		logger.WithError(err).WithUUID(n.UUID).Error("Error processing message.")
+		return
+	}
+	err = s.conceptUpdatesSqs.RemoveMessageFromQueue(ctx, n.ReceiptHandle)
+	if err != nil {
+		logger.WithError(err).WithUUID(n.UUID).Error("Error removing message from SQS.")
+	}
+}
+
+func (s *AggregateService) ProcessMessage(ctx context.Context, UUID string, bookmark string) error {
 	// Get the concorded concept
-	concordedConcept, transactionID, err := s.GetConcordedConcept(UUID, bookmark)
+	concordedConcept, transactionID, err := s.GetConcordedConcept(ctx, UUID, bookmark)
 	if err != nil {
 		return err
 	}
@@ -178,7 +207,7 @@ func (s *AggregateService) ProcessMessage(UUID string, bookmark string) error {
 
 	// Write to Neo4j
 	logger.WithTransactionID(transactionID).WithUUID(concordedConcept.PrefUUID).Debug("Sending concept to Neo4j")
-	conceptChanges, err := sendToWriter(s.httpClient, s.neoWriterAddress, resolveConceptType(concordedConcept.Type), concordedConcept.PrefUUID, concordedConcept, transactionID)
+	conceptChanges, err := sendToWriter(ctx, s.httpClient, s.neoWriterAddress, resolveConceptType(concordedConcept.Type), concordedConcept.PrefUUID, concordedConcept, transactionID)
 	if err != nil {
 		return err
 	}
@@ -201,19 +230,19 @@ func (s *AggregateService) ProcessMessage(UUID string, bookmark string) error {
 
 	// Purge concept URLs in varnish
 	// Always purge top level concept
-	if err := sendToPurger(s.httpClient, s.varnishPurgerAddress, updateRecord.UpdatedIds, concordedConcept.Type, s.typesToPurgeFromPublicEndpoints, transactionID); err != nil {
+	if err = sendToPurger(ctx, s.httpClient, s.varnishPurgerAddress, updateRecord.UpdatedIds, concordedConcept.Type, s.typesToPurgeFromPublicEndpoints, transactionID); err != nil {
 		logger.WithTransactionID(transactionID).WithUUID(concordedConcept.PrefUUID).Errorf("Concept couldn't be purged from Varnish cache")
 	}
 
 	//optionally purge other affected concepts
 	if concordedConcept.Type == "FinancialInstrument" {
-		if err := sendToPurger(s.httpClient, s.varnishPurgerAddress, []string{concordedConcept.SourceRepresentations[0].IssuedBy}, "Organisation", s.typesToPurgeFromPublicEndpoints, transactionID); err != nil {
+		if err = sendToPurger(ctx, s.httpClient, s.varnishPurgerAddress, []string{concordedConcept.SourceRepresentations[0].IssuedBy}, "Organisation", s.typesToPurgeFromPublicEndpoints, transactionID); err != nil {
 			logger.WithTransactionID(transactionID).WithUUID(concordedConcept.SourceRepresentations[0].IssuedBy).Errorf("Concept couldn't be purged from Varnish cache")
 		}
 	}
 
 	if concordedConcept.Type == "Membership" {
-		if err := sendToPurger(s.httpClient, s.varnishPurgerAddress, []string{concordedConcept.PersonUUID}, "Person", s.typesToPurgeFromPublicEndpoints, transactionID); err != nil {
+		if err = sendToPurger(ctx, s.httpClient, s.varnishPurgerAddress, []string{concordedConcept.PersonUUID}, "Person", s.typesToPurgeFromPublicEndpoints, transactionID); err != nil {
 			logger.WithTransactionID(transactionID).WithUUID(concordedConcept.PersonUUID).Errorf("Concept couldn't be purged from Varnish cache")
 		}
 	}
@@ -221,12 +250,12 @@ func (s *AggregateService) ProcessMessage(UUID string, bookmark string) error {
 	// Write to Elasticsearch
 	if isTypeAllowedInElastic(concordedConcept) {
 		logger.WithTransactionID(transactionID).WithUUID(concordedConcept.PrefUUID).Debug("Writing concept to elastic search")
-		if _, err = sendToWriter(s.httpClient, s.elasticsearchWriterAddress, resolveConceptType(concordedConcept.Type), concordedConcept.PrefUUID, concordedConcept, transactionID); err != nil {
+		if _, err = sendToWriter(ctx, s.httpClient, s.elasticsearchWriterAddress, resolveConceptType(concordedConcept.Type), concordedConcept.PrefUUID, concordedConcept, transactionID); err != nil {
 			return err
 		}
 	}
 
-	if err := s.eventsSqs.SendEvents(updateRecord.ChangedRecords); err != nil {
+	if err = s.eventsSqs.SendEvents(ctx, updateRecord.ChangedRecords); err != nil {
 		logger.WithTransactionID(transactionID).WithUUID(concordedConcept.PersonUUID).Errorf("unable to send events: %v to Event Queue", updateRecord.ChangedRecords)
 		return err
 	}
@@ -238,7 +267,7 @@ func (s *AggregateService) ProcessMessage(UUID string, bookmark string) error {
 		return err
 	}
 	logger.WithTransactionID(transactionID).WithUUID(concordedConcept.PrefUUID).Debugf("sending notification of updated concepts to kinesis conceptsQueue: %v", conceptChanges)
-	if err = s.kinesis.AddRecordToStream(rawIDList, concordedConcept.Type); err != nil {
+	if err = s.kinesis.AddRecordToStream(ctx, rawIDList, concordedConcept.Type); err != nil {
 		logger.WithError(err).WithTransactionID(transactionID).WithUUID(concordedConcept.PrefUUID).Errorf("Failed to update stream with notification record %v", conceptChanges)
 		return err
 	}
@@ -289,11 +318,34 @@ func bucketConcordances(concordanceRecords []concordances.ConcordanceRecord) (ma
 	return bucketedConcordances, primaryAuthority, nil
 }
 
-func (s *AggregateService) GetConcordedConcept(UUID string, bookmark string) (ConcordedConcept, string, error) {
+func (s *AggregateService) GetConcordedConcept(ctx context.Context, UUID string, bookmark string) (ConcordedConcept, string, error) {
+
+	type concordedData struct {
+		Concept       ConcordedConcept
+		TransactionID string
+		Err           error
+	}
+	ch := make(chan concordedData)
+
+	go func() {
+		concept, tranID, err := s.getConcordedConcept(ctx, UUID, bookmark)
+		ch <- concordedData{Concept: concept, TransactionID: tranID, Err: err}
+	}()
+	select {
+	case data := <-ch:
+		return data.Concept, data.TransactionID, data.Err
+	case <-ctx.Done():
+		return ConcordedConcept{}, "", ctx.Err()
+	}
+}
+
+func (s *AggregateService) getConcordedConcept(ctx context.Context, UUID string, bookmark string) (ConcordedConcept, string, error) {
 	var scopeNoteOptions = map[string][]string{}
 	var transactionID string
+	var err error
 	concordedConcept := ConcordedConcept{}
-	concordedRecords, err := s.concordances.GetConcordance(UUID, bookmark)
+
+	concordedRecords, err := s.concordances.GetConcordance(ctx, UUID, bookmark)
 	if err != nil {
 		return ConcordedConcept{}, "", err
 	}
@@ -312,7 +364,7 @@ func (s *AggregateService) GetConcordedConcept(UUID string, bookmark string) (Co
 		for _, conc := range concordanceRecords {
 			var found bool
 			var sourceConcept s3.Concept
-			found, sourceConcept, transactionID, err = s.s3.GetConceptAndTransactionId(conc.UUID)
+			found, sourceConcept, transactionID, err = s.s3.GetConceptAndTransactionID(ctx, conc.UUID)
 			if err != nil {
 				return ConcordedConcept{}, "", err
 			}
@@ -334,11 +386,11 @@ func (s *AggregateService) GetConcordedConcept(UUID string, bookmark string) (Co
 		canonicalConcept := bucketedConcordances[primaryAuthority][0]
 		var found bool
 		var primaryConcept s3.Concept
-		found, primaryConcept, transactionID, err = s.s3.GetConceptAndTransactionId(canonicalConcept.UUID)
+		found, primaryConcept, transactionID, err = s.s3.GetConceptAndTransactionID(ctx, canonicalConcept.UUID)
 		if err != nil {
 			return ConcordedConcept{}, "", err
 		} else if !found {
-			err := fmt.Errorf("canonical concept %s not found in S3", canonicalConcept.UUID)
+			err = fmt.Errorf("canonical concept %s not found in S3", canonicalConcept.UUID)
 			logger.WithField("UUID", UUID).Error(err.Error())
 			return ConcordedConcept{}, "", err
 		}
@@ -541,9 +593,9 @@ func mergeCanonicalInformation(c ConcordedConcept, s s3.Concept, scopeNoteOption
 	return c
 }
 
-func sendToPurger(client httpClient, baseUrl string, conceptUUIDs []string, conceptType string, conceptTypesWithPublicEndpoints []string, tid string) error {
+func sendToPurger(ctx context.Context, client httpClient, baseURL string, conceptUUIDs []string, conceptType string, conceptTypesWithPublicEndpoints []string, tid string) error {
 
-	req, err := http.NewRequest("POST", strings.TrimRight(baseUrl, "/")+"/purge", nil)
+	req, err := http.NewRequestWithContext(ctx, "POST", strings.TrimRight(baseURL, "/")+"/purge", nil)
 	if err != nil {
 		return err
 	}
@@ -587,16 +639,17 @@ func contains(element string, types []string) bool {
 	return false
 }
 
-func sendToWriter(client httpClient, baseUrl string, urlParam string, conceptUUID string, concept ConcordedConcept, tid string) (sqs.ConceptChanges, error) {
+func sendToWriter(ctx context.Context, client httpClient, baseURL string, urlParam string, conceptUUID string, concept ConcordedConcept, tid string) (sqs.ConceptChanges, error) {
+
 	updatedConcepts := sqs.ConceptChanges{}
 	body, err := json.Marshal(concept)
 	if err != nil {
 		return updatedConcepts, err
 	}
 
-	request, reqUrl, err := createWriteRequest(baseUrl, urlParam, strings.NewReader(string(body)), conceptUUID)
+	request, reqURL, err := createWriteRequest(ctx, baseURL, urlParam, strings.NewReader(string(body)), conceptUUID)
 	if err != nil {
-		err := errors.New("Failed to create request to " + reqUrl + " with body " + string(body))
+		err = errors.New("Failed to create request to " + reqURL + " with body " + string(body))
 		logger.WithTransactionID(tid).WithUUID(conceptUUID).Error(err)
 		return updatedConcepts, err
 	}
@@ -604,13 +657,13 @@ func sendToWriter(client httpClient, baseUrl string, urlParam string, conceptUUI
 	request.Header.Set("X-Request-Id", tid)
 	resp, err := client.Do(request)
 	if err != nil {
-		logger.WithError(err).WithTransactionID(tid).WithUUID(conceptUUID).Errorf("Request to %s returned error", reqUrl)
+		logger.WithError(err).WithTransactionID(tid).WithUUID(conceptUUID).Errorf("Request to %s returned error", reqURL)
 		return updatedConcepts, err
 	}
 
 	defer resp.Body.Close()
 
-	if strings.Contains(baseUrl, "neo4j") && int(resp.StatusCode/100) == 2 {
+	if strings.Contains(baseURL, "neo4j") && int(resp.StatusCode/100) == 2 {
 		dec := json.NewDecoder(resp.Body)
 		if err = dec.Decode(&updatedConcepts); err != nil {
 			logger.WithError(err).WithTransactionID(tid).WithUUID(conceptUUID).Error("Error whilst decoding response from writer")
@@ -618,24 +671,24 @@ func sendToWriter(client httpClient, baseUrl string, urlParam string, conceptUUI
 		}
 	}
 
-	if resp.StatusCode == 404 && strings.Contains(baseUrl, "elastic") {
+	if resp.StatusCode == 404 && strings.Contains(baseURL, "elastic") {
 		logger.WithTransactionID(tid).WithUUID(conceptUUID).Debugf("Elastic search rw cannot handle concept: %s, because it has an unsupported type %s; skipping record", conceptUUID, concept.Type)
 		return updatedConcepts, nil
 	}
 	if resp.StatusCode != 200 && resp.StatusCode != 304 {
-		err := errors.New("Request to " + reqUrl + " returned status: " + strconv.Itoa(resp.StatusCode) + "; skipping " + conceptUUID)
-		logger.WithTransactionID(tid).WithUUID(conceptUUID).Errorf("Request to %s returned status: %d", reqUrl, resp.StatusCode)
+		err := errors.New("Request to " + reqURL + " returned status: " + strconv.Itoa(resp.StatusCode) + "; skipping " + conceptUUID)
+		logger.WithTransactionID(tid).WithUUID(conceptUUID).Errorf("Request to %s returned status: %d", reqURL, resp.StatusCode)
 		return updatedConcepts, err
 	}
 
 	return updatedConcepts, nil
 }
 
-func createWriteRequest(baseUrl string, urlParam string, msgBody io.Reader, uuid string) (*http.Request, string, error) {
+func createWriteRequest(ctx context.Context, baseURL string, urlParam string, msgBody io.Reader, uuid string) (*http.Request, string, error) {
 
-	reqURL := strings.TrimRight(baseUrl, "/") + "/" + urlParam + "/" + uuid
+	reqURL := strings.TrimRight(baseURL, "/") + "/" + urlParam + "/" + uuid
 
-	request, err := http.NewRequest("PUT", reqURL, msgBody)
+	request, err := http.NewRequestWithContext(ctx, "PUT", reqURL, msgBody)
 	if err != nil {
 		return nil, reqURL, fmt.Errorf("failed to create request to %s with body %s", reqURL, msgBody)
 	}
