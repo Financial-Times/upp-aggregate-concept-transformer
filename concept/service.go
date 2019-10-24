@@ -159,7 +159,7 @@ func (s *AggregateService) ListenForNotifications(workerID int) {
 			wg.Add(nslen)
 			for _, n := range notifications {
 				go func(ctx context.Context, reqWG *sync.WaitGroup, update sqs.ConceptUpdate) {
-					timeoutCtx, timeoutCancel := context.WithTimeout(ctx, time.Second*3)
+					timeoutCtx, timeoutCancel := context.WithTimeout(ctx, time.Second*15)
 					defer timeoutCancel()
 					defer reqWG.Done()
 
