@@ -94,6 +94,7 @@ type AggregateService struct {
 	httpClient                      httpClient
 	typesToPurgeFromPublicEndpoints []string
 	health                          *systemHealth
+	processTimeout                  time.Duration
 }
 
 func NewService(
@@ -108,7 +109,8 @@ func NewService(
 	typesToPurgeFromPublicEndpoints []string,
 	httpClient httpClient,
 	feedback <-chan bool,
-	done <-chan struct{}) Service {
+	done <-chan struct{},
+	processTimeout time.Duration) *AggregateService {
 
 	health := &systemHealth{
 		healthy:  false, // Set to false. Once health check passes app will read from SQS
@@ -130,6 +132,7 @@ func NewService(
 		httpClient:                      httpClient,
 		typesToPurgeFromPublicEndpoints: typesToPurgeFromPublicEndpoints,
 		health:                          health,
+		processTimeout:                  processTimeout,
 	}
 }
 

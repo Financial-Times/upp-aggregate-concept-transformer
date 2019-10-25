@@ -782,7 +782,7 @@ func TestAggregateService_GetConcordedConcept_Memberships(t *testing.T) {
 func TestAggregateService_ProcessMessage_Success(t *testing.T) {
 	svc, _, _, eventQueue, _, _, _ := setupTestService(200, payload)
 	err := svc.ProcessMessage(context.Background(), "28090964-9997-4bc2-9638-7a11135aaff9", "")
-	mockWriter := svc.(*AggregateService).httpClient.(*mockHTTPClient)
+	mockWriter := svc.httpClient.(*mockHTTPClient)
 	assert.Equal(t, []string{
 		"concepts-rw-neo4j/people/28090964-9997-4bc2-9638-7a11135aaff9",
 		"varnish-purger/purge?target=%2Fthings%2F28090964-9997-4bc2-9638-7a11135aaff9" +
@@ -800,7 +800,7 @@ func TestAggregateService_ProcessMessage_Success(t *testing.T) {
 func TestAggregateService_ProcessMessage_FinancialInstrumentsNotSentToEs(t *testing.T) {
 	svc, _, _, eventQueue, _, _, _ := setupTestService(200, payload)
 	err := svc.ProcessMessage(context.Background(), "6562674e-dbfa-4cb0-85b2-41b0948b7cc2", "")
-	mockWriter := svc.(*AggregateService).httpClient.(*mockHTTPClient)
+	mockWriter := svc.httpClient.(*mockHTTPClient)
 	assert.Equal(t, []string{
 		"concepts-rw-neo4j/financial-instruments/6562674e-dbfa-4cb0-85b2-41b0948b7cc2",
 		"varnish-purger/purge?target=%2Fthings%2F28090964-9997-4bc2-9638-7a11135aaff9" +
@@ -818,7 +818,7 @@ func TestAggregateService_ProcessMessage_FinancialInstrumentsNotSentToEs(t *test
 func TestAggregateService_ProcessMessage_MembershipRolesNotSentToEs(t *testing.T) {
 	svc, _, _, eventQueue, _, _, _ := setupTestService(200, payload)
 	err := svc.ProcessMessage(context.Background(), "01e284c2-7d77-4df6-8df7-57ec006194a4", "")
-	mockWriter := svc.(*AggregateService).httpClient.(*mockHTTPClient)
+	mockWriter := svc.httpClient.(*mockHTTPClient)
 	assert.Equal(t, []string{
 		"concepts-rw-neo4j/membership-roles/01e284c2-7d77-4df6-8df7-57ec006194a4",
 		"varnish-purger/purge?target=%2Fthings%2F28090964-9997-4bc2-9638-7a11135aaff9&target=%2" +
@@ -832,7 +832,7 @@ func TestAggregateService_ProcessMessage_MembershipRolesNotSentToEs(t *testing.T
 func TestAggregateService_ProcessMessage_BoardRolesNotSentToEs(t *testing.T) {
 	svc, _, _, eventQueue, _, _, _ := setupTestService(200, payload)
 	err := svc.ProcessMessage(context.Background(), "344fdb1d-0585-31f7-814f-b478e54dbe1f", "")
-	mockWriter := svc.(*AggregateService).httpClient.(*mockHTTPClient)
+	mockWriter := svc.httpClient.(*mockHTTPClient)
 	assert.Equal(t, []string{
 		"concepts-rw-neo4j/membership-roles/344fdb1d-0585-31f7-814f-b478e54dbe1f",
 		"varnish-purger/purge?target=%2Fthings%2F28090964-9997-4bc2-9638-7a11135aaff9&target=%2" +
@@ -846,7 +846,7 @@ func TestAggregateService_ProcessMessage_BoardRolesNotSentToEs(t *testing.T) {
 func TestAggregateService_ProcessMessage_FactsetMembershipNotSentToEs(t *testing.T) {
 	svc, _, _, eventQueue, _, _, _ := setupTestService(200, payload)
 	err := svc.ProcessMessage(context.Background(), "f784be91-601a-42db-ac57-e1d5da8b4866", "")
-	mockWriter := svc.(*AggregateService).httpClient.(*mockHTTPClient)
+	mockWriter := svc.httpClient.(*mockHTTPClient)
 	assert.Equal(t, []string{
 		"concepts-rw-neo4j/memberships/f784be91-601a-42db-ac57-e1d5da8b4866",
 		"varnish-purger/purge?target=%2Fthings%2F28090964-9997-4bc2-9638-7a11135aaff9" +
@@ -862,7 +862,7 @@ func TestAggregateService_ProcessMessage_FactsetMembershipNotSentToEs(t *testing
 func TestAggregateService_ProcessMessage_SmartlogicMembershipSentToEs(t *testing.T) {
 	svc, _, _, eventQueue, _, _, _ := setupTestService(200, payload)
 	err := svc.ProcessMessage(context.Background(), "ddacda04-b7cd-4d2e-86b1-7dfef0ff56a2", "")
-	mockWriter := svc.(*AggregateService).httpClient.(*mockHTTPClient)
+	mockWriter := svc.httpClient.(*mockHTTPClient)
 	assert.Equal(t, []string{
 		"concepts-rw-neo4j/memberships/ddacda04-b7cd-4d2e-86b1-7dfef0ff56a2",
 		"varnish-purger/purge?target=%2Fthings%2F28090964-9997-4bc2-9638-7a11135aaff9&target=%2Fconcepts" +
@@ -879,7 +879,7 @@ func TestAggregateService_ProcessMessage_SmartlogicMembershipSentToEs(t *testing
 func TestAggregateService_ProcessMessage_Success_PurgeOnBrands(t *testing.T) {
 	svc, _, _, _, _, _, _ := setupTestService(200, payload)
 	err := svc.ProcessMessage(context.Background(), "781bb463-dc53-4d3e-9d49-c48dc4cf6d55", "")
-	mockWriter := svc.(*AggregateService).httpClient.(*mockHTTPClient)
+	mockWriter := svc.httpClient.(*mockHTTPClient)
 	assert.Equal(t, []string{
 		"concepts-rw-neo4j/brands/781bb463-dc53-4d3e-9d49-c48dc4cf6d55",
 		"varnish-purger/purge?target=%2Fthings%2F28090964-9997-4bc2-9638-7a11135aaff9" +
@@ -896,7 +896,7 @@ func TestAggregateService_ProcessMessage_Success_PurgeOnBrands(t *testing.T) {
 func TestAggregateService_ProcessMessage_Success_PurgeOnOrgs(t *testing.T) {
 	svc, _, _, _, _, _, _ := setupTestService(200, payload)
 	err := svc.ProcessMessage(context.Background(), "94659314-7eb0-423a-8030-c4abf3d6458e", "")
-	mockWriter := svc.(*AggregateService).httpClient.(*mockHTTPClient)
+	mockWriter := svc.httpClient.(*mockHTTPClient)
 	assert.Equal(t, []string{
 		"concepts-rw-neo4j/organisations/94659314-7eb0-423a-8030-c4abf3d6458e",
 		"varnish-purger/purge?target=%2Fthings%2F28090964-9997-4bc2-9638-7a11135aaff9" +
@@ -913,7 +913,7 @@ func TestAggregateService_ProcessMessage_Success_PurgeOnOrgs(t *testing.T) {
 func TestAggregateService_ProcessMessage_Success_PurgeOnPublicCompany(t *testing.T) {
 	svc, _, _, _, _, _, _ := setupTestService(200, payload)
 	err := svc.ProcessMessage(context.Background(), "e8251dab-c6d4-42d0-a4f6-430a0c565a83", "")
-	mockWriter := svc.(*AggregateService).httpClient.(*mockHTTPClient)
+	mockWriter := svc.httpClient.(*mockHTTPClient)
 	assert.Equal(t, []string{
 		"concepts-rw-neo4j/organisations/e8251dab-c6d4-42d0-a4f6-430a0c565a83",
 		"varnish-purger/purge?target=%2Fthings%2F28090964-9997-4bc2-9638-7a11135aaff9" +
@@ -930,7 +930,7 @@ func TestAggregateService_ProcessMessage_Success_PurgeOnPublicCompany(t *testing
 func TestAggregateService_ProcessMessage_Success_PurgeOnMembership(t *testing.T) {
 	svc, _, _, _, _, _, _ := setupTestService(200, membershipPayload)
 	err := svc.ProcessMessage(context.Background(), "ce922022-8114-11e8-8f42-da24cd01f044", "")
-	mockWriter := svc.(*AggregateService).httpClient.(*mockHTTPClient)
+	mockWriter := svc.httpClient.(*mockHTTPClient)
 	assert.Equal(t, []string{
 		"concepts-rw-neo4j/memberships/ce922022-8114-11e8-8f42-da24cd01f044",
 		"varnish-purger/purge?target=%2Fthings%2Fce922022-8114-11e8-8f42-da24cd01f044" +
@@ -980,7 +980,7 @@ func TestAggregateService_ProcessMessage_S3SourceNotFoundStillWrittenAsThing(t *
 	testUUID := "c9d3a92a-da84-11e7-a121-0401beb96201"
 	err := svc.ProcessMessage(context.Background(), testUUID, "")
 	assert.NoError(t, err)
-	mockWriter := svc.(*AggregateService).httpClient.(*mockHTTPClient)
+	mockWriter := svc.httpClient.(*mockHTTPClient)
 	actualBody, err := ioutil.ReadAll(mockWriter.capturedBody)
 	assert.NoError(t, err)
 	expectedConcordedConcept := ConcordedConcept{
@@ -1065,7 +1065,11 @@ func TestResolveConceptType(t *testing.T) {
 	assert.Equal(t, "organisations", company)
 }
 
-func setupTestService(clientStatusCode int, writerResponse string) (Service, *mockS3Client, *mockSQSClient, *mockSQSClient, *mockKinesisStreamClient, chan bool, chan struct{}) {
+func setupTestService(clientStatusCode int, writerResponse string) (*AggregateService, *mockS3Client, *mockSQSClient, *mockSQSClient, *mockKinesisStreamClient, chan bool, chan struct{}) {
+	return setupTestServiceWithTimeout(clientStatusCode, writerResponse, time.Second*1)
+}
+
+func setupTestServiceWithTimeout(clientStatusCode int, writerResponse string, timeout time.Duration) (*AggregateService, *mockS3Client, *mockSQSClient, *mockSQSClient, *mockKinesisStreamClient, chan bool, chan struct{}) {
 	s3mock := &mockS3Client{
 		concepts: map[string]struct {
 			transactionID string
@@ -1603,6 +1607,7 @@ func setupTestService(clientStatusCode int, writerResponse string) (Service, *mo
 		},
 		feedback,
 		done,
+		timeout,
 	)
 
 	feedback <- true

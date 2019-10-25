@@ -231,7 +231,7 @@ func main() {
 		done := make(chan struct{})
 
 		maxWorkers := runtime.GOMAXPROCS(0) + 1
-
+		requestTimeout := time.Second * time.Duration(*httpTimeout)
 		svc := concept.NewService(
 			s3Client,
 			conceptUpdatesSqsClient,
@@ -244,9 +244,10 @@ func main() {
 			*typesToPurgeFromPublicEndpoints,
 			defaultHTTPClient(maxWorkers),
 			feedback,
-			done)
+			done,
+			requestTimeout)
 
-		handler := concept.NewHandler(svc, time.Second*time.Duration(*httpTimeout))
+		handler := concept.NewHandler(svc, requestTimeout)
 		hs := concept.NewHealthService(svc, *appSystemCode, *appName, *port, appDescription)
 
 		router := mux.NewRouter()
