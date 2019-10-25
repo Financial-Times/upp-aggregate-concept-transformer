@@ -726,7 +726,7 @@ func (s *AggregateService) RWNeo4JHealthCheck() fthealth.Check {
 	return fthealth.Check{
 		BusinessImpact:   "Editorial updates of concepts will not be written into UPP",
 		Name:             "Check connectivity to concept-rw-neo4j",
-		PanicGuide:       "https://dewey.ft.com/aggregate-concept-transformer.html",
+		PanicGuide:       "https://runbooks.in.ft.com/aggregate-concept-transformer",
 		Severity:         3,
 		TechnicalSummary: `Cannot connect to concept writer neo4j. If this check fails, check health of concepts-rw-neo4j service`,
 		Checker: func() (string, error) {
@@ -752,7 +752,7 @@ func (s *AggregateService) VarnishPurgerHealthCheck() fthealth.Check {
 	return fthealth.Check{
 		BusinessImpact:   "Editorial updates of concepts won't be immediately refreshed in the cache",
 		Name:             "Check connectivity to varnish purger",
-		PanicGuide:       "https://dewey.ft.com/aggregate-concept-transformer.html",
+		PanicGuide:       "https://runbooks.in.ft.com/aggregate-concept-transformer",
 		Severity:         3,
 		TechnicalSummary: `Cannot connect to varnish purger. If this check fails, check health of varnish-purger service`,
 		Checker: func() (string, error) {
@@ -778,7 +778,7 @@ func (s *AggregateService) RWElasticsearchHealthCheck() fthealth.Check {
 	return fthealth.Check{
 		BusinessImpact:   "Editorial updates of concepts will not be written into UPP",
 		Name:             "Check connectivity to concept-rw-elasticsearch",
-		PanicGuide:       "https://dewey.ft.com/aggregate-concept-transformer.html",
+		PanicGuide:       "https://runbooks.in.ft.com/aggregate-concept-transformer",
 		Severity:         3,
 		TechnicalSummary: `Cannot connect to elasticsearch concept writer. If this check fails, check health of concept-rw-elasticsearch service`,
 		Checker: func() (string, error) {
