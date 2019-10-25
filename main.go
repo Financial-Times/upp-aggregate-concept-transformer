@@ -257,10 +257,13 @@ func main() {
 		logger.Infof("Running %d ListenForNotifications", maxWorkers)
 		var listenForNotificationsWG sync.WaitGroup
 		listenForNotificationsWG.Add(maxWorkers)
+
+		workerCtx, workerCancel := context.WithCancel(context.Background())
+
 		for i := 0; i < maxWorkers; i++ {
 			go func(workerId int) {
 				logger.Infof("Starting ListenForNotifications worker %d", workerId)
-				svc.ListenForNotifications(workerId)
+				svc.ListenForNotifications(workerCtx, workerId)
 				listenForNotificationsWG.Done()
 			}(i)
 		}
@@ -292,6 +295,7 @@ func main() {
 		// Block until we receive our signal.
 		<-c
 		// Send done signal to service
+		workerCancel()
 		done <- struct{}{}
 		logger.Info("waiting for workers to stop")
 		listenForNotificationsWG.Wait()

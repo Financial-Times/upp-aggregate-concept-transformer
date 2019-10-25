@@ -81,7 +81,7 @@ func TestNewService(t *testing.T) {
 func TestAggregateService_ListenForNotifications(t *testing.T) {
 	svc, _, mockSqsClient, _, _, _, _ := setupTestService(200, payload)
 	mockSqsClient.On("ListenAndServeQueue").Return([]sqs.ConceptUpdate{})
-	go svc.ListenForNotifications(1)
+	go svc.ListenForNotifications(context.Background(), 1)
 	time.Sleep(2 * time.Second)
 	assert.Equal(t, 0, len(mockSqsClient.Queue()))
 }
@@ -94,7 +94,7 @@ func TestAggregateService_ListenForNotifications_ProcessNoneIfNotHealthy(t *test
 		time.Sleep(100 * time.Nanosecond)
 	}
 	time.Sleep(10 * time.Millisecond) // I hate waiting :(
-	go svc.ListenForNotifications(1)
+	go svc.ListenForNotifications(context.Background(), 1)
 	time.Sleep(2 * time.Second)
 	mockSqsClient.AssertNotCalled(t, "ListenAndServeQueue")
 	assert.Equal(t, 1, len(mockSqsClient.Queue()))
@@ -106,7 +106,7 @@ func TestAggregateService_ListenForNotifications_ProcessConceptNotInS3(t *testin
 	var receiptHandle = "1"
 	var nonExistingConcept = "99247059-04ec-3abb-8693-a0b8951fdkor"
 	mockSqsClient.conceptsQueue[receiptHandle] = nonExistingConcept
-	go svc.ListenForNotifications(1)
+	go svc.ListenForNotifications(context.Background(), 1)
 	time.Sleep(500 * time.Microsecond)
 	hasIt, _, _, err := s3mock.GetConceptAndTransactionID(context.Background(), nonExistingConcept)
 	assert.Equal(t, hasIt, false)
@@ -120,10 +120,24 @@ func TestAggregateService_ListenForNotifications_CannotProcessRemoveMessageNotPr
 	svc, _, mockSqsClient, _, _, _, _ := setupTestService(200, payload)
 	mockSqsClient.On("ListenAndServeQueue").Return([]sqs.ConceptUpdate{})
 	var receiptHandle = "2"
-	go svc.ListenForNotifications(1)
+	go svc.ListenForNotifications(context.Background(), 1)
 	err := mockSqsClient.RemoveMessageFromQueue(context.Background(), &receiptHandle)
 	assert.Error(t, err)
 	assert.Equal(t, "Receipt handle not present on conceptsQueue", err.Error())
+}
+
+func TestAggregateService_ProcessConceptUpdate_ContextTimeout(t *testing.T) {
+
+	svc, s3mock, _, _, _, _, _ := setupTestServiceWithTimeout(200, payload, time.Millisecond*10)
+	s3mock.callsMocked = true
+	s3mock.On("GetConceptAndTransactionID", "test-uuid").Return(false, s3.Concept{}, "", nil).After(time.Second * 1)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	update := sqs.ConceptUpdate{
+		UUID: "test-uuid",
+	}
+	err := svc.processConceptUpdate(ctx, update)
+	assert.EqualError(t, err, "context deadline exceeded")
 }
 
 func TestAggregateService_GetConcordedConcept_NoConcordance(t *testing.T) {

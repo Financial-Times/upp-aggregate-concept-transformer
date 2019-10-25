@@ -37,7 +37,7 @@ var irregularConceptTypePaths = map[string]string{
 }
 
 type Service interface {
-	ListenForNotifications(workerID int)
+	ListenForNotifications(ctx context.Context, workerID int)
 	ProcessMessage(ctx context.Context, UUID string, bookmark string) error
 	GetConcordedConcept(ctx context.Context, UUID string, bookmark string) (ConcordedConcept, string, error)
 	Healthchecks() []fthealth.Check
@@ -136,7 +136,7 @@ func NewService(
 	}
 }
 
-func (s *AggregateService) ListenForNotifications(workerID int) {
+func (s *AggregateService) ListenForNotifications(ctx context.Context, workerID int) {
 	listenCtx, listenCancel := context.WithCancel(context.Background())
 	defer listenCancel()
 	for {
@@ -162,22 +162,12 @@ func (s *AggregateService) ListenForNotifications(workerID int) {
 			wg.Add(nslen)
 			for _, n := range notifications {
 				go func(ctx context.Context, reqWG *sync.WaitGroup, update sqs.ConceptUpdate) {
-					timeoutCtx, timeoutCancel := context.WithTimeout(ctx, time.Second*15)
-					defer timeoutCancel()
 					defer reqWG.Done()
-
-					ch := make(chan struct{})
-					go func() {
-						s.processConceptUpdate(timeoutCtx, update)
-						ch <- struct{}{}
-					}()
-
-					select {
-					case <-timeoutCtx.Done():
-						logger.WithError(timeoutCtx.Err()).WithUUID(update.UUID).Error("Error processing message.")
-						return
-					case <-ch:
+					err := s.processConceptUpdate(ctx, update)
+					if err != nil {
+						logger.WithError(err).WithUUID(n.UUID).Error("Error processing message.")
 					}
+
 				}(listenCtx, &wg, n)
 			}
 			wg.Wait()
@@ -185,17 +175,33 @@ func (s *AggregateService) ListenForNotifications(workerID int) {
 	}
 }
 
-func (s *AggregateService) processConceptUpdate(ctx context.Context, n sqs.ConceptUpdate) {
+func (s *AggregateService) processConceptUpdate(ctx context.Context, n sqs.ConceptUpdate) error {
+	timeoutCtx, timeoutCancel := context.WithTimeout(ctx, s.processTimeout)
+	defer timeoutCancel()
 
-	err := s.ProcessMessage(ctx, n.UUID, n.Bookmark)
-	if err != nil {
-		logger.WithError(err).WithUUID(n.UUID).Error("Error processing message.")
-		return
+	errCh := make(chan error)
+	go func(ch chan<- error) {
+		internalErr := s.ProcessMessage(timeoutCtx, n.UUID, n.Bookmark)
+		if internalErr != nil {
+			ch <- internalErr
+			return
+		}
+		internalErr = s.conceptUpdatesSqs.RemoveMessageFromQueue(timeoutCtx, n.ReceiptHandle)
+		if internalErr != nil {
+			ch <- fmt.Errorf("error removing message from SQS: %w", internalErr)
+			return
+		}
+		ch <- nil
+	}(errCh)
+
+	var err error
+	select {
+	case <-timeoutCtx.Done():
+		err = timeoutCtx.Err()
+	case err = <-errCh:
 	}
-	err = s.conceptUpdatesSqs.RemoveMessageFromQueue(ctx, n.ReceiptHandle)
-	if err != nil {
-		logger.WithError(err).WithUUID(n.UUID).Error("Error removing message from SQS.")
-	}
+
+	return err
 }
 
 func (s *AggregateService) ProcessMessage(ctx context.Context, UUID string, bookmark string) error {
