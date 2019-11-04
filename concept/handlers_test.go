@@ -153,10 +153,10 @@ func NewMockService(concepts map[string]ConcordedConcept, notifications []sqs.Co
 	}
 }
 
-func (s *MockService) ListenForNotifications(workerId int) {
+func (s *MockService) ListenForNotifications(ctx context.Context, workerId int) {
 	for _, n := range s.notifications {
 		//nolint:errcheck
-		s.ProcessMessage(context.Background(), n.UUID, n.Bookmark)
+		s.ProcessMessage(ctx, n.UUID, n.Bookmark)
 	}
 }
 

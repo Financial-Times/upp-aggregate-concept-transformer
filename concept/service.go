@@ -37,7 +37,7 @@ var irregularConceptTypePaths = map[string]string{
 }
 
 type Service interface {
-	ListenForNotifications(workerID int)
+	ListenForNotifications(ctx context.Context, workerID int)
 	ProcessMessage(ctx context.Context, UUID string, bookmark string) error
 	GetConcordedConcept(ctx context.Context, UUID string, bookmark string) (ConcordedConcept, string, error)
 	Healthchecks() []fthealth.Check
@@ -94,6 +94,7 @@ type AggregateService struct {
 	httpClient                      httpClient
 	typesToPurgeFromPublicEndpoints []string
 	health                          *systemHealth
+	processTimeout                  time.Duration
 }
 
 func NewService(
@@ -108,7 +109,8 @@ func NewService(
 	typesToPurgeFromPublicEndpoints []string,
 	httpClient httpClient,
 	feedback <-chan bool,
-	done <-chan struct{}) Service {
+	done <-chan struct{},
+	processTimeout time.Duration) *AggregateService {
 
 	health := &systemHealth{
 		healthy:  false, // Set to false. Once health check passes app will read from SQS
@@ -130,10 +132,11 @@ func NewService(
 		httpClient:                      httpClient,
 		typesToPurgeFromPublicEndpoints: typesToPurgeFromPublicEndpoints,
 		health:                          health,
+		processTimeout:                  processTimeout,
 	}
 }
 
-func (s *AggregateService) ListenForNotifications(workerID int) {
+func (s *AggregateService) ListenForNotifications(ctx context.Context, workerID int) {
 	listenCtx, listenCancel := context.WithCancel(context.Background())
 	defer listenCancel()
 	for {
@@ -159,22 +162,12 @@ func (s *AggregateService) ListenForNotifications(workerID int) {
 			wg.Add(nslen)
 			for _, n := range notifications {
 				go func(ctx context.Context, reqWG *sync.WaitGroup, update sqs.ConceptUpdate) {
-					timeoutCtx, timeoutCancel := context.WithTimeout(ctx, time.Second*15)
-					defer timeoutCancel()
 					defer reqWG.Done()
-
-					ch := make(chan struct{})
-					go func() {
-						s.processConceptUpdate(timeoutCtx, update)
-						ch <- struct{}{}
-					}()
-
-					select {
-					case <-timeoutCtx.Done():
-						logger.WithError(timeoutCtx.Err()).WithUUID(update.UUID).Error("Error processing message.")
-						return
-					case <-ch:
+					err := s.processConceptUpdate(ctx, update)
+					if err != nil {
+						logger.WithError(err).WithUUID(n.UUID).Error("Error processing message.")
 					}
+
 				}(listenCtx, &wg, n)
 			}
 			wg.Wait()
@@ -182,17 +175,33 @@ func (s *AggregateService) ListenForNotifications(workerID int) {
 	}
 }
 
-func (s *AggregateService) processConceptUpdate(ctx context.Context, n sqs.ConceptUpdate) {
+func (s *AggregateService) processConceptUpdate(ctx context.Context, n sqs.ConceptUpdate) error {
+	timeoutCtx, timeoutCancel := context.WithTimeout(ctx, s.processTimeout)
+	defer timeoutCancel()
 
-	err := s.ProcessMessage(ctx, n.UUID, n.Bookmark)
-	if err != nil {
-		logger.WithError(err).WithUUID(n.UUID).Error("Error processing message.")
-		return
+	errCh := make(chan error)
+	go func(ch chan<- error) {
+		internalErr := s.ProcessMessage(timeoutCtx, n.UUID, n.Bookmark)
+		if internalErr != nil {
+			ch <- internalErr
+			return
+		}
+		internalErr = s.conceptUpdatesSqs.RemoveMessageFromQueue(timeoutCtx, n.ReceiptHandle)
+		if internalErr != nil {
+			ch <- fmt.Errorf("error removing message from SQS: %w", internalErr)
+			return
+		}
+		ch <- nil
+	}(errCh)
+
+	var err error
+	select {
+	case <-timeoutCtx.Done():
+		err = timeoutCtx.Err()
+	case err = <-errCh:
 	}
-	err = s.conceptUpdatesSqs.RemoveMessageFromQueue(ctx, n.ReceiptHandle)
-	if err != nil {
-		logger.WithError(err).WithUUID(n.UUID).Error("Error removing message from SQS.")
-	}
+
+	return err
 }
 
 func (s *AggregateService) ProcessMessage(ctx context.Context, UUID string, bookmark string) error {
@@ -717,7 +726,7 @@ func (s *AggregateService) RWNeo4JHealthCheck() fthealth.Check {
 	return fthealth.Check{
 		BusinessImpact:   "Editorial updates of concepts will not be written into UPP",
 		Name:             "Check connectivity to concept-rw-neo4j",
-		PanicGuide:       "https://dewey.ft.com/aggregate-concept-transformer.html",
+		PanicGuide:       "https://runbooks.in.ft.com/aggregate-concept-transformer",
 		Severity:         3,
 		TechnicalSummary: `Cannot connect to concept writer neo4j. If this check fails, check health of concepts-rw-neo4j service`,
 		Checker: func() (string, error) {
@@ -743,7 +752,7 @@ func (s *AggregateService) VarnishPurgerHealthCheck() fthealth.Check {
 	return fthealth.Check{
 		BusinessImpact:   "Editorial updates of concepts won't be immediately refreshed in the cache",
 		Name:             "Check connectivity to varnish purger",
-		PanicGuide:       "https://dewey.ft.com/aggregate-concept-transformer.html",
+		PanicGuide:       "https://runbooks.in.ft.com/aggregate-concept-transformer",
 		Severity:         3,
 		TechnicalSummary: `Cannot connect to varnish purger. If this check fails, check health of varnish-purger service`,
 		Checker: func() (string, error) {
@@ -769,7 +778,7 @@ func (s *AggregateService) RWElasticsearchHealthCheck() fthealth.Check {
 	return fthealth.Check{
 		BusinessImpact:   "Editorial updates of concepts will not be written into UPP",
 		Name:             "Check connectivity to concept-rw-elasticsearch",
-		PanicGuide:       "https://dewey.ft.com/aggregate-concept-transformer.html",
+		PanicGuide:       "https://runbooks.in.ft.com/aggregate-concept-transformer",
 		Severity:         3,
 		TechnicalSummary: `Cannot connect to elasticsearch concept writer. If this check fails, check health of concept-rw-elasticsearch service`,
 		Checker: func() (string, error) {

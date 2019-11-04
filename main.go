@@ -231,7 +231,7 @@ func main() {
 		done := make(chan struct{})
 
 		maxWorkers := runtime.GOMAXPROCS(0) + 1
-
+		requestTimeout := time.Second * time.Duration(*httpTimeout)
 		svc := concept.NewService(
 			s3Client,
 			conceptUpdatesSqsClient,
@@ -244,9 +244,10 @@ func main() {
 			*typesToPurgeFromPublicEndpoints,
 			defaultHTTPClient(maxWorkers),
 			feedback,
-			done)
+			done,
+			requestTimeout)
 
-		handler := concept.NewHandler(svc, time.Second*time.Duration(*httpTimeout))
+		handler := concept.NewHandler(svc, requestTimeout)
 		hs := concept.NewHealthService(svc, *appSystemCode, *appName, *port, appDescription)
 
 		router := mux.NewRouter()
@@ -256,10 +257,13 @@ func main() {
 		logger.Infof("Running %d ListenForNotifications", maxWorkers)
 		var listenForNotificationsWG sync.WaitGroup
 		listenForNotificationsWG.Add(maxWorkers)
+
+		workerCtx, workerCancel := context.WithCancel(context.Background())
+
 		for i := 0; i < maxWorkers; i++ {
 			go func(workerId int) {
 				logger.Infof("Starting ListenForNotifications worker %d", workerId)
-				svc.ListenForNotifications(workerId)
+				svc.ListenForNotifications(workerCtx, workerId)
 				listenForNotificationsWG.Done()
 			}(i)
 		}
@@ -291,6 +295,7 @@ func main() {
 		// Block until we receive our signal.
 		<-c
 		// Send done signal to service
+		workerCancel()
 		done <- struct{}{}
 		logger.Info("waiting for workers to stop")
 		listenForNotificationsWG.Wait()
