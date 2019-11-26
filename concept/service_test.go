@@ -494,6 +494,43 @@ func TestAggregateService_GetConcordedConcept_SupersededConcept(t *testing.T) {
 	assert.Equal(t, expectedConcept, c)
 }
 
+func TestAggregateService_GetConcordedConcept_ConceptWithRelationships(t *testing.T) {
+	svc, _, _, _, _, _, _ := setupTestService(200, payload)
+	expectedConcept := ConcordedConcept{
+		PrefUUID:       "781bb463-dc53-4d3e-9d49-c48dc4cf6d55",
+		PrefLabel:      "Test FT Brand",
+		Type:           "Brand",
+		Aliases:        []string{"Test FT Brand"},
+		ParentUUIDs:    []string{"ec467314-63cf-4976-a124-77175d10423d"},
+		BroaderUUIDs:   []string{"575a2223-6307-4000-8882-935c27f4e8bb"},
+		RelatedUUIDs:   []string{"b73e632c-9b8d-477d-bb45-aaf574bc015c"},
+		DescriptionXML: "<body>The best brand</body>",
+		Strapline:      "The Best Brand",
+		ImageURL:       "localhost:8080/12345",
+		SourceRepresentations: []s3.Concept{
+			{
+				UUID:           "781bb463-dc53-4d3e-9d49-c48dc4cf6d55",
+				PrefLabel:      "Test FT Brand",
+				Authority:      "Smartlogic",
+				AuthValue:      "781bb463-dc53-4d3e-9d49-c48dc4cf6d55",
+				Type:           "Brand",
+				DescriptionXML: "<body>The best brand</body>",
+				Strapline:      "The Best Brand",
+				ImageURL:       "localhost:8080/12345",
+				ParentUUIDs:    []string{"ec467314-63cf-4976-a124-77175d10423d"},
+				BroaderUUIDs:   []string{"575a2223-6307-4000-8882-935c27f4e8bb"},
+				RelatedUUIDs:   []string{"b73e632c-9b8d-477d-bb45-aaf574bc015c"},
+				FocusedUUIDs:   []string{"b5d7c6b5-db7d-4bce-9d6a-f62195571f92"},
+			},
+		},
+	}
+
+	c, tid, err := svc.GetConcordedConcept(context.Background(), "781bb463-dc53-4d3e-9d49-c48dc4cf6d55", "")
+	assert.NoError(t, err)
+	assert.Equal(t, "tid_633", tid)
+	assert.Equal(t, expectedConcept, c)
+}
+
 func TestAggregateService_GetConcordedConcept_FinancialInstrument(t *testing.T) {
 	svc, _, _, _, _, _, _ := setupTestService(200, payload)
 	expectedConcept := ConcordedConcept{
@@ -1331,6 +1368,7 @@ func setupTestServiceWithTimeout(clientStatusCode int, writerResponse string, ti
 					ParentUUIDs:    []string{"ec467314-63cf-4976-a124-77175d10423d"},
 					BroaderUUIDs:   []string{"575a2223-6307-4000-8882-935c27f4e8bb"},
 					RelatedUUIDs:   []string{"b73e632c-9b8d-477d-bb45-aaf574bc015c"},
+					FocusedUUIDs:   []string{"b5d7c6b5-db7d-4bce-9d6a-f62195571f92"},
 				},
 			},
 			"94659314-7eb0-423a-8030-c4abf3d6458e": {
