@@ -4,7 +4,7 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/Financial-Times/aggregate-concept-transformer)](https://goreportcard.com/report/github.com/Financial-Times/aggregate-concept-transformer)
 [![Coverage Status](https://coveralls.io/repos/github/Financial-Times/aggregate-concept-transformer/badge.svg)](https://coveralls.io/github/Financial-Times/aggregate-concept-transformer)
 
-__A service which gets notified via SQS of updates to source concepts in an Amazon S3 bucket. It then returns all UUIDs with concordance to said concept, requests each in turn from S3, builds the concorded JSON model and sends the updated concept JSON to both Neo4j and Elasticsearch. After the concept has successfully been written in Neo4j, the varnish-purger is called to invalidate the cache for the given concept. Finally it sends a notification of all updated concepts IDs to a kinesis stream, a list of updates events to the event queue and finally removes the SQS message from the queue__
+__A service which gets notified via SQS of updates to source concepts in an Amazon S3 bucket. It then returns all UUIDs with concordance to said concept, requests each in turn from S3, builds the concorded JSON model and sends the updated concept JSON to both Neo4j and Elasticsearch. After the concept has successfully been written in Neo4j, the varnish-purger is called to invalidate the cache for the given concept. Finally it sends a notification of all updated concepts IDs to a Kinesis stream, a list of updates events to the event queue and finally removes the SQS message from the queue__
 
 # Installation
 
@@ -77,12 +77,12 @@ See [swagger.yml](api/swagger.yml).
 
 ## Admin Endpoints
 
-* Health checks: `http://localhost:8080/__health`
+* Healthchecks: `http://localhost:8080/__health`
 * Good to go: `http://localhost:8080/__gtg`
 * Build info: `http://localhost:8080/__build-info`
 
 ## Documentation
 
 * API Doc: [API Doc](https://docs.google.com/document/d/1FSJBuAq_cncxqr-qsuzQMRcrejiPHWc41cnrpiJ3Gsc/edit)
-* Runbook: [Runbook](https://dewey.ft.com/aggregate-concept-transformer.html)
+* Runbook: [Runbook](https://runbooks.in.ft.com/aggregate-concept-transformer)
 * Panic Guide: [API Doc](https://docs.google.com/document/d/1FSJBuAq_cncxqr-qsuzQMRcrejiPHWc41cnrpiJ3Gsc/edit)
