@@ -1,4 +1,6 @@
-version: 2
+version: 2.1
+orbs:
+    ft-snyk-orb: financial-times/ft-snyk-orb@0.0.12
 jobs:
   build:
     working_directory: /go/src/github.com/Financial-Times/aggregate-concept-transformer
@@ -38,20 +40,25 @@ jobs:
       - store_test_results:
           path: /tmp/test-results
   dockerfile:
-    working_directory: /aggregate-concept-transformer
     docker:
-      - image: docker:18.03
+      - image: circleci/buildpack-deps:stretch
     steps:
       - checkout
-      - setup_docker_engine
+      - setup_remote_docker
       - run:
           name: Build Dockerfile
           command: docker build .
 workflows:
-  version: 2
+  version: 2.1
   test-and-build-docker:
     jobs:
       - build
       - dockerfile:
           requires:
             - build
+      - ft-snyk-orb/scan-go-packages:
+          name: snyk-scan
+          context: org-global
+          token-variable: SNYK_TOKEN
+          requires:
+            - dockerfile
