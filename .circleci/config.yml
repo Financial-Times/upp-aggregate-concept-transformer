@@ -41,7 +41,7 @@ jobs:
           path: /tmp/test-results
   dockerfile:
     docker:
-      - image: circleci/buildpack-deps:stretch
+      - image: docker:18.03
     steps:
       - checkout
       - setup_remote_docker
