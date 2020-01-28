@@ -19,7 +19,7 @@ type Concept struct {
 	BroaderUUIDs      []string `json:"broaderUUIDs,omitempty"`
 	RelatedUUIDs      []string `json:"relatedUUIDs,omitempty"`
 	SupersededByUUIDs []string `json:"supersededByUUIDs,omitempty"`
-	FocusedUUIDs      []string `json:"focusedUUIDs,omitempty"`
+	ImpliedByUUIDs    []string `json:"impliedByUUIDs,omitempty"`
 	DescriptionXML    string   `json:"descriptionXML,omitempty"`
 	ImageURL          string   `json:"_imageUrl,omitempty"`
 	EmailAddress      string   `json:"emailAddress,omitempty"`
