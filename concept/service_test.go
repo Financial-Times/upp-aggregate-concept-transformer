@@ -521,6 +521,7 @@ func TestAggregateService_GetConcordedConcept_ConceptWithRelationships(t *testin
 				BroaderUUIDs:   []string{"575a2223-6307-4000-8882-935c27f4e8bb"},
 				RelatedUUIDs:   []string{"b73e632c-9b8d-477d-bb45-aaf574bc015c"},
 				ImpliedByUUIDs: []string{"b5d7c6b5-db7d-4bce-9d6a-f62195571f92"},
+				HasFocusUUIDs:  []string{"2e7429bd-7a84-41cb-a619-2c702893e359"},
 			},
 		},
 	}
@@ -1369,6 +1370,7 @@ func setupTestServiceWithTimeout(clientStatusCode int, writerResponse string, ti
 					BroaderUUIDs:   []string{"575a2223-6307-4000-8882-935c27f4e8bb"},
 					RelatedUUIDs:   []string{"b73e632c-9b8d-477d-bb45-aaf574bc015c"},
 					ImpliedByUUIDs: []string{"b5d7c6b5-db7d-4bce-9d6a-f62195571f92"},
+					HasFocusUUIDs:  []string{"2e7429bd-7a84-41cb-a619-2c702893e359"},
 				},
 			},
 			"94659314-7eb0-423a-8030-c4abf3d6458e": {
