@@ -5,6 +5,7 @@ service:
   name: "" # The name of the service, should be defined in the specific app-configs folder.
   hasHealthcheck: "true"
 replicaCount: 2
+eksCluster: false
 image:
   repository: coco/aggregate-concept-transformer
   pullPolicy: IfNotPresent
