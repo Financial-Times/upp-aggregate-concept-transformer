@@ -2,7 +2,6 @@
 replicaCount: 2
 service:
   name: aggregate-concept-transformer
-eksCluster: true
 concordances:
   address: "http://concordances-rw-neo4j:8080"
 env:
