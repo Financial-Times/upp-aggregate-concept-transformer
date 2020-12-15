@@ -6,15 +6,17 @@
 
 A service which gets notified via SQS of updates to source concepts in an Amazon S3 bucket. It then returns all UUIDs with concordance to said concept, requests each in turn from S3, builds the concorded JSON model and sends the updated concept JSON to both Neo4j and Elasticsearch. After the concept has successfully been written in Neo4j, the varnish-purger is called to invalidate the cache for the given concept. Finally it sends a notification of all updated concepts IDs to a Kinesis stream, a list of updates events to the event queue and finally removes the SQS message from the queue.
 
-# Installation
+## Installation
 
-	go get github.com/Financial-Times/aggregate-concept-transformer
-	cd $GOPATH/src/github.com/Financial-Times/aggregate-concept-transformer
-	go build -mod=readonly
-
-# Running
-
+```shell
+go get github.com/Financial-Times/aggregate-concept-transformer
+cd $GOPATH/src/github.com/Financial-Times/aggregate-concept-transformer
+go build -mod=readonly
 ```
+
+## Running
+
+```text
 Usage: aggregate-concept-transformer [OPTIONS]
 
 Aggregate and concord concepts in UPP.
@@ -43,10 +45,9 @@ Options:
   --logLevel="info"                                       App log level ($LOG_LEVEL)
 ```
 
-
 The app assumes that you have correctly set up your AWS credentials by either using the `~/.aws/credentials` file:
 
-```
+```text
 [default]
 aws_access_key_id = AKID1234567890
 aws_ secret_access_key = MY-SECRET-KEY
@@ -54,9 +55,9 @@ aws_ secret_access_key = MY-SECRET-KEY
 
 or the default AWS environment variables otherwise requests will return 401 Unauthorised
 
-```
-AWS_ACCESS_KEY_ID=AKID1234567890
-AWS_SECRET_ACCESS_KEY=MY-SECRET-KEY
+```shell
+export AWS_ACCESS_KEY_ID=AKID1234567890
+export AWS_SECRET_ACCESS_KEY=MY-SECRET-KEY
 ```
 
 ## Build and deployment
@@ -66,10 +67,12 @@ AWS_SECRET_ACCESS_KEY=MY-SECRET-KEY
 * Code test coverage provided by Coveralls: [aggregate-concept-transformer](https://coveralls.io/github/Financial-Times/aggregate-concept-transformer)
 
 ## Aggregation
+
 This service aggregates a number of source concepts into a single canonical view.  At present, the logic is as follows:
-- All concorded/secondary concepts are merged together without any ordering.  These will always be from TME or Factset at the moment.
-- The primary concept is then merged, overwriting the fields from the secondary concepts.  This is a Smartlogic concept.
-- Aliases are the exception - they are merged between all concepts and de-duplicated.
+
+* All concorded/secondary concepts are merged together without any ordering.  These will always be from TME or Factset at the moment.
+* The primary concept is then merged, overwriting the fields from the secondary concepts.  This is a Smartlogic concept.
+* Aliases are the exception - they are merged between all concepts and de-duplicated.
 
 ## Endpoints
 
