@@ -286,13 +286,12 @@ func main() {
 
 		// Run our server in a goroutine so that it doesn't block.
 		go func() {
-			if err := srv.ListenAndServe(); err != nil {
-				logger.Fatalf("Unable to start server: %v", err)
+			if err := srv.ListenAndServe(); err != http.ErrServerClosed {
+				logger.Fatalf("Unexpected error during server shutdown: %v", err)
 			}
 		}()
 
 		c := make(chan os.Signal, 1)
-		logger.Info("shutting down")
 		// We'll accept graceful shutdowns when quit via SIGINT (Ctrl+C)
 		// or SIGTERM (Ctrl+/).
 		// SIGKILL or SIGQUIT will not be caught.
@@ -300,10 +299,11 @@ func main() {
 
 		// Block until we receive our signal.
 		<-c
+		logger.Info("Interruption signal received, shutting down")
 		// Send done signal to service
 		workerCancel()
 		done <- struct{}{}
-		logger.Info("waiting for workers to stop")
+		logger.Info("Waiting for workers to stop")
 		listenForNotificationsWG.Wait()
 		// Create a deadline to wait for.
 		ctx, cancel := context.WithTimeout(context.Background(), time.Duration(*waitTime)*time.Second)
@@ -311,9 +311,9 @@ func main() {
 
 		// Doesn't block if no connections, but will otherwise wait
 		// until the timeout deadline.
-		logger.Info("shutting down server")
+		logger.Info("Shutting down HTTP server")
 		srv.Shutdown(ctx)
-		logger.Info("exiting application")
+		logger.Info("Exiting application")
 		cli.Exit(0)
 	}
 	app.Run(os.Args)
