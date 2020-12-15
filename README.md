@@ -14,7 +14,7 @@ cd $GOPATH/src/github.com/Financial-Times/aggregate-concept-transformer
 go build -mod=readonly
 ```
 
-## Running
+## Running locally
 
 ```text
 Usage: aggregate-concept-transformer [OPTIONS]
@@ -45,6 +45,8 @@ Options:
   --logLevel="info"                                       App log level ($LOG_LEVEL)
 ```
 
+### Setup AWS credentials
+
 The app assumes that you have correctly set up your AWS credentials by either using the `~/.aws/credentials` file:
 
 ```text
@@ -58,6 +60,52 @@ or the default AWS environment variables otherwise requests will return 401 Unau
 ```shell
 export AWS_ACCESS_KEY_ID=AKID1234567890
 export AWS_SECRET_ACCESS_KEY=MY-SECRET-KEY
+```
+
+### Setup dependencies
+
+Start a local emulation of the SQS server (most probably you don't want to connect to the real SQS queue because this may "steal" the messages from the running service in the cluster):
+
+```shell
+docker run --rm -p 4100:4100 --volume=`pwd`/goaws.yaml:/conf/goaws.yaml pafortin/goaws Local
+
+export CONCEPTS_QUEUE_URL=http://localhost:4100/queue/concepts
+export EVENTS_QUEUE_URL=http://localhost:4100/queue/events
+export SQS_REGION=local
+export SQS_ENDPOINT=http://localhost:4100
+```
+
+Setup all the necessary environment variables using the settings on Dev:
+
+```shell
+# You have to be logged to the Dev cluster before you can continue
+# Get all necessary settings from the cluster and write them to a file
+kubectl set env deploy aggregate-concept-transformer --list --resolve=true | grep "BUCKET_NAME\|KINESIS_STREAM_NAME\|KINESIS_REGION\|CROSS_ACCOUNT_ARN" > env_vars
+
+# Export all variables from the file
+set -a ; source env_vars ; set +a
+
+# Delete the file now that it is no longer necessary
+rm env_vars
+```
+
+Port-forward the necessary services:
+
+```shell
+kubectl port-forward svc/concordances-rw-neo4j 8082:8080
+
+# The following are not needed if you will only test the transformation logic.
+kubectl port-forward svc/concepts-rw-neo4j 8081:8080
+kubectl port-forward svc/concept-rw-elasticsearch 8083:8080
+kubectl port-forward svc/varnish-purger 8084:8080
+```
+
+### Run
+
+Once all the above is completed you can simply run the application
+
+```shell
+./aggregate-concept-transformer
 ```
 
 ## Build and deployment

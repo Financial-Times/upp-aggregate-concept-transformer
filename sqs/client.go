@@ -32,24 +32,28 @@ type NotificationClient struct {
 	queueUrl     string
 }
 
-func NewClient(awsRegion string, queueUrl string, messagesToProcess int, visibilityTimeout int, waitTime int) (Client, error) {
-	if queueUrl == "" {
+func NewClient(awsRegion string, queueURL string, endpoint string, messagesToProcess int, visibilityTimeout int, waitTime int) (Client, error) {
+	if queueURL == "" {
 		return &NotificationClient{
-			queueUrl: queueUrl,
+			queueUrl: queueURL,
 		}, nil
 	}
 
 	listenParams := sqs.ReceiveMessageInput{
-		QueueUrl:            aws.String(queueUrl),
+		QueueUrl:            aws.String(queueURL),
 		MaxNumberOfMessages: aws.Int64(int64(messagesToProcess)),
 		VisibilityTimeout:   aws.Int64(int64(visibilityTimeout)),
 		WaitTimeSeconds:     aws.Int64(int64(waitTime)),
 	}
 
-	sess, err := session.NewSession(&aws.Config{
+	conf := &aws.Config{
 		Region:     aws.String(awsRegion),
 		MaxRetries: aws.Int(3),
-	})
+	}
+	if endpoint != "" {
+		conf.Endpoint = aws.String(endpoint)
+	}
+	sess, err := session.NewSession(conf)
 	if err != nil {
 		logger.WithError(err).Error("Unable to create an SQS client")
 		return &NotificationClient{}, err
@@ -58,7 +62,7 @@ func NewClient(awsRegion string, queueUrl string, messagesToProcess int, visibil
 	return &NotificationClient{
 		sqs:          client,
 		listenParams: listenParams,
-		queueUrl:     queueUrl,
+		queueUrl:     queueURL,
 	}, err
 }
 
