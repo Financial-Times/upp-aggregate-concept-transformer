@@ -110,8 +110,10 @@ func TestHandlers(t *testing.T) {
 			mockService := NewMockService(d.concepts, d.notifications, d.healthchecks, d.err)
 			handler := NewHandler(mockService, time.Second*1)
 			m := mux.NewRouter()
-			handler.RegisterHandlers(m)
-			handler.RegisterAdminHandlers(m, NewHealthService(mockService, "system-code", "app-name", 8080, "description"), true, fb)
+			sm := http.NewServeMux()
+			handler.RegisterHandlers(m, true)
+			handler.RegisterAdminHandlers(sm, NewHealthService(mockService, "system-code", "app-name", 8080, "description"), fb)
+			sm.Handle("/", m)
 
 			ctx, cancel := context.WithCancel(context.Background())
 			if d.cancelContext {
@@ -123,7 +125,7 @@ func TestHandlers(t *testing.T) {
 			req, _ := http.NewRequestWithContext(ctx, d.method, d.url, bytes.NewBufferString(d.requestBody))
 			rr := httptest.NewRecorder()
 
-			m.ServeHTTP(rr, req)
+			sm.ServeHTTP(rr, req)
 
 			b, err := ioutil.ReadAll(rr.Body)
 			assert.NoError(t, err)

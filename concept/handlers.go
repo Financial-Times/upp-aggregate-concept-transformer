@@ -7,14 +7,15 @@ import (
 	"net/http"
 	"time"
 
-	fthealth "github.com/Financial-Times/go-fthealth/v1_1"
-	"github.com/Financial-Times/go-logger"
-	"github.com/Financial-Times/http-handlers-go/httphandlers"
-	status "github.com/Financial-Times/service-status-go/httphandlers"
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
 	"github.com/rcrowley/go-metrics"
 	log "github.com/sirupsen/logrus"
+
+	fthealth "github.com/Financial-Times/go-fthealth/v1_1"
+	"github.com/Financial-Times/go-logger"
+	"github.com/Financial-Times/http-handlers-go/httphandlers"
+	status "github.com/Financial-Times/service-status-go/httphandlers"
 )
 
 type AggregateConceptHandler struct {
@@ -105,7 +106,7 @@ func (h *AggregateConceptHandler) SendHandler(w http.ResponseWriter, r *http.Req
 	w.Write([]byte(fmt.Sprintf("{\"message\":\"Concept %s updated successfully.\"}", UUID)))
 }
 
-func (h *AggregateConceptHandler) RegisterHandlers(router *mux.Router) {
+func (h *AggregateConceptHandler) RegisterHandlers(router *mux.Router, requestLoggingEnabled bool) http.Handler {
 	logger.Info("Registering handlers")
 	mh := handlers.MethodHandler{
 		"GET": http.HandlerFunc(h.GetHandler),
@@ -115,9 +116,17 @@ func (h *AggregateConceptHandler) RegisterHandlers(router *mux.Router) {
 	}
 	router.Handle("/concept/{uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}}", mh)
 	router.Handle("/concept/{uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}}/send", sh)
+
+	var monitoringRouter http.Handler = router
+	if requestLoggingEnabled {
+		monitoringRouter = httphandlers.TransactionAwareRequestLoggingHandler(log.StandardLogger(), monitoringRouter)
+	}
+	monitoringRouter = httphandlers.HTTPMetricsHandler(metrics.DefaultRegistry, monitoringRouter)
+
+	return monitoringRouter
 }
 
-func (h *AggregateConceptHandler) RegisterAdminHandlers(router *mux.Router, healthService *HealthService, requestLoggingEnabled bool, fb chan bool) http.Handler {
+func (h *AggregateConceptHandler) RegisterAdminHandlers(serveMux *http.ServeMux, healthService *HealthService, fb chan bool) {
 	logger.Info("Registering admin handlers")
 
 	hc := fthealth.HealthCheck{
@@ -129,14 +138,7 @@ func (h *AggregateConceptHandler) RegisterAdminHandlers(router *mux.Router, heal
 
 	thc := fthealth.TimedHealthCheck{HealthCheck: hc, Timeout: 10 * time.Second}
 
-	router.HandleFunc("/__health", fthealth.Handler(fthealth.NewFeedbackHealthCheck(thc, fb)))
-	router.HandleFunc(status.GTGPath, status.NewGoodToGoHandler(healthService.GTG))
-	router.HandleFunc(status.BuildInfoPath, status.BuildInfoHandler)
-
-	var monitoringRouter http.Handler = router
-	if requestLoggingEnabled {
-		monitoringRouter = httphandlers.TransactionAwareRequestLoggingHandler(log.StandardLogger(), monitoringRouter)
-	}
-	monitoringRouter = httphandlers.HTTPMetricsHandler(metrics.DefaultRegistry, monitoringRouter)
-	return monitoringRouter
+	serveMux.HandleFunc("/__health", fthealth.Handler(fthealth.NewFeedbackHealthCheck(thc, fb)))
+	serveMux.HandleFunc(status.GTGPath, status.NewGoodToGoHandler(healthService.GTG))
+	serveMux.HandleFunc(status.BuildInfoPath, status.BuildInfoHandler)
 }

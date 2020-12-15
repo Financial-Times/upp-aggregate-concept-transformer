@@ -255,8 +255,10 @@ func main() {
 		hs := concept.NewHealthService(svc, *appSystemCode, *appName, *port, appDescription)
 
 		router := mux.NewRouter()
-		handler.RegisterHandlers(router)
-		r := handler.RegisterAdminHandlers(router, hs, *requestLoggingOn, feedback)
+		serveMux := http.NewServeMux()
+		r := handler.RegisterHandlers(router, *requestLoggingOn)
+		handler.RegisterAdminHandlers(serveMux, hs, feedback)
+		serveMux.Handle("/", r)
 
 		logger.Infof("Running %d ListenForNotifications", maxWorkers)
 		var listenForNotificationsWG sync.WaitGroup
@@ -279,7 +281,7 @@ func main() {
 			WriteTimeout: time.Second * 15,
 			ReadTimeout:  time.Second * 15,
 			IdleTimeout:  time.Second * 60,
-			Handler:      r, // Pass our instance of gorilla/mux in.
+			Handler:      serveMux,
 		}
 
 		// Run our server in a goroutine so that it doesn't block.
