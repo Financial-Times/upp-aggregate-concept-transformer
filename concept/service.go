@@ -598,6 +598,9 @@ func mergeCanonicalInformation(c ConcordedConcept, s s3.Concept, scopeNoteOption
 	if s.IssuedBy != "" {
 		c.IssuedBy = s.IssuedBy
 	}
+	if s.IndustryIdentifier != "" {
+		c.IndustryIdentifier = s.IndustryIdentifier
+	}
 	c.IsDeprecated = s.IsDeprecated
 	return c
 }

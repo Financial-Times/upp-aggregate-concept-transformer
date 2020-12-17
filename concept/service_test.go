@@ -831,6 +831,34 @@ func TestAggregateService_GetConcordedConcept_Memberships(t *testing.T) {
 	assert.Equal(t, expectedConcept, c)
 }
 
+func TestAggregateService_GetConcordedConcept_IndustryClassification(t *testing.T) {
+	svc, _, _, _, _, _, _ := setupTestService(200, payload)
+	expectedConcept := ConcordedConcept{
+		PrefUUID:           "IndustryClassification_Smartlogic_UUID",
+		PrefLabel:          "Newspaper, Periodical, Book, and Directory Publishers",
+		Type:               "NAICSIndustryClassification",
+		Aliases:            []string{"Newspaper, Periodical, Book, and Directory Publishers"},
+		IndustryIdentifier: "5111",
+		SourceRepresentations: []s3.Concept{
+			{
+				UUID:               "IndustryClassification_Smartlogic_UUID",
+				PrefLabel:          "Newspaper, Periodical, Book, and Directory Publishers",
+				IndustryIdentifier: "5111",
+				Authority:          "Smartlogic",
+				AuthValue:          "IndustryClassification_Smartlogic_UUID",
+				Type:               "NAICSIndustryClassification",
+			},
+		},
+	}
+
+	c, tid, err := svc.GetConcordedConcept(context.Background(), "IndustryClassification_Smartlogic_UUID", "")
+	sort.Strings(c.Aliases)
+	sort.Strings(expectedConcept.Aliases)
+	assert.NoError(t, err)
+	assert.Equal(t, "tid_359", tid)
+	assert.Equal(t, expectedConcept, c)
+}
+
 func TestAggregateService_ProcessMessage_Success(t *testing.T) {
 	svc, _, _, eventQueue, _, _, _ := setupTestService(200, payload)
 	err := svc.ProcessMessage(context.Background(), "28090964-9997-4bc2-9638-7a11135aaff9", "")
@@ -1539,6 +1567,17 @@ func setupTestServiceWithTimeout(clientStatusCode int, writerResponse string, ti
 					Authority: "TME",
 					AuthValue: "BE_TME_AUTH_VALUE",
 					Type:      "Location",
+				},
+			},
+			"IndustryClassification_Smartlogic_UUID": {
+				transactionID: "tid_359",
+				concept: s3.Concept{
+					UUID:               "IndustryClassification_Smartlogic_UUID",
+					PrefLabel:          "Newspaper, Periodical, Book, and Directory Publishers",
+					IndustryIdentifier: "5111",
+					Authority:          "Smartlogic",
+					AuthValue:          "IndustryClassification_Smartlogic_UUID",
+					Type:               "NAICSIndustryClassification",
 				},
 			},
 		},
