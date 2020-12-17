@@ -956,6 +956,20 @@ func TestAggregateService_ProcessMessage_SmartlogicMembershipSentToEs(t *testing
 	assert.Equal(t, 3, len(eventQueue.eventList))
 }
 
+func TestAggregateService_ProcessMessage_IndustryClassificationNotSentToEs(t *testing.T) {
+	svc, _, _, eventQueue, _, _, _ := setupTestService(200, payload)
+	err := svc.ProcessMessage(context.Background(), "IndustryClassification_Smartlogic_UUID", "")
+	mockWriter := svc.httpClient.(*mockHTTPClient)
+	assert.Equal(t, []string{
+		"concepts-rw-neo4j/industry-classifications/IndustryClassification_Smartlogic_UUID",
+		"varnish-purger/purge?target=%2Fthings%2F28090964-9997-4bc2-9638-7a11135aaff9&target=%2Fconcepts" +
+			"%2F28090964-9997-4bc2-9638-7a11135aaff9&target=%2Fthings%2F34a571fb-d779-4610-a7ba-2e127676db4d" +
+			"&target=%2Fconcepts%2F34a571fb-d779-4610-a7ba-2e127676db4d",
+	}, mockWriter.called)
+	assert.NoError(t, err)
+	assert.Equal(t, 3, len(eventQueue.eventList))
+}
+
 func TestAggregateService_ProcessMessage_Success_PurgeOnBrands(t *testing.T) {
 	svc, _, _, _, _, _, _ := setupTestService(200, payload)
 	err := svc.ProcessMessage(context.Background(), "781bb463-dc53-4d3e-9d49-c48dc4cf6d55", "")
