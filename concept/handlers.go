@@ -106,8 +106,10 @@ func (h *AggregateConceptHandler) SendHandler(w http.ResponseWriter, r *http.Req
 	w.Write([]byte(fmt.Sprintf("{\"message\":\"Concept %s updated successfully.\"}", UUID)))
 }
 
-func (h *AggregateConceptHandler) RegisterHandlers(router *mux.Router, requestLoggingEnabled bool) http.Handler {
+func (h *AggregateConceptHandler) RegisterHandlers(healthService *HealthService, requestLoggingEnabled bool, fb chan bool) *http.ServeMux {
 	logger.Info("Registering handlers")
+
+	router := mux.NewRouter()
 	mh := handlers.MethodHandler{
 		"GET": http.HandlerFunc(h.GetHandler),
 	}
@@ -123,10 +125,6 @@ func (h *AggregateConceptHandler) RegisterHandlers(router *mux.Router, requestLo
 	}
 	monitoringRouter = httphandlers.HTTPMetricsHandler(metrics.DefaultRegistry, monitoringRouter)
 
-	return monitoringRouter
-}
-
-func (h *AggregateConceptHandler) RegisterAdminHandlers(serveMux *http.ServeMux, healthService *HealthService, fb chan bool) {
 	logger.Info("Registering admin handlers")
 
 	hc := fthealth.HealthCheck{
@@ -138,7 +136,11 @@ func (h *AggregateConceptHandler) RegisterAdminHandlers(serveMux *http.ServeMux,
 
 	thc := fthealth.TimedHealthCheck{HealthCheck: hc, Timeout: 10 * time.Second}
 
+	serveMux := http.NewServeMux()
 	serveMux.HandleFunc("/__health", fthealth.Handler(fthealth.NewFeedbackHealthCheck(thc, fb)))
 	serveMux.HandleFunc(status.GTGPath, status.NewGoodToGoHandler(healthService.GTG))
 	serveMux.HandleFunc(status.BuildInfoPath, status.BuildInfoHandler)
+	serveMux.Handle("/", monitoringRouter)
+
+	return serveMux
 }
