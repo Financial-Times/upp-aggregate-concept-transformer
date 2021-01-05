@@ -12,7 +12,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/gorilla/mux"
 	cli "github.com/jawher/mow.cli"
 	log "github.com/sirupsen/logrus"
 
@@ -254,11 +253,7 @@ func main() {
 		handler := concept.NewHandler(svc, requestTimeout)
 		hs := concept.NewHealthService(svc, *appSystemCode, *appName, *port, appDescription)
 
-		router := mux.NewRouter()
-		serveMux := http.NewServeMux()
-		r := handler.RegisterHandlers(router, *requestLoggingOn)
-		handler.RegisterAdminHandlers(serveMux, hs, feedback)
-		serveMux.Handle("/", r)
+		serveMux := handler.RegisterHandlers(hs, *requestLoggingOn, feedback)
 
 		logger.Infof("Running %d ListenForNotifications", maxWorkers)
 		var listenForNotificationsWG sync.WaitGroup

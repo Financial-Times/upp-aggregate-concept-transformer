@@ -14,7 +14,6 @@ import (
 
 	"github.com/Financial-Times/aggregate-concept-transformer/sqs"
 	fthealth "github.com/Financial-Times/go-fthealth/v1_1"
-	"github.com/gorilla/mux"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -109,11 +108,7 @@ func TestHandlers(t *testing.T) {
 			fb := make(chan bool)
 			mockService := NewMockService(d.concepts, d.notifications, d.healthchecks, d.err)
 			handler := NewHandler(mockService, time.Second*1)
-			m := mux.NewRouter()
-			sm := http.NewServeMux()
-			handler.RegisterHandlers(m, true)
-			handler.RegisterAdminHandlers(sm, NewHealthService(mockService, "system-code", "app-name", 8080, "description"), fb)
-			sm.Handle("/", m)
+			sm := handler.RegisterHandlers(NewHealthService(mockService, "system-code", "app-name", 8080, "description"), true, fb)
 
 			ctx, cancel := context.WithCancel(context.Background())
 			if d.cancelContext {
