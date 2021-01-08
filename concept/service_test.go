@@ -831,6 +831,34 @@ func TestAggregateService_GetConcordedConcept_Memberships(t *testing.T) {
 	assert.Equal(t, expectedConcept, c)
 }
 
+func TestAggregateService_GetConcordedConcept_IndustryClassification(t *testing.T) {
+	svc, _, _, _, _, _, _ := setupTestService(200, payload)
+	expectedConcept := ConcordedConcept{
+		PrefUUID:           "IndustryClassification_Smartlogic_UUID",
+		PrefLabel:          "Newspaper, Periodical, Book, and Directory Publishers",
+		Type:               "NAICSIndustryClassification",
+		Aliases:            []string{"Newspaper, Periodical, Book, and Directory Publishers"},
+		IndustryIdentifier: "5111",
+		SourceRepresentations: []s3.Concept{
+			{
+				UUID:               "IndustryClassification_Smartlogic_UUID",
+				PrefLabel:          "Newspaper, Periodical, Book, and Directory Publishers",
+				IndustryIdentifier: "5111",
+				Authority:          "Smartlogic",
+				AuthValue:          "IndustryClassification_Smartlogic_UUID",
+				Type:               "NAICSIndustryClassification",
+			},
+		},
+	}
+
+	c, tid, err := svc.GetConcordedConcept(context.Background(), "IndustryClassification_Smartlogic_UUID", "")
+	sort.Strings(c.Aliases)
+	sort.Strings(expectedConcept.Aliases)
+	assert.NoError(t, err)
+	assert.Equal(t, "tid_359", tid)
+	assert.Equal(t, expectedConcept, c)
+}
+
 func TestAggregateService_ProcessMessage_Success(t *testing.T) {
 	svc, _, _, eventQueue, _, _, _ := setupTestService(200, payload)
 	err := svc.ProcessMessage(context.Background(), "28090964-9997-4bc2-9638-7a11135aaff9", "")
@@ -923,6 +951,20 @@ func TestAggregateService_ProcessMessage_SmartlogicMembershipSentToEs(t *testing
 		"varnish-purger/purge?target=%2Fthings%2F63ffa4d3-d7cc-4939-9bec-9ed46a78389e&target=%2Fconcepts" +
 			"%2F63ffa4d3-d7cc-4939-9bec-9ed46a78389e&target=%2Fpeople%2F63ffa4d3-d7cc-4939-9bec-9ed46a78389e",
 		"concept-rw-elasticsearch/memberships/ddacda04-b7cd-4d2e-86b1-7dfef0ff56a2",
+	}, mockWriter.called)
+	assert.NoError(t, err)
+	assert.Equal(t, 3, len(eventQueue.eventList))
+}
+
+func TestAggregateService_ProcessMessage_IndustryClassificationNotSentToEs(t *testing.T) {
+	svc, _, _, eventQueue, _, _, _ := setupTestService(200, payload)
+	err := svc.ProcessMessage(context.Background(), "IndustryClassification_Smartlogic_UUID", "")
+	mockWriter := svc.httpClient.(*mockHTTPClient)
+	assert.Equal(t, []string{
+		"concepts-rw-neo4j/industry-classifications/IndustryClassification_Smartlogic_UUID",
+		"varnish-purger/purge?target=%2Fthings%2F28090964-9997-4bc2-9638-7a11135aaff9&target=%2Fconcepts" +
+			"%2F28090964-9997-4bc2-9638-7a11135aaff9&target=%2Fthings%2F34a571fb-d779-4610-a7ba-2e127676db4d" +
+			"&target=%2Fconcepts%2F34a571fb-d779-4610-a7ba-2e127676db4d",
 	}, mockWriter.called)
 	assert.NoError(t, err)
 	assert.Equal(t, 3, len(eventQueue.eventList))
@@ -1539,6 +1581,17 @@ func setupTestServiceWithTimeout(clientStatusCode int, writerResponse string, ti
 					Authority: "TME",
 					AuthValue: "BE_TME_AUTH_VALUE",
 					Type:      "Location",
+				},
+			},
+			"IndustryClassification_Smartlogic_UUID": {
+				transactionID: "tid_359",
+				concept: s3.Concept{
+					UUID:               "IndustryClassification_Smartlogic_UUID",
+					PrefLabel:          "Newspaper, Periodical, Book, and Directory Publishers",
+					IndustryIdentifier: "5111",
+					Authority:          "Smartlogic",
+					AuthValue:          "IndustryClassification_Smartlogic_UUID",
+					Type:               "NAICSIndustryClassification",
 				},
 			},
 		},

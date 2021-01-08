@@ -3,25 +3,25 @@ package main
 import (
 	"context"
 	"fmt"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
 	"runtime"
 	"sync"
 	"syscall"
-
-	"net"
 	"time"
+
+	cli "github.com/jawher/mow.cli"
+	log "github.com/sirupsen/logrus"
+
+	logger "github.com/Financial-Times/go-logger"
 
 	"github.com/Financial-Times/aggregate-concept-transformer/concept"
 	"github.com/Financial-Times/aggregate-concept-transformer/concordances"
 	"github.com/Financial-Times/aggregate-concept-transformer/kinesis"
 	"github.com/Financial-Times/aggregate-concept-transformer/s3"
 	"github.com/Financial-Times/aggregate-concept-transformer/sqs"
-	logger "github.com/Financial-Times/go-logger"
-	"github.com/gorilla/mux"
-	cli "github.com/jawher/mow.cli"
-	log "github.com/sirupsen/logrus"
 )
 
 const appDescription = "Service to aggregate concepts from different sources and produce a canonical view."
@@ -47,26 +47,31 @@ func main() {
 		Desc:   "Port to listen on",
 		EnvVar: "APP_PORT",
 	})
+	bucketName := app.String(cli.StringOpt{
+		Name:   "bucketName",
+		Desc:   "Bucket to read concepts from.",
+		EnvVar: "BUCKET_NAME",
+	})
 	bucketRegion := app.String(cli.StringOpt{
 		Name:   "bucketRegion",
 		Desc:   "AWS Region in which the S3 bucket is located",
 		Value:  "eu-west-1",
 		EnvVar: "BUCKET_REGION",
 	})
+	conceptUpdatesQueueURL := app.String(cli.StringOpt{
+		Name:   "conceptUpdatesQueueURL",
+		Desc:   "Url of AWS SQS queue to listen for concept updates",
+		EnvVar: "CONCEPTS_QUEUE_URL",
+	})
 	sqsRegion := app.String(cli.StringOpt{
 		Name:   "sqsRegion",
 		Desc:   "AWS Region in which the SQS queue is located",
 		EnvVar: "SQS_REGION",
 	})
-	bucketName := app.String(cli.StringOpt{
-		Name:   "bucketName",
-		Desc:   "Bucket to read concepts from.",
-		EnvVar: "BUCKET_NAME",
-	})
-	conceptUpdatesQueueURL := app.String(cli.StringOpt{
-		Name:   "conceptUpdatesQueueURL",
-		Desc:   "Url of AWS SQS queue to listen for concept updates",
-		EnvVar: "CONCEPTS_QUEUE_URL",
+	sqsEndpoint := app.String(cli.StringOpt{
+		Name:   "sqsEndpoint",
+		Desc:   "SQS queue endpoint (for local debugging only)",
+		EnvVar: "SQS_ENDPOINT",
 	})
 	messagesToProcess := app.Int(cli.IntOpt{
 		Name:   "messagesToProcess",
@@ -94,25 +99,25 @@ func main() {
 	})
 	neoWriterAddress := app.String(cli.StringOpt{
 		Name:   "neo4jWriterAddress",
-		Value:  "http://localhost:8080/",
+		Value:  "http://localhost:8081/",
 		Desc:   "Address for the Neo4J Concept Writer",
 		EnvVar: "NEO_WRITER_ADDRESS",
 	})
 	concordancesReaderAddress := app.String(cli.StringOpt{
 		Name:   "concordancesReaderAddress",
-		Value:  "http://localhost:8080/",
+		Value:  "http://localhost:8082/",
 		Desc:   "Address for the Neo4J Concept Writer",
 		EnvVar: "CONCORDANCES_RW_ADDRESS",
 	})
 	elasticsearchWriterAddress := app.String(cli.StringOpt{
 		Name:   "elasticsearchWriterAddress",
-		Value:  "http://localhost:8080/",
+		Value:  "http://localhost:8083/",
 		Desc:   "Address for the Elasticsearch Concept Writer",
 		EnvVar: "ES_WRITER_ADDRESS",
 	})
 	varnishPurgerAddress := app.String(cli.StringOpt{
 		Name:   "varnishPurgerAddress",
-		Value:  "http://localhost:8080/",
+		Value:  "http://localhost:8084/",
 		Desc:   "Address for the Varnish Purger application",
 		EnvVar: "VARNISH_PURGER_ADDRESS",
 	})
@@ -158,7 +163,6 @@ func main() {
 	})
 
 	app.Before = func() {
-
 		logger.InitLogger(*appSystemCode, *logLevel)
 
 		logger.WithFields(log.Fields{
@@ -201,18 +205,17 @@ func main() {
 	}
 
 	app.Action = func() {
-
 		s3Client, err := s3.NewClient(*bucketName, *bucketRegion)
 		if err != nil {
 			logger.WithError(err).Fatal("Error creating S3 client")
 		}
 
-		conceptUpdatesSqsClient, err := sqs.NewClient(*sqsRegion, *conceptUpdatesQueueURL, *messagesToProcess, *visibilityTimeout, *waitTime)
+		conceptUpdatesSqsClient, err := sqs.NewClient(*sqsRegion, *conceptUpdatesQueueURL, *sqsEndpoint, *messagesToProcess, *visibilityTimeout, *waitTime)
 		if err != nil {
 			logger.WithError(err).Fatal("Error creating concept updates SQS client")
 		}
 
-		eventsQueueURL, err := sqs.NewClient(*sqsRegion, *eventsQueueURL, *messagesToProcess, *visibilityTimeout, *waitTime)
+		eventsQueueURL, err := sqs.NewClient(*sqsRegion, *eventsQueueURL, *sqsEndpoint, *messagesToProcess, *visibilityTimeout, *waitTime)
 		if err != nil {
 			logger.WithError(err).Fatal("Error creating concept events SQS client")
 		}
@@ -250,9 +253,7 @@ func main() {
 		handler := concept.NewHandler(svc, requestTimeout)
 		hs := concept.NewHealthService(svc, *appSystemCode, *appName, *port, appDescription)
 
-		router := mux.NewRouter()
-		handler.RegisterHandlers(router)
-		r := handler.RegisterAdminHandlers(router, hs, *requestLoggingOn, feedback)
+		serveMux := handler.RegisterHandlers(hs, *requestLoggingOn, feedback)
 
 		logger.Infof("Running %d ListenForNotifications", maxWorkers)
 		var listenForNotificationsWG sync.WaitGroup
@@ -275,18 +276,17 @@ func main() {
 			WriteTimeout: time.Second * 15,
 			ReadTimeout:  time.Second * 15,
 			IdleTimeout:  time.Second * 60,
-			Handler:      r, // Pass our instance of gorilla/mux in.
+			Handler:      serveMux,
 		}
 
 		// Run our server in a goroutine so that it doesn't block.
 		go func() {
-			if err := srv.ListenAndServe(); err != nil {
-				logger.Fatalf("Unable to start server: %v", err)
+			if err := srv.ListenAndServe(); err != http.ErrServerClosed {
+				logger.Fatalf("Unexpected error during server shutdown: %v", err)
 			}
 		}()
 
 		c := make(chan os.Signal, 1)
-		logger.Info("shutting down")
 		// We'll accept graceful shutdowns when quit via SIGINT (Ctrl+C)
 		// or SIGTERM (Ctrl+/).
 		// SIGKILL or SIGQUIT will not be caught.
@@ -294,10 +294,11 @@ func main() {
 
 		// Block until we receive our signal.
 		<-c
+		logger.Info("Interruption signal received, shutting down")
 		// Send done signal to service
 		workerCancel()
 		done <- struct{}{}
-		logger.Info("waiting for workers to stop")
+		logger.Info("Waiting for workers to stop")
 		listenForNotificationsWG.Wait()
 		// Create a deadline to wait for.
 		ctx, cancel := context.WithTimeout(context.Background(), time.Duration(*waitTime)*time.Second)
@@ -305,9 +306,9 @@ func main() {
 
 		// Doesn't block if no connections, but will otherwise wait
 		// until the timeout deadline.
-		logger.Info("shutting down server")
+		logger.Info("Shutting down HTTP server")
 		srv.Shutdown(ctx)
-		logger.Info("exiting application")
+		logger.Info("Exiting application")
 		cli.Exit(0)
 	}
 	app.Run(os.Args)

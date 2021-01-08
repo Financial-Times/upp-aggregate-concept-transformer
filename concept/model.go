@@ -57,6 +57,8 @@ type ConcordedConcept struct {
 	IsDeprecated           bool     `json:"isDeprecated,omitempty"`
 	// Location
 	ISO31661 string `json:"iso31661,omitempty"`
+	// IndustryClassification
+	IndustryIdentifier string `json:"industryIdentifier,omitempty"`
 	// Source representations
 	SourceRepresentations []s3.Concept `json:"sourceRepresentations,omitempty"`
 }

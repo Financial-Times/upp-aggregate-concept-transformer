@@ -29,11 +29,12 @@ const (
 )
 
 var irregularConceptTypePaths = map[string]string{
-	"AlphavilleSeries": "alphaville-series",
-	"BoardRole":        "membership-roles",
-	"Dummy":            "dummies",
-	"Person":           "people",
-	"PublicCompany":    "organisations",
+	"AlphavilleSeries":            "alphaville-series",
+	"BoardRole":                   "membership-roles",
+	"Dummy":                       "dummies",
+	"Person":                      "people",
+	"PublicCompany":               "organisations",
+	"NAICSIndustryClassification": "industry-classifications",
 }
 
 type Service interface {
@@ -598,6 +599,9 @@ func mergeCanonicalInformation(c ConcordedConcept, s s3.Concept, scopeNoteOption
 	if s.IssuedBy != "" {
 		c.IssuedBy = s.IssuedBy
 	}
+	if s.IndustryIdentifier != "" {
+		c.IndustryIdentifier = s.IndustryIdentifier
+	}
 	c.IsDeprecated = s.IsDeprecated
 	return c
 }
@@ -816,6 +820,9 @@ func isTypeAllowedInElastic(concordedConcept ConcordedConcept) bool {
 			}
 		}
 		return false
+	case "IndustryClassification", "NAICSIndustryClassification":
+		return false
 	}
+
 	return true
 }
