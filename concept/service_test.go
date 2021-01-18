@@ -719,6 +719,78 @@ func TestAggregateService_GetConcordedConcept_PublicCompany(t *testing.T) {
 	assert.Equal(t, expectedConcept, c)
 }
 
+func TestAggregateService_GetConcordedConcept_PublicCompany_WithNAICSCodes(t *testing.T) {
+	svc, _, _, _, _, _, _ := setupTestService(200, payload)
+	expectedConcept := ConcordedConcept{
+		PrefUUID:  "Organisation_WithNAICSCodes_Smartlogic_UUID",
+		Type:      "PublicCompany",
+		PrefLabel: "Apple, Inc.",
+		Aliases: []string{
+			"Apple, Inc.",
+		},
+		NAICSIndustryClassifications: []NAICSIndustryClassification{
+			{
+				UUID: "25c3be2a-15e0-434e-aaa9-ca067e70ae11",
+				Rank: 1,
+			},
+			{
+				UUID: "c9cae3ee-a804-4001-8046-02e714e1fa5b",
+				Rank: 2,
+			},
+			{
+				UUID: "7f0134c1-606a-4d12-a455-661cc4b0bfac",
+				Rank: 3,
+			},
+			{
+				UUID: "c35b851c-d185-40bd-967c-2403084920b3",
+				Rank: 4,
+			},
+		},
+		SourceRepresentations: []s3.Concept{
+			{
+				UUID:      "Organisation_WithNAICSCodes_Factset_UUID",
+				Type:      "PublicCompany",
+				Authority: "FACTSET",
+				AuthValue: "000C7F-E",
+				PrefLabel: "Apple, Inc.",
+				NAICSIndustryClassifications: []s3.NAICSIndustryClassification{
+					{
+						UUID: "25c3be2a-15e0-434e-aaa9-ca067e70ae11",
+						Rank: 1,
+					},
+					{
+						UUID: "c9cae3ee-a804-4001-8046-02e714e1fa5b",
+						Rank: 2,
+					},
+					{
+						UUID: "7f0134c1-606a-4d12-a455-661cc4b0bfac",
+						Rank: 3,
+					},
+					{
+						UUID: "c35b851c-d185-40bd-967c-2403084920b3",
+						Rank: 4,
+					},
+				},
+			},
+			{
+				UUID:      "Organisation_WithNAICSCodes_Smartlogic_UUID",
+				Type:      "PublicCompany",
+				Authority: "Smartlogic",
+				AuthValue: "000C7F-E",
+				PrefLabel: "Apple, Inc.",
+			},
+		},
+	}
+	c, tid, err := svc.GetConcordedConcept(context.Background(), "Organisation_WithNAICSCodes_Smartlogic_UUID", "")
+	sort.Strings(c.FormerNames)
+	sort.Strings(c.Aliases)
+	sort.Strings(expectedConcept.FormerNames)
+	sort.Strings(expectedConcept.Aliases)
+	assert.NoError(t, err)
+	assert.Equal(t, "tid_736", tid)
+	assert.Equal(t, expectedConcept, c)
+}
+
 func TestAggregateService_GetConcordedConcept_BoardRole(t *testing.T) {
 	svc, _, _, _, _, _, _ := setupTestService(200, payload)
 	expectedConcept := ConcordedConcept{
@@ -1594,6 +1666,44 @@ func setupTestServiceWithTimeout(clientStatusCode int, writerResponse string, ti
 					Type:               "NAICSIndustryClassification",
 				},
 			},
+			"Organisation_WithNAICSCodes_Factset_UUID": {
+				transactionID: "tid_735",
+				concept: s3.Concept{
+					UUID:      "Organisation_WithNAICSCodes_Factset_UUID",
+					Type:      "PublicCompany",
+					Authority: "FACTSET",
+					AuthValue: "000C7F-E",
+					PrefLabel: "Apple, Inc.",
+					NAICSIndustryClassifications: []s3.NAICSIndustryClassification{
+						{
+							UUID: "25c3be2a-15e0-434e-aaa9-ca067e70ae11",
+							Rank: 1,
+						},
+						{
+							UUID: "c9cae3ee-a804-4001-8046-02e714e1fa5b",
+							Rank: 2,
+						},
+						{
+							UUID: "7f0134c1-606a-4d12-a455-661cc4b0bfac",
+							Rank: 3,
+						},
+						{
+							UUID: "c35b851c-d185-40bd-967c-2403084920b3",
+							Rank: 4,
+						},
+					},
+				},
+			},
+			"Organisation_WithNAICSCodes_Smartlogic_UUID": {
+				transactionID: "tid_736",
+				concept: s3.Concept{
+					UUID:      "Organisation_WithNAICSCodes_Smartlogic_UUID",
+					Type:      "PublicCompany",
+					Authority: "Smartlogic",
+					AuthValue: "000C7F-E",
+					PrefLabel: "Apple, Inc.",
+				},
+			},
 		},
 	}
 	conceptsQueue := &mockSQSClient{
@@ -1692,6 +1802,16 @@ func setupTestServiceWithTimeout(clientStatusCode int, writerResponse string, ti
 				concordances.ConcordanceRecord{
 					UUID:      "99309d51-8969-4a1e-8346-d51f1981479b",
 					Authority: "TME",
+				},
+			},
+			"Organisation_WithNAICSCodes_Smartlogic_UUID": {
+				{
+					UUID:      "Organisation_WithNAICSCodes_Smartlogic_UUID",
+					Authority: "Smartlogic",
+				},
+				{
+					UUID:      "Organisation_WithNAICSCodes_Factset_UUID",
+					Authority: "FACTSET",
 				},
 			},
 		},
