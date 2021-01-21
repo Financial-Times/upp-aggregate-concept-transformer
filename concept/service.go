@@ -581,6 +581,14 @@ func mergeCanonicalInformation(c ConcordedConcept, s s3.Concept, scopeNoteOption
 			TerminationDate: mr.TerminationDate,
 		})
 	}
+
+	for _, ic := range s.NAICSIndustryClassifications {
+		c.NAICSIndustryClassifications = append(c.NAICSIndustryClassifications, NAICSIndustryClassification{
+			UUID: ic.UUID,
+			Rank: ic.Rank,
+		})
+	}
+
 	if s.OrganisationUUID != "" {
 		c.OrganisationUUID = s.OrganisationUUID
 	}

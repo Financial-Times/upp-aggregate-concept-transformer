@@ -6,6 +6,11 @@ type MembershipRole struct {
 	TerminationDate string `json:"terminationDate,omitempty"`
 }
 
+type NAICSIndustryClassification struct {
+	UUID string `json:"uuid,omitempty"`
+	Rank int    `json:"rank,omitempty"`
+}
+
 type Concept struct {
 	// Required fields
 	UUID      string `json:"uuid,omitempty"`
@@ -43,22 +48,23 @@ type Concept struct {
 	PersonUUID       string           `json:"personUUID,omitempty"`
 	TerminationDate  string           `json:"terminationDate,omitempty"`
 	// Organisation
-	CountryCode                string   `json:"countryCode,omitempty"`
-	CountryOfRisk              string   `json:"countryOfRisk,omitempty"`
-	CountryOfIncorporation     string   `json:"countryOfIncorporation,omitempty"`
-	CountryOfOperations        string   `json:"countryOfOperations,omitempty"`
-	CountryOfRiskUUID          string   `json:"countryOfRiskUUID,omitempty"`
-	CountryOfIncorporationUUID string   `json:"countryOfIncorporationUUID,omitempty"`
-	CountryOfOperationsUUID    string   `json:"countryOfOperationsUUID,omitempty"`
-	FormerNames                []string `json:"formerNames,omitempty"`
-	TradeNames                 []string `json:"tradeNames,omitempty"`
-	LeiCode                    string   `json:"leiCode,omitempty"`
-	ParentOrganisation         string   `json:"parentOrganisation,omitempty"`
-	PostalCode                 string   `json:"postalCode,omitempty"`
-	ProperName                 string   `json:"properName,omitempty"`
-	ShortName                  string   `json:"shortName,omitempty"`
-	YearFounded                int      `json:"yearFounded,omitempty"`
-	IsDeprecated               bool     `json:"isDeprecated,omitempty"`
+	CountryCode                  string                        `json:"countryCode,omitempty"`
+	CountryOfRisk                string                        `json:"countryOfRisk,omitempty"`
+	CountryOfIncorporation       string                        `json:"countryOfIncorporation,omitempty"`
+	CountryOfOperations          string                        `json:"countryOfOperations,omitempty"`
+	CountryOfRiskUUID            string                        `json:"countryOfRiskUUID,omitempty"`
+	CountryOfIncorporationUUID   string                        `json:"countryOfIncorporationUUID,omitempty"`
+	CountryOfOperationsUUID      string                        `json:"countryOfOperationsUUID,omitempty"`
+	FormerNames                  []string                      `json:"formerNames,omitempty"`
+	TradeNames                   []string                      `json:"tradeNames,omitempty"`
+	LeiCode                      string                        `json:"leiCode,omitempty"`
+	ParentOrganisation           string                        `json:"parentOrganisation,omitempty"`
+	PostalCode                   string                        `json:"postalCode,omitempty"`
+	ProperName                   string                        `json:"properName,omitempty"`
+	ShortName                    string                        `json:"shortName,omitempty"`
+	YearFounded                  int                           `json:"yearFounded,omitempty"`
+	IsDeprecated                 bool                          `json:"isDeprecated,omitempty"`
+	NAICSIndustryClassifications []NAICSIndustryClassification `json:"naicsIndustryClassifications,omitempty"`
 	// Location
 	ISO31661 string `json:"iso31661,omitempty"`
 	// IndustryClassification
