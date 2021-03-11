@@ -1,4 +1,4 @@
-swagger: "2.0"
+openapi: 3.0.1
 info:
   description: "API specification for the aggregate concept transformer"
   version: "1.0.0"
